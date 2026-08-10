@@ -1,0 +1,36 @@
+{
+  "name": "golfutah",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "poll": "tsx scripts/poll.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "next": "16.3.0",
+    "playwright": "^1.62.1",
+    "prisma": "^6.19.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsx": "^4.23.12",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

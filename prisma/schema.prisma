@@ -1,0 +1,61 @@
+// GolfUtah data model
+//
+// Two core ideas:
+// 1. A Course belongs to exactly one booking Platform (ForeUp, Chronogolf,
+//    MemberSports, ...). The Platform tells the worker which adapter to use.
+// 2. TeeTime rows are a cache of what the platform reported as of
+//    `fetchedAt`. Rows are re-fetched frequently and treated as disposable —
+//    always re-check availability with the source before/at handoff, since
+//    this table can be stale by the time a user acts on it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  FOREUP
+  CHRONOGOLF
+  MEMBERSPORTS
+}
+
+model Course {
+  id             String    @id @default(cuid())
+  name           String
+  city           String?
+  platform       Platform
+  // Opaque identifier the adapter needs to query this course on its
+  // platform (e.g. ForeUp's schedule_id, Chronogolf's club slug). Shape
+  // varies by platform, so it's just a string — adapters parse it.
+  externalId     String
+  bookingUrl     String
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  teeTimes       TeeTime[]
+
+  @@unique([platform, externalId])
+}
+
+model TeeTime {
+  id           String   @id @default(cuid())
+  course       Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId     String
+  date         DateTime // calendar date this slot is for
+  time         String   // course-local tee time, e.g. "07:40" (kept as string to avoid TZ bugs)
+  holes        Int      // 9 or 18
+  playersOpen  Int      // how many spots are open in this slot right now
+  price        Int?     // price per player, in cents; null if platform doesn't expose it
+  cartIncluded Boolean?
+  // Deep link straight to this slot on the course's own booking flow, used
+  // for the handoff at checkout. Falls back to Course.bookingUrl if the
+  // platform doesn't support slot-level deep links.
+  bookingUrl   String
+  fetchedAt    DateTime @default(now())
+
+  @@index([courseId, date])
+}

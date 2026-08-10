@@ -2,25 +2,74 @@
 
 A tee time aggregator for Utah golf courses.
 
-GolfUtah logs into individual golf course tee time systems, pulls together
-all currently available tee times across those courses, and shows how many
-spots are open in each slot — all in one place instead of checking each
+GolfUtah pulls together live tee time availability from individual golf
+course booking systems, shows how many spots are open in each slot, and
+lets you compare across courses in one place instead of checking each
 course's site separately. When you pick a time, GolfUtah hands you off to
 that course's own booking page to enter payment and complete the
-reservation.
+reservation — GolfUtah never touches payment info or holds a booking
+itself.
 
-## What it does
+## Architecture
 
-- Aggregates live tee time availability across multiple Utah golf course
-  booking systems
-- Shows open slots and how many players can book into each one
-- Lets you compare times/courses side by side instead of tab-hopping
-- Hands off to the course's native checkout to finish payment and booking
-  (GolfUtah does not process payments or hold booking data itself)
+- **Next.js (App Router) + TypeScript** — the web app (`app/`) and a
+  read-only API route (`app/api/tee-times`) that serve cached data.
+- **Prisma + Postgres** (`prisma/schema.prisma`) — `Course` and `TeeTime`
+  models. `TeeTime` rows are a disposable cache written by the poll
+  worker, not a source of truth — always re-check with the source
+  platform at booking time.
+- **Platform adapters** (`lib/adapters/`) — one adapter per booking
+  platform (ForeUp, Chronogolf, MemberSports), each implementing a shared
+  `fetchTeeTimes()` interface that normalizes that platform's response
+  into a common shape. Utah courses run on a small number of these
+  platforms, so adapters are per-*platform*, not per-course — a new
+  course is just a new `Course` row pointing at an existing adapter.
+- **Poll worker** (`scripts/poll.ts`) — a standalone script (`npm run
+  poll`) that walks active courses, calls the right adapter, and upserts
+  results into Postgres. Meant to run as a long-lived process on a
+  schedule (e.g. on Railway/Fly.io), not as a serverless function —
+  some adapters will need a real Playwright browser session (for
+  courses that require login), which doesn't suit cold-started
+  serverless functions.
+
+None of the adapters are wired up to real endpoints yet — see the
+comments at the top of each file in `lib/adapters/` for how to find and
+verify each platform's real API before implementing it.
+
+## Getting started
+
+```bash
+cp .env.example .env   # set DATABASE_URL
+npm install
+npm run db:migrate     # create tables
+npm run db:seed        # add real courses to prisma/seed.ts first
+npm run dev            # http://localhost:3000
+```
+
+To populate tee time data once at least one adapter is implemented:
+
+```bash
+npm run poll            # one pass
+npm run poll -- --loop=300   # repeat every 5 minutes
+```
 
 ## Status
 
-Early stage — tech stack and architecture not yet decided.
+Early stage. Scaffolding (app, DB schema, adapter architecture) is in
+place; no adapter is wired up to a real platform endpoint yet, and no
+courses are seeded.
+
+## Notes on data accuracy
+
+- Prefer hitting each platform's internal JSON endpoint (found via
+  devtools Network tab) over scraping rendered HTML — faster and far
+  less fragile.
+- Poll frequently, but always do a live check right before handoff —
+  cached availability can go stale within minutes as other golfers book
+  directly.
+- ForeUp, Chronogolf, and most similar platforms generally restrict
+  automated access in their Terms of Service — worth pursuing legitimate
+  API/partner access as this grows past personal use.
 
 ## License
 
