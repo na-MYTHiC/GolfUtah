@@ -31,6 +31,13 @@ itself.
   some adapters will need a real Playwright browser session (for
   courses that require login), which doesn't suit cold-started
   serverless functions.
+- **Credential storage** (`lib/crypto.ts`, `CourseCredential` model) —
+  for courses that only show full availability (or member rates) to a
+  logged-in user, and eventually for auto-booking. Credentials are
+  AES-256-GCM encrypted at rest with `CREDENTIALS_ENCRYPTION_KEY`
+  (`npm run generate-key` to create one) — never stored in plaintext.
+  One credential row per course for now (single-user assumption);
+  revisit with a real `User` model before this has more than one user.
 
 None of the adapters are wired up to real endpoints yet — see the
 comments at the top of each file in `lib/adapters/` for how to find and
@@ -39,7 +46,9 @@ verify each platform's real API before implementing it.
 ## Getting started
 
 ```bash
-cp .env.example .env   # set DATABASE_URL
+cp .env.example .env
+npm run generate-key   # paste the output into .env as CREDENTIALS_ENCRYPTION_KEY
+# set DATABASE_URL in .env too
 npm install
 npm run db:migrate     # create tables
 npm run db:seed        # add real courses to prisma/seed.ts first
@@ -55,9 +64,13 @@ npm run poll -- --loop=300   # repeat every 5 minutes
 
 ## Status
 
-Early stage. Scaffolding (app, DB schema, adapter architecture) is in
-place; no adapter is wired up to a real platform endpoint yet, and no
-courses are seeded.
+Early stage. Scaffolding (app, DB schema, adapter architecture,
+encrypted credential storage) is in place; no adapter is wired up to a
+real platform endpoint yet, and no courses are seeded.
+
+**Roadmap:** aggregation (read-only availability) first, hand off to the
+course's own checkout for now. Auto-booking is a later phase, once
+aggregation is solid for a real set of courses.
 
 ## Notes on data accuracy
 

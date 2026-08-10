@@ -37,8 +37,25 @@ model Course {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   teeTimes       TeeTime[]
+  credential     CourseCredential?
 
   @@unique([platform, externalId])
+}
+
+/// Login credentials for a course that requires an account to see full
+/// availability (e.g. member rates) or, eventually, to book automatically.
+/// One row per course for now — single-user assumption, revisit with a
+/// real User model once GolfUtah has more than one person using it.
+/// Values are ciphertext produced by lib/crypto.ts (AES-256-GCM), never
+/// plaintext — CREDENTIALS_ENCRYPTION_KEY must be set to use these.
+model CourseCredential {
+  id                  String   @id @default(cuid())
+  course              Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId            String   @unique
+  encryptedUsername   String
+  encryptedPassword   String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model TeeTime {
