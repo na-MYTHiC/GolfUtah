@@ -55,7 +55,13 @@ jobs:
         env:
           # Pages serves from /<repo>/, so assets need that prefix.
           BASE_PATH: /${{ github.event.repository.name }}
-        run: npx next build
+          # Shown in the app header, so a stale cached build is visible.
+          BUILD_ID: ${{ github.run_number }}-${{ github.sha }}
+          BUILD_TIME: ${{ github.event.repository.updated_at }}
+        run: |
+          export BUILD_ID="${BUILD_ID:0:12}"
+          export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          npx next build
 
       - uses: actions/configure-pages@v5
 

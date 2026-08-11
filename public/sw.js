@@ -1,23 +1,21 @@
-// GolfUtah service worker — app shell cache so the app opens instantly
-// from the home screen, plus offline tolerance.
+// GolfUtah service worker.
 //
-// Strategy:
-//   - Shell assets (HTML/CSS/JS/icons): cache first, refreshed in the
-//     background. The app is static, so a one-version-stale shell is
-//     harmless and startup costs no round trip.
-//   - Tee time JSON: network first, falling back to cache. Availability
-//     is the one thing that must never be served stale when the network
-//     is there — but a cached copy still beats a blank screen on a phone
-//     with no signal at the course.
-//   - Everything else (Open-Meteo, course sites): straight to network.
+// Deliberately NOT cache-first for the app shell. An earlier version was,
+// with a hardcoded cache name that never changed — which meant a browser
+// that had loaded the site once kept running that build's JavaScript
+// forever, no matter how many times the app was fixed and redeployed.
+// Silently serving a stale build is the worst possible failure for an app
+// whose whole job is showing current information.
+//
+// So: network first for everything, falling back to cache only when the
+// network is unavailable. That costs a round trip on launch and buys
+// never being wrong on purpose. The cache exists for the case that
+// actually matters on a phone — no signal at the course.
 
-const VERSION = 'golfutah-v1';
-const SHELL_CACHE = `${VERSION}-shell`;
-const DATA_CACHE = `${VERSION}-data`;
+const VERSION = 'golfutah-v2';
+const CACHE = `${VERSION}-runtime`;
 
 self.addEventListener('install', (event) => {
-  // Nothing pre-cached: Next.js emits hashed asset names, so the shell is
-  // populated on first visit instead of guessed at here.
   event.waitUntil(self.skipWaiting());
 });
 
@@ -40,16 +38,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // weather, course sites
 
-  if (url.pathname.includes('/data/')) {
-    event.respondWith(networkFirst(request, DATA_CACHE));
-    return;
-  }
-
-  event.respondWith(cacheFirst(request, SHELL_CACHE));
+  event.respondWith(networkFirst(request));
 });
 
-async function networkFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE);
   try {
     const fresh = await fetch(request);
     if (fresh.ok) cache.put(request, fresh.clone());
@@ -59,18 +52,4 @@ async function networkFirst(request, cacheName) {
     if (cached) return cached;
     throw new Error('offline and not cached');
   }
-}
-
-async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-
-  const update = fetch(request)
-    .then((fresh) => {
-      if (fresh.ok) cache.put(request, fresh.clone());
-      return fresh;
-    })
-    .catch(() => undefined);
-
-  return cached ?? (await update) ?? Response.error();
 }
