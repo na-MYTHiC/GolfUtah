@@ -35,8 +35,14 @@ const API_BASE = "https://api.membersports.com/api/v1";
 const X_API_KEY = "A9814038-9E19-4683-B171-5A06B39147FC";
 
 interface RawTeeTimeItem {
+  /**
+   * NOT the number of open spots — it reads 0 on every slot, including
+   * ones the course page shows as bookable. Use
+   * maximumPlayersPerBooking - playerCount instead; see toNormalized.
+   */
   availableCount: number;
   bookingNotAllowed: boolean;
+  maximumPlayersPerBooking: number;
   golfClubId: number;
   golfCourseId: number;
   golfCourseNumberOfHoles: number;
@@ -136,25 +142,36 @@ function toNormalized(
     .map((item) => ({
       date,
       time,
-      // Observed: holesRequirementTypeId 1 -> 9-hole rate (half the price
-      // of the 18-hole rate), 0 -> 18-hole rate. Confirmed across both
-      // front- and back-nine-start slots in the captured sample; worth
-      // re-checking against more courses since it's inferred, not
-      // documented by MemberSports.
-      holes: item.holesRequirementTypeId === 1 ? 9 : 18,
-      // MemberSports' own field for "how many more can book here" — in
-      // the captured sample every slot read 0 (that date/course was
-      // apparently near fully booked), so this mapping hasn't yet been
-      // seen producing a nonzero value. Re-verify against an obviously
-      // open day before trusting this in the UI.
-      playersOpen: item.availableCount,
+      // holesRequirementTypeId: 1 -> 9 holes, 0 -> 18.
+      //
+      // OPEN QUESTION, deliberately not acted on: Eaglewood's own page
+      // badges type-1 slots "9 ONLY" but type-0 slots "9/18", which
+      // suggests type 0 means "either", not "18 only" — in which case
+      // this hides a bookable 9-hole option at those times. Left as-is
+      // because the item carries a single price ($64, the 18-hole rate),
+      // so emitting a 9-hole option would mean inventing its price.
+      // Resolve by checking whether a type-0 slot can actually be booked
+      // for 9 holes, and at what rate.
+      holes: (item.holesRequirementTypeId === 1 ? 9 : 18) as 9 | 18,
+      // Open spots = capacity minus who's already booked.
+      //
+      // `availableCount` looks like the obvious field and is what this
+      // used to use, but it reads 0 on every slot — which silently
+      // filtered out every MemberSports tee time, since the UI hides
+      // slots with no room. Checked against Eaglewood's own page:
+      // maximumPlayersPerBooking - playerCount reproduces the upper bound
+      // it displays (4-2 -> "1-2", 4-0 -> "2-4", 4-3 -> "1-1") on every
+      // slot sampled.
+      playersOpen: Math.max(0, item.maximumPlayersPerBooking - item.playerCount),
       price: Math.round(item.price * 100), // dollars -> cents
       // MemberSports flags back-nine starts both on isBackNine and in the
       // item name ("Eaglewood Back Nine"). Without it, a back-nine slot is
       // indistinguishable from a front-nine one at the same time.
       side: item.isBackNine ? "Back" : "Front",
       bookingUrl,
-    }));
+    }))
+    // A full slot isn't availability; ForeUp's adapter drops these too.
+    .filter((slot) => slot.playersOpen > 0);
 }
 
 export const memberSportsAdapter: TeeTimeAdapter = {
