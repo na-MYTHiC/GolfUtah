@@ -26,6 +26,8 @@ export interface StaticCourse {
   error?: string;
   /** Listing may be missing times — see build-data.ts. */
   partial?: boolean;
+  /** Slots the platform returned before filtering. */
+  returned?: number;
 }
 
 export interface DayFile {

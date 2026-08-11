@@ -1,190 +1,238 @@
 "use client";
 
-import { useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { CourseCard, type CourseView } from "./course-card";
-import { FilterBar, useGeolocation, type FilterState } from "./filter-bar";
-import { distanceMiles, formatTime } from "@/lib/format";
+import { useMemo, useState } from "react";
+import type { CourseView } from "./types";
+import { TeeTimeRow, type Booking } from "./tee-time-row";
+import { DateStrip, FilterChips, useFilters, useGeolocation } from "./filters";
+import { distanceMiles } from "@/lib/format";
 
 /**
- * Filtering and sorting run client-side over the day's slots. The dataset
- * for one day across ~19 courses is small enough that this is instant,
- * and it keeps filter changes from round-tripping to the server.
- * Changing the date does reload, since that's a different fetch.
+ * The day's tee times as one chronological list across every course.
+ *
+ * Grouping by course reads like a directory; a golfer is asking "what can
+ * I play Saturday morning?", not "what does Sun Hills have?". So slots
+ * from all courses are merged and ordered by time, split into the parts
+ * of the day people actually plan around.
+ *
+ * Filtering runs client-side: one day across ~19 courses is a few hundred
+ * rows, small enough that this is instant and filter changes never hit
+ * the network.
  */
 export function Results({
   courses,
   today,
   date,
-  mode,
 }: {
   courses: CourseView[];
   today: string;
   date: string;
-  mode: "cached" | "live";
 }) {
-  const params = useSearchParams();
+  const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
 
-  // Memoized so the filtering below doesn't re-run on every render just
-  // because this object is rebuilt.
-  const filters: FilterState = useMemo(
-    () => ({
-      date,
-      players: Number(params.get("players") ?? 1),
-      holes: (params.get("holes") as FilterState["holes"]) ?? "all",
-      after: params.get("after") ?? "",
-      before: params.get("before") ?? "",
-      maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : null,
-      sort: (params.get("sort") as FilterState["sort"]) ?? "time",
-    }),
-    [date, params]
-  );
+  const { bookings, coursesWithTimes, quiet } = useMemo(() => {
+    const flat: Booking[] = [];
 
-  const filtered = useMemo(() => {
-    const withDistance = courses.map((course) => {
+    for (const course of courses) {
       const distance =
-        coords && course.distanceMiles == null && course.latitude != null
-          ? distanceMiles(coords.lat, coords.lon, course.latitude, course.longitude!)
-          : course.distanceMiles;
+        coords && course.latitude != null && course.longitude != null
+          ? distanceMiles(coords.lat, coords.lon, course.latitude, course.longitude)
+          : undefined;
 
-      const slots = course.slots.filter((slot) => {
-        if (slot.playersOpen < filters.players) return false;
-        if (filters.holes !== "all" && slot.holes !== Number(filters.holes)) return false;
-        if (filters.after && slot.time < filters.after) return false;
-        if (filters.before && slot.time > filters.before) return false;
+      for (const slot of course.slots) {
+        if (slot.playersOpen < filters.players) continue;
+        if (filters.holes !== "all" && slot.holes !== Number(filters.holes)) continue;
+        if (filters.after && slot.time < filters.after) continue;
+        if (filters.before && slot.time > filters.before) continue;
         if (filters.maxPrice != null) {
           // Unpriced slots are dropped by a price filter rather than
-          // assumed cheap — better to omit than to mislead.
-          if (slot.price == null || slot.price > filters.maxPrice * 100) return false;
+          // assumed cheap — better omitted than misleading.
+          if (slot.price == null || slot.price > filters.maxPrice * 100) continue;
         }
-        return true;
-      });
 
-      const sorted = [...slots].sort((a, b) =>
-        filters.sort === "price"
-          ? (a.price ?? Infinity) - (b.price ?? Infinity) || a.time.localeCompare(b.time)
-          : a.time.localeCompare(b.time)
-      );
-
-      return { ...course, slots: sorted, distanceMiles: distance };
-    });
-
-    // Courses that errored stay visible so an outage is legible rather
-    // than looking like "no tee times".
-    const visible = withDistance.filter((c) => c.slots.length > 0 || c.error);
-
-    return visible.sort((a, b) => {
-      if (filters.sort === "distance") {
-        if (a.distanceMiles == null) return 1;
-        if (b.distanceMiles == null) return -1;
-        return a.distanceMiles - b.distanceMiles;
+        flat.push({
+          id: slot.id,
+          time: slot.time,
+          holes: slot.holes,
+          playersOpen: slot.playersOpen,
+          price: slot.price,
+          side: slot.side,
+          bookingUrl: slot.bookingUrl,
+          courseName: course.name,
+          courseCity: course.city,
+          distanceMiles: distance,
+          weather: course.slotWeather?.[slot.time],
+        });
       }
+    }
+
+    flat.sort((a, b) => {
       if (filters.sort === "price") {
-        const cheapest = (c: CourseView) =>
-          c.slots.reduce((min, s) => Math.min(min, s.price ?? Infinity), Infinity);
-        return cheapest(a) - cheapest(b);
+        return (a.price ?? Infinity) - (b.price ?? Infinity) || a.time.localeCompare(b.time);
       }
-      const earliest = (c: CourseView) => c.slots[0]?.time ?? "99:99";
-      return earliest(a).localeCompare(earliest(b));
+      if (filters.sort === "distance") {
+        const da = a.distanceMiles ?? Infinity;
+        const db = b.distanceMiles ?? Infinity;
+        return da - db || a.time.localeCompare(b.time);
+      }
+      return a.time.localeCompare(b.time) || a.courseName.localeCompare(b.courseName);
     });
+
+    const shown = new Set(flat.map((b) => b.courseName));
+
+    // Every tracked course should be accounted for. Dropping the empty
+    // ones silently makes a course look like it isn't covered at all,
+    // when usually it's booked out or filtered away.
+    const quietCourses = courses
+      .filter((c) => !shown.has(c.name))
+      .map((c) => ({
+        name: c.name,
+        reason: c.error
+          ? ("error" as const)
+          : c.slots.length > 0
+            ? ("filtered" as const)
+            : ("none" as const),
+      }));
+
+    return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
   }, [courses, filters, coords]);
-
-  const totalSlots = filtered.reduce((n, c) => n + c.slots.length, 0);
-  const earliest = filtered.flatMap((c) => c.slots).sort((a, b) => a.time.localeCompare(b.time))[0];
-
-  // Every course we track should be accounted for. Dropping the empty
-  // ones silently makes a course look like it isn't covered at all, when
-  // usually it's just booked out or filtered away.
-  const shownIds = new Set(filtered.map((c) => c.id));
-  const missing = courses
-    .filter((c) => !shownIds.has(c.id))
-    .map((c) => ({
-      name: c.name,
-      // A course with slots in the data but none after filtering was
-      // excluded by the filters; one with no slots at all had nothing.
-      reason: c.slots.length > 0 ? ("filtered" as const) : ("none" as const),
-    }));
 
   return (
     <>
-      <FilterBar
-        today={today}
-        filters={filters}
-        courseCount={filtered.filter((c) => c.slots.length > 0).length}
-        onLocate={locate}
-        hasLocation={coords != null}
-      />
+      <div className="sticky top-0 z-10 -mx-4 border-b border-zinc-200/70 bg-zinc-50/95 px-4 pb-1 pt-2 backdrop-blur-lg dark:border-zinc-800/70 dark:bg-zinc-950/95">
+        <DateStrip today={today} active={date} />
+        <FilterChips filters={filters} hasLocation={coords != null} onLocate={locate} />
+      </div>
 
-      {totalSlots > 0 && (
-        <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-          {totalSlots} tee time{totalSlots === 1 ? "" : "s"} at {filtered.length} of{" "}
-          {courses.length} courses
-          {earliest && `, from ${formatTime(earliest.time)}`}
-          {mode === "live" && " · live from each course"}
-        </p>
-      )}
+      <p className="px-0.5 pb-3 pt-3 text-[13px] text-zinc-500 dark:text-zinc-400">
+        {bookings.length === 0
+          ? "No tee times match"
+          : `${bookings.length} tee time${bookings.length === 1 ? "" : "s"} · ${coursesWithTimes} of ${courses.length} courses`}
+      </p>
 
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-          <p className="font-medium text-zinc-900 dark:text-zinc-100">No tee times match</p>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Try a different day, fewer players, or a wider time range.
-          </p>
-        </div>
+      {bookings.length === 0 ? (
+        <EmptyState />
       ) : (
-        <div className="flex flex-col gap-4">
-          {filtered.map((course) => (
-            <CourseCard key={course.id} course={course} players={filters.players} />
-          ))}
-        </div>
+        <TimeSections
+          bookings={bookings}
+          players={filters.players}
+          byTime={filters.sort === "time"}
+        />
       )}
 
-      {missing.length > 0 && <MissingCourses missing={missing} />}
+      {quiet.length > 0 && <QuietCourses quiet={quiet} />}
     </>
   );
 }
 
-/**
- * The courses with nothing to show, and why. Without this the app looks
- * like it only covers the handful of courses that happen to have
- * openings today.
- */
-function MissingCourses({
-  missing,
+/** The windows golfers plan around, not even thirds of the clock. */
+const PARTS = [
+  { key: "early", label: "Early", until: "09:00" },
+  { key: "morning", label: "Morning", until: "12:00" },
+  { key: "afternoon", label: "Afternoon", until: "16:00" },
+  { key: "twilight", label: "Twilight", until: "24:00" },
+] as const;
+
+function TimeSections({
+  bookings,
+  players,
+  byTime,
 }: {
-  missing: { name: string; reason: "filtered" | "none" }[];
+  bookings: Booking[];
+  players: number;
+  byTime: boolean;
 }) {
-  const filteredOut = missing.filter((m) => m.reason === "filtered");
-  const noTimes = missing.filter((m) => m.reason === "none");
+  // Part-of-day headers only make sense in time order; sorted by price
+  // they would interleave meaninglessly.
+  if (!byTime) {
+    return (
+      <ul className="flex flex-col gap-2">
+        {bookings.map((b) => (
+          <TeeTimeRow key={b.id} booking={b} players={players} />
+        ))}
+      </ul>
+    );
+  }
+
+  const groups = PARTS.map((part, i) => ({
+    ...part,
+    items: bookings.filter(
+      (b) => b.time < part.until && (i === 0 || b.time >= PARTS[i - 1].until)
+    ),
+  })).filter((g) => g.items.length > 0);
 
   return (
-    <details className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-300">
-        {missing.length} more course{missing.length === 1 ? "" : "s"} with nothing to show
-      </summary>
+    <div className="flex flex-col gap-5">
+      {groups.map((group) => (
+        <section key={group.key}>
+          <h2 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+            {group.label}
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-zinc-400/70">
+              {group.items.length}
+            </span>
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {group.items.map((b) => (
+              <TeeTimeRow key={b.id} booking={b} players={players} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
 
-      {filteredOut.length > 0 && (
-        <div className="mt-3">
-          <p className="text-zinc-500 dark:text-zinc-400">
-            Has times, but none match your filters:
-          </p>
-          <p className="mt-1 text-zinc-700 dark:text-zinc-300">
-            {filteredOut.map((m) => m.name).join(" · ")}
-          </p>
+function EmptyState() {
+  return (
+    <div className="rounded-2xl border border-dashed border-zinc-300 px-6 py-10 text-center dark:border-zinc-700">
+      <p className="text-2xl">⛳</p>
+      <p className="mt-2 font-medium text-zinc-900 dark:text-zinc-100">Nothing open</p>
+      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+        Try another day, a smaller group, or a wider time range.
+      </p>
+    </div>
+  );
+}
+
+function QuietCourses({
+  quiet,
+}: {
+  quiet: { name: string; reason: "filtered" | "none" | "error" }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const filtered = quiet.filter((q) => q.reason === "filtered");
+  const none = quiet.filter((q) => q.reason === "none");
+  const errored = quiet.filter((q) => q.reason === "error");
+
+  return (
+    <div className="mt-6 rounded-2xl bg-white px-4 py-3 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left text-sm font-medium text-zinc-600 dark:text-zinc-300"
+      >
+        <span>{quiet.length} other courses</span>
+        <span className="text-lg leading-none text-zinc-400">{open ? "−" : "+"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-3 flex flex-col gap-3 text-[13px]">
+          <QuietGroup label="Have times, but not matching your filters" items={filtered} />
+          <QuietGroup label="Nothing published for this day" items={none} />
+          <QuietGroup label="Couldn't be reached" items={errored} />
         </div>
       )}
+    </div>
+  );
+}
 
-      {noTimes.length > 0 && (
-        <div className="mt-3">
-          <p className="text-zinc-500 dark:text-zinc-400">
-            No openings published for this day:
-          </p>
-          <p className="mt-1 text-zinc-700 dark:text-zinc-300">
-            {noTimes.map((m) => m.name).join(" · ")}
-          </p>
-        </div>
-      )}
-    </details>
+function QuietGroup({ label, items }: { label: string; items: { name: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="mt-0.5 text-zinc-700 dark:text-zinc-300">
+        {items.map((i) => i.name).join(" · ")}
+      </p>
+    </div>
   );
 }

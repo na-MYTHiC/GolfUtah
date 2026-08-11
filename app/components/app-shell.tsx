@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Results } from "./results";
-import type { CourseView } from "./course-card";
+import type { CourseView } from "./types";
 import { loadDay, loadIndex, type DataIndex } from "@/lib/static-data";
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
 import { todayInUtah } from "@/lib/format";
@@ -57,6 +57,7 @@ export function AppShell() {
         rating: c.rating,
         error: c.error,
         partial: c.partial,
+        returned: c.returned,
         slots: c.slots.map((s, i) => ({
           id: `${c.id}:${i}`,
           date,
@@ -143,7 +144,7 @@ export function AppShell() {
 
   return (
     <>
-      <Results courses={courses} today={today} date={date} mode="cached" />
+      <Results courses={courses} today={today} date={date} />
       {generatedAt && <Freshness generatedAt={generatedAt} />}
     </>
   );

@@ -4,15 +4,17 @@ name: Build and deploy GolfUtah
 # into the site. That makes the schedule the app's refresh rate: whatever
 # cadence this runs at is how stale the data can be.
 #
-# Every 20 minutes is a deliberate compromise — tee times move fast, but
-# each run costs Actions minutes and puts one request per course on their
-# booking systems. Don't drop it much lower without a reason.
+# Every 30 minutes, fetching 10 days. That's ~190 requests per run spread
+# across 19 different booking systems — roughly one request per course
+# every 30 minutes, comparable to a couple of people browsing. Widening
+# the window or tightening the schedule multiplies both numbers, so change
+# them together and deliberately.
 #
 # Free on public repositories: GitHub doesn't bill Actions minutes for
 # them, and Pages is only free for public repos too.
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '*/30 * * * *'
   push:
     branches: [main]
   workflow_dispatch:
@@ -49,7 +51,7 @@ jobs:
         env:
           # Optional — ratings are omitted when this isn't set.
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-        run: npx tsx scripts/build-data.ts --days 5
+        run: npx tsx scripts/build-data.ts --days 10
 
       - name: Build static site
         env:

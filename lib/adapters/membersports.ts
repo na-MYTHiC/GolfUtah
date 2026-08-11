@@ -130,6 +130,18 @@ export function memberSportsBookingUrl(golfClubId: number, golfCourseId: number)
   return `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
 }
 
+/** Standard tee sheet capacity, used when the field is missing. */
+const DEFAULT_CAPACITY = 4;
+
+function openSpots(item: RawTeeTimeItem): number {
+  const capacity =
+    Number.isFinite(item.maximumPlayersPerBooking) && item.maximumPlayersPerBooking > 0
+      ? item.maximumPlayersPerBooking
+      : DEFAULT_CAPACITY;
+  const booked = Number.isFinite(item.playerCount) ? item.playerCount : 0;
+  return Math.max(0, capacity - booked);
+}
+
 function toNormalized(
   bucket: RawTeeTimeBucket,
   date: string,
@@ -155,14 +167,18 @@ function toNormalized(
       holes: (item.holesRequirementTypeId === 1 ? 9 : 18) as 9 | 18,
       // Open spots = capacity minus who's already booked.
       //
-      // `availableCount` looks like the obvious field and is what this
-      // used to use, but it reads 0 on every slot — which silently
-      // filtered out every MemberSports tee time, since the UI hides
-      // slots with no room. Checked against Eaglewood's own page:
-      // maximumPlayersPerBooking - playerCount reproduces the upper bound
-      // it displays (4-2 -> "1-2", 4-0 -> "2-4", 4-3 -> "1-1") on every
-      // slot sampled.
-      playersOpen: Math.max(0, item.maximumPlayersPerBooking - item.playerCount),
+      // `availableCount` looks like the obvious field but reads 0 on every
+      // slot, which silently hid every MemberSports tee time. Checked
+      // against Eaglewood's own page, maximumPlayersPerBooking -
+      // playerCount reproduces the upper bound it displays (4-2 -> "1-2",
+      // 4-0 -> "2-4", 4-3 -> "1-1") on every slot sampled.
+      //
+      // Falls back to a foursome if capacity is missing: an absent field
+      // would otherwise make this NaN, fail the "> 0" check below, and
+      // hide the whole course — the same failure mode all over again.
+      // Showing a time with a slightly wrong spot count beats hiding a
+      // real one.
+      playersOpen: openSpots(item),
       price: Math.round(item.price * 100), // dollars -> cents
       // MemberSports flags back-nine starts both on isBackNine and in the
       // item name ("Eaglewood Back Nine"). Without it, a back-nine slot is

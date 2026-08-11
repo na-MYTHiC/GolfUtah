@@ -11,7 +11,7 @@
  * the day being viewed.
  *
  * Usage:
- *   npx tsx scripts/build-data.ts [--days 5] [--out public/data]
+ *   npx tsx scripts/build-data.ts [--days 10] [--out public/data]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { COURSES } from "../lib/courses.data";
@@ -40,6 +40,13 @@ interface StaticCourse {
   rating?: { rating: number; reviewCount: number; mapsUrl?: string };
   slots: StaticSlot[];
   error?: string;
+  /**
+   * How many slots the platform returned before filtering. Distinguishes
+   * "the API gave us nothing" from "it gave us times but they're all
+   * full" — which look identical in the UI otherwise, and need completely
+   * different fixes.
+   */
+  returned?: number;
   /**
    * ForeUp course with no booking_class captured. Sun Hills proved that
    * omitting it can hide most of the morning, so these listings may be
@@ -90,6 +97,7 @@ async function fetchCourse(
       to: date,
     });
 
+    base.returned = times.length;
     base.slots = times.map((t) => ({
       time: t.time,
       holes: t.holes,
@@ -108,7 +116,7 @@ async function fetchCourse(
 }
 
 async function main() {
-  const days = Number(arg("days", "5"));
+  const days = Number(arg("days", "10"));
   const outDir = arg("out", "public/data");
   const today = todayInUtah();
 
