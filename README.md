@@ -39,17 +39,20 @@ itself.
   One credential row per course for now (single-user assumption);
   revisit with a real `User` model before this has more than one user.
 
-Adapter status:
+Adapter status, against a 57-course Utah survey (ForeUp 25,
+Chronogolf 13, MemberSports 5):
+- **ForeUp** — done, built against a real capture from Sun Hills Golf
+  Course (Layton). Covers the largest share of Utah courses. Handles
+  slots that are bookable as either 9 or 18 holes (`holes: "9/18"`) by
+  listing each option separately, since they carry different prices.
 - **MemberSports** — done, confirmed end-to-end against real captures
-  from Eaglewood Golf Course (North Salt Lake): request shape, response
-  mapping, and a subtle time-encoding bug caught and fixed (`teeTime` is
-  minutes-since-midnight, not literal HH:MM digits). Turns out no auth is
-  needed at all — a fresh Incognito capture showed the working request
-  sends literally `Authorization: Bearer null`; only the public
-  `x-api-key` header matters.
-- **ForeUp**, **Chronogolf** — not started; see the comments at the top
-  of each file in `lib/adapters/` for how to find and verify each
-  platform's real API.
+  from Eaglewood Golf Course (North Salt Lake), including a subtle
+  time-encoding bug caught and fixed (`teeTime` is minutes-since-midnight,
+  not literal HH:MM digits). No auth needed — a fresh Incognito capture
+  showed the working request sends literally `Authorization: Bearer
+  null`; only the public `x-api-key` header matters.
+- **Chronogolf** — not started; see the comment at the top of
+  `lib/adapters/chronogolf.ts` for how to find and verify its real API.
 
 ## Getting started
 
@@ -70,26 +73,34 @@ npm run poll            # one pass
 npm run poll -- --loop=300   # repeat every 5 minutes
 ```
 
-## Adding a MemberSports course
+## Adding a course
 
-The MemberSports adapter is done, so adding a course is just finding its
-two IDs — no new reverse-engineering needed.
+Both implemented platforms put their ids in the booking URL, so adding a
+course usually needs no DevTools work at all:
 
-1. Open the course's booking page. If it's on MemberSports the URL looks
-   like `app.membersports.com/tee-times/<golfClubId>/<golfCourseId>/0`,
-   so the IDs are often right there in the address bar. Otherwise open
-   DevTools → Network → Fetch/XHR, load the tee sheet, and read them off
-   the `onlineBookingTeeTimes` request body.
-2. Sanity-check the pair before committing to it:
+| Platform | Booking URL | `externalId` |
+|---|---|---|
+| MemberSports | `app.membersports.com/tee-times/<clubId>/<courseId>/0` | `<clubId>:<courseId>` |
+| ForeUp | `foreupsoftware.com/index.php/booking/<courseId>/<scheduleId>` | `<courseId>:<scheduleId>` |
+
+1. Get the ids — from the URL above, or by running
+   `scripts/detect-platform.ts`, which extracts them and prints
+   ready-to-paste seed entries.
+2. Check them against the live API before committing:
    ```bash
-   npm run probe -- <golfClubId> <golfCourseId> [YYYY-MM-DD]
+   npx tsx scripts/probe.ts foreup 18895:578
+   npx tsx scripts/probe.ts membersports 15391:18901
    ```
-   It prints the slots that come back, or tells you if nothing does.
-3. Add a row to `prisma/seed.ts` with the name, city, and
-   `externalId: "<golfClubId>:<golfCourseId>"`, then `npm run db:seed`.
+3. Add the row to `prisma/seed.ts`, then `npm run db:seed`.
 
-There's no public directory of which courses use MemberSports — it has to
-be discovered per course.
+ForeUp has an optional third segment, `booking_class`, which selects the
+rate class. It isn't in the URL — only in the widget's own request — so
+it's left off by default. If a ForeUp course returns nothing or prices
+that look wrong, capture its `booking_class` from DevTools and append it:
+`18895:578:177`.
+
+There's no public directory of which courses use which platform — it has
+to be discovered per course.
 
 ## Finding which courses use which platform
 
@@ -137,13 +148,16 @@ behave like a person clicking through a directory. Don't parallelize it.
 
 ## Status
 
-Early stage, but MemberSports is a real, working adapter: Eaglewood Golf
-Course is seeded, and `fetchTeeTimes` in `lib/adapters/membersports.ts`
-is fully implemented against a verified request/response shape — no
-credentials required. Untested against a live network call from this
-environment (sandboxed, can't reach external hosts) but ready to try
-against a real Postgres + `npm run poll`. ForeUp and Chronogolf adapters
-are unstarted.
+Two of the three platforms are implemented, covering 30 of the 57 Utah
+courses surveyed. Both were built against real captured traffic and their
+response mappings are unit-verified against that captured data. Neither
+has yet made a live network call from this repo — development happened in
+a sandbox that can't reach external hosts — so the first real run against
+Postgres via `npm run poll` is the remaining validation step.
+
+Seeded so far: 5 MemberSports courses and Sun Hills (ForeUp). The other
+24 ForeUp courses just need seed rows — run `scripts/detect-platform.ts`
+to regenerate them. Chronogolf (13 courses) has no adapter yet.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once
@@ -160,6 +174,9 @@ aggregation is solid for a real set of courses.
 - ForeUp, Chronogolf, and most similar platforms generally restrict
   automated access in their Terms of Service — worth pursuing legitimate
   API/partner access as this grows past personal use.
+- The discovery and probe scripts request one page at a time with a
+  delay, on purpose. Keep it that way: the point is to look like a person
+  browsing, not to hammer a course's booking system.
 
 ## License
 

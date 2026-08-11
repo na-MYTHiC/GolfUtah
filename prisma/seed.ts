@@ -59,9 +59,21 @@ const courses: {
     externalId: "15404:18918",
     bookingUrl: "https://www.springville.org/golf/",
   },
-  // ForeUp (25 Utah courses) and Chronogolf (13) are the bigger pools but
-  // have no adapter yet — see lib/adapters/. Add rows here once those are
-  // implemented and their externalId format is settled.
+  // ForeUp externalId is "<courseId>:<scheduleId>" or
+  // "<courseId>:<scheduleId>:<bookingClassId>". The first two are in the
+  // booking URL; the booking class only appears in the widget's own
+  // request and is optional — see lib/adapters/foreup.ts. Sun Hills is
+  // the course the adapter was built and verified against.
+  {
+    name: "Sun Hills Golf Course",
+    city: "Layton",
+    platform: "FOREUP",
+    externalId: "18895:578:177",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/18895/578#/teetimes",
+  },
+  // 24 more ForeUp courses were identified in the Utah survey — run
+  // scripts/detect-platform.ts to regenerate their entries. Chronogolf
+  // (13 courses) still has no adapter.
 ];
 
 async function main() {

@@ -47,6 +47,14 @@ interface Detection {
  */
 const MEMBERSPORTS_URL = /app\.membersports\.com\/(?:tee-times|custom)\/(\d+)\/(\d+)/i;
 
+/**
+ * ForeUp booking pages look like
+ * foreupsoftware.com/index.php/booking/<courseId>/<scheduleId>. That's
+ * two of the three ids the adapter can use; booking_class isn't in the
+ * URL and is optional — see lib/adapters/foreup.ts.
+ */
+const FOREUP_URL = /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/i;
+
 function detectFromHtml(html: string): { platform: Detection["platform"]; externalId?: string } {
   const ms = html.match(MEMBERSPORTS_URL);
   if (ms) return { platform: "MEMBERSPORTS", externalId: `${ms[1]}:${ms[2]}` };
@@ -54,6 +62,9 @@ function detectFromHtml(html: string): { platform: Detection["platform"]; extern
   // Bare mention without the ID pattern — still MemberSports, but the IDs
   // need to be read off the booking page by hand.
   if (/membersports\.com/i.test(html)) return { platform: "MEMBERSPORTS" };
+
+  const fu = html.match(FOREUP_URL);
+  if (fu) return { platform: "FOREUP", externalId: `${fu[1]}:${fu[2]}` };
 
   if (/foreupsoftware\.com|foreup/i.test(html)) return { platform: "FOREUP" };
   if (/chronogolf\.com|lightspeedhq\.com|chronogolf/i.test(html)) return { platform: "CHRONOGOLF" };
@@ -222,16 +233,27 @@ async function main() {
   }, {});
   console.log("\nSummary:", byPlatform);
 
-  const ready = results.filter((r) => r.platform === "MEMBERSPORTS" && r.externalId);
+  const ready = results.filter(
+    (r) => r.externalId && (r.platform === "MEMBERSPORTS" || r.platform === "FOREUP")
+  );
   if (ready.length > 0) {
-    console.log(`\n${ready.length} MemberSports course(s) with IDs — paste into prisma/seed.ts:\n`);
+    console.log(`\n${ready.length} course(s) with usable IDs — paste into prisma/seed.ts:\n`);
     for (const r of ready) {
       console.log(
         `  {\n    name: ${JSON.stringify(r.name)},\n` +
           (r.city ? `    city: ${JSON.stringify(r.city)},\n` : "") +
-          `    platform: "MEMBERSPORTS",\n` +
+          `    platform: ${JSON.stringify(r.platform)},\n` +
           `    externalId: ${JSON.stringify(r.externalId)},\n` +
           `    bookingUrl: ${JSON.stringify(r.url)},\n  },`
+      );
+    }
+    const foreup = ready.filter((r) => r.platform === "FOREUP").length;
+    if (foreup > 0) {
+      console.log(
+        `\nForeUp entries carry courseId:scheduleId only. If a course returns\n` +
+          `nothing or wrong pricing, capture its booking_class and append it as\n` +
+          `a third segment. Check one with:\n` +
+          `  npx tsx scripts/probe.ts foreup <externalId>`
       );
     }
   }
