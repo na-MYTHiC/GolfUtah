@@ -52,6 +52,15 @@ interface Candidate {
   name: string;
   city?: string;
   url: string;
+  /**
+   * Name of the saved session to use, when it isn't this course's own
+   * host. Courses that share a booking system share a login — The Ridge
+   * and Stonebridge sit on one ForeUp install — so one --login run can
+   * cover several courses:
+   *   { "name": "Stonebridge Golf Club", "url": "...",
+   *     "auth": "golftheridgegc.com" }
+   */
+  auth?: string;
 }
 
 interface Finding {
@@ -118,11 +127,18 @@ async function nudgeBookingUi(page: Page): Promise<void> {
 }
 
 async function inspect(browser: Browser, candidate: Candidate): Promise<Finding> {
-  // Reuse a signed-in session for this host if one was captured with
-  // --login. Some courses (The Ridge, Stonebridge) put their tee sheet
-  // behind a login, so without this they can never be resolved.
-  const authFile = authFileFor(candidate.url);
+  // Reuse a signed-in session if one was captured with --login. Some
+  // courses (The Ridge, Stonebridge) put their tee sheet behind a login,
+  // so without this they can never be resolved. `auth` lets courses on a
+  // shared booking system reuse one session.
+  const authFile = candidate.auth
+    ? `${AUTH_DIR}/${candidate.auth.replace(/^www\./, "").replace(/\.json$/, "")}.json`
+    : authFileFor(candidate.url);
   const storageState = authFile && existsSync(authFile) ? authFile : undefined;
+
+  if (candidate.auth && !storageState) {
+    console.warn(`  (no saved session at ${authFile} — run --login first)`);
+  }
 
   const context = await browser.newContext({
     storageState,

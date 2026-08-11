@@ -181,6 +181,21 @@ per-host under `playwright/.auth/` (gitignored) and reused automatically
 on later runs. The script never asks for or stores credentials — only the
 session that results from you signing in yourself.
 
+Courses that share a booking system share a login, so one capture can
+cover several. Point the others at it with `auth` — see
+`scripts/courses.login-required.json`, where Stonebridge reuses The
+Ridge's session:
+
+```json
+{ "name": "Stonebridge Golf Club",
+  "url": "https://www.golfstonebridgeutah.com/",
+  "auth": "golftheridgegc.com" }
+```
+
+Two courses on one booking system means one `course_id` with different
+`schedule_id`s, which the `courseId:scheduleId` format already handles —
+they become two ordinary rows.
+
 Worth being clear about what this implies for the product: if a course
 gates *availability* behind login (rather than just checkout), GolfUtah
 can only show its times to someone who has an account there. That's a
