@@ -1,0 +1,74 @@
+name: Build and deploy GolfUtah
+
+# GitHub Pages can't run a server, so tee times are fetched here and baked
+# into the site. That makes the schedule the app's refresh rate: whatever
+# cadence this runs at is how stale the data can be.
+#
+# Every 20 minutes is a deliberate compromise — tee times move fast, but
+# each run costs Actions minutes and puts one request per course on their
+# booking systems. Don't drop it much lower without a reason.
+#
+# Free on public repositories: GitHub doesn't bill Actions minutes for
+# them, and Pages is only free for public repos too.
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # Never let a slow run overlap the next tick and deploy out of order.
+  group: golfutah-deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # Prisma's client is imported for its types even though the static
+      # build never touches a database.
+      - run: npx prisma generate
+
+      - name: Fetch tee times
+        env:
+          # Optional — ratings are omitted when this isn't set.
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+        run: npx tsx scripts/build-data.ts --days 5
+
+      - name: Build static site
+        env:
+          # Pages serves from /<repo>/, so assets need that prefix.
+          BASE_PATH: /${{ github.event.repository.name }}
+        run: npx next build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

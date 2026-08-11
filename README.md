@@ -34,18 +34,34 @@ by course.
 Clicking a time opens that course's own booking page. GolfUtah never
 handles payment.
 
-### Running without a database
+### How it's hosted
 
-With no `DATABASE_URL`, the app calls each course's platform directly on
-page load, so `npm run dev` shows real tee times with zero setup. That's
-for trying it out — it puts one request per course on their systems per
-page load. With Postgres configured it reads what `npm run poll` cached,
-which is both far faster and much lighter on the courses.
+The site is a static build on GitHub Pages, installable to a phone home
+screen as a PWA — same shape as AniLog.
+
+GitHub Pages has no server, and the courses' booking APIs mostly don't
+send CORS headers, so the browser can't call them directly. Instead a
+GitHub Actions cron (`.github/workflows/deploy.yml`) fetches tee times,
+writes one JSON file per day into `public/data/`, builds the static site,
+and deploys it. **The schedule is therefore the app's refresh rate** —
+currently every 20 minutes, and the page states plainly when the data was
+last checked.
+
+Weather is the exception: Open-Meteo allows cross-origin requests, so
+that's fetched live in the browser and is always current.
+
+**Both GitHub Pages and Actions are only free on public repositories.**
+This repo has to be public for the schedule to run without eating billed
+Actions minutes.
+
+Add to a phone: open the Pages URL in Safari or Chrome, then Share → Add
+to Home Screen.
 
 ## Architecture
 
-- **Next.js (App Router) + TypeScript** — the web app (`app/`) and a
-  read-only API route (`app/api/tee-times`) that serve cached data.
+- **Next.js (App Router) + TypeScript**, built as a static export
+  (`output: "export"`). No server at runtime — the page loads the JSON
+  that `scripts/build-data.ts` baked in at deploy time.
 - **Prisma + Postgres** (`prisma/schema.prisma`) — `Course` and `TeeTime`
   models. `TeeTime` rows are a disposable cache written by the poll
   worker, not a source of truth — always re-check with the source
@@ -56,9 +72,11 @@ which is both far faster and much lighter on the courses.
   into a common shape. Utah courses run on a small number of these
   platforms, so adapters are per-*platform*, not per-course — a new
   course is just a new `Course` row pointing at an existing adapter.
-- **Poll worker** (`scripts/poll.ts`) — a standalone script (`npm run
-  poll`) that walks active courses, calls the right adapter, and upserts
-  results into Postgres. Meant to run as a long-lived process on a
+- **Data build** (`scripts/build-data.ts`) — what the deploy workflow
+  runs: walks the courses, calls the right adapter, writes one JSON file
+  per day. This is what makes a serverless host viable at all.
+- **Poll worker** (`scripts/poll.ts`) — the same idea for a server
+  deployment: walks active courses and upserts results into Postgres. Meant to run as a long-lived process on a
   schedule (e.g. on Railway/Fly.io), not as a serverless function —
   some adapters will need a real Playwright browser session (for
   courses that require login), which doesn't suit cold-started
@@ -91,32 +109,31 @@ Chronogolf 13, MemberSports 5):
 
 ## Getting started
 
-The quickest way to see it working — no database needed:
-
 ```bash
 npm install
+npm run build:data     # fetch tee times into public/data/
 npm run dev            # http://localhost:3000
 ```
 
-That runs in live mode, calling each course's platform per page load.
-Fine for a look; too heavy for real use.
+`build:data` is the same step the deploy workflow runs; without it the
+page has no tee times to show. Re-run it whenever you want fresher data
+locally.
 
-For the cached setup:
+To deploy, push to `main` — the workflow builds and publishes to Pages.
+Enable it once under **Settings → Pages → Source: GitHub Actions**.
+
+### The Postgres path (optional)
+
+`scripts/poll.ts` and the Prisma schema still exist for running this as a
+real server instead of a static site, which would give minute-fresh data
+rather than whatever the last cron run produced:
 
 ```bash
-cp .env.example .env
+cp .env.example .env   # set DATABASE_URL
 npm run generate-key   # paste into .env as CREDENTIALS_ENCRYPTION_KEY
-# set DATABASE_URL in .env too
-npm run db:migrate     # create tables
+npm run db:migrate
 npm run db:seed        # 19 courses, from lib/courses.data.ts
-npm run poll           # fetch tee times into Postgres
-npm run dev
-```
-
-Keep the worker running to stay fresh:
-
-```bash
-npm run poll -- --loop=300   # every 5 minutes
+npm run poll -- --loop=300
 ```
 
 ## Adding a course
@@ -260,10 +277,10 @@ Seeded so far: 19 courses — 5 MemberSports and 14 ForeUp. The remaining
 Chronogolf courses (no adapter yet) plus ForeUp courses whose ids
 fetch-based detection couldn't reach.
 
-Outstanding validation: nothing has been written to a real database yet.
-`scripts/probe.ts` confirms both adapters' live API calls return real
-tee times, and the UI has been exercised end-to-end against captured
-data, but the first `npm run poll` against Postgres hasn't run.
+Outstanding validation: the scheduled build hasn't run in GitHub Actions
+yet. `scripts/probe.ts` confirms both adapters return real tee times, and
+the static build has been exercised end-to-end in a browser under a
+Pages-style sub-path, but the first live deploy is still ahead.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once

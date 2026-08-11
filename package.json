@@ -15,7 +15,9 @@
     "generate-key": "tsx scripts/generate-key.ts",
     "detect": "tsx scripts/detect-platform.ts",
     "extract": "tsx scripts/extract-directory.ts",
-    "probe": "tsx scripts/probe.ts"
+    "probe": "tsx scripts/probe.ts",
+    "build:data": "tsx scripts/build-data.ts",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -34,6 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

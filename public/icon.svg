@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#064e3b"/>
+  <!-- flag stick -->
+  <rect x="286" y="96" width="12" height="248" rx="6" fill="#f4f4f5"/>
+  <!-- pennant -->
+  <path d="M298 104 L410 140 L298 176 Z" fill="#10b981"/>
+  <!-- green -->
+  <ellipse cx="256" cy="372" rx="150" ry="44" fill="#10b981" opacity="0.35"/>
+  <!-- ball -->
+  <circle cx="188" cy="356" r="40" fill="#fafafa"/>
+  <circle cx="174" cy="344" r="4.5" fill="#d4d4d8"/>
+  <circle cx="190" cy="340" r="4.5" fill="#d4d4d8"/>
+  <circle cx="204" cy="350" r="4.5" fill="#d4d4d8"/>
+  <circle cx="178" cy="360" r="4.5" fill="#d4d4d8"/>
+  <circle cx="194" cy="358" r="4.5" fill="#d4d4d8"/>
+  <circle cx="186" cy="372" r="4.5" fill="#d4d4d8"/>
+  <circle cx="202" cy="368" r="4.5" fill="#d4d4d8"/>
+</svg>
