@@ -145,6 +145,28 @@ Add `--prune` to drop resolved courses from the candidates file, so
 repeat runs only re-check what's still missing (seed the resolved ones
 first — afterwards their ids live only in `prisma/seed.ts`).
 
+### When plain fetching isn't enough
+
+Many courses embed their booking widget rather than linking to it, so the
+platform never appears in the served HTML — it only shows up once
+JavaScript runs and the widget calls its own API. `detect-platform.ts`
+reports those as UNKNOWN, or as a platform with no ids.
+
+`scripts/render-detect.ts` loads those pages in a real browser and watches
+the network, which is how the ids were originally found by hand in
+DevTools:
+
+```bash
+npx playwright install chromium        # once
+npx tsx scripts/render-detect.ts scripts/courses.candidates.json
+npx tsx scripts/render-detect.ts scripts/courses.candidates.json --headed
+```
+
+It catches widgets loaded from external bundles, iframes injected after
+load, and platform API calls. Slower than the fetch-based pass, so run
+that one first and point this at what's left. Set `CHROMIUM_PATH` to use
+an existing browser binary instead of Playwright's own.
+
 `scripts/courses.candidates.json` holds the Utah courses still to work
 out. It requests one site at a time with a delay, deliberately: it should
 behave like a person clicking through a directory. Don't parallelize it.

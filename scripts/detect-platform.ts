@@ -60,7 +60,23 @@ const MEMBERSPORTS_URL = /app\.membersports\.com\/(?:tee-times|custom)\/(\d+)\/(
  */
 const FOREUP_URL = /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/i;
 
-function detectFromHtml(html: string): { platform: Detection["platform"]; externalId?: string } {
+/**
+ * ForeUp's own API calls carry the ids too, which is how a rendered page
+ * gives them up even when the HTML never contains a booking link.
+ */
+const FOREUP_API = /foreupsoftware\.com\/index\.php\/api\/booking\/.*?schedule_id=(\d+)/i;
+
+/**
+ * Chronogolf identifies courses either by club slug or by numeric
+ * club_id/course_id pair. No adapter uses these yet — they're captured so
+ * they're on hand when one exists.
+ */
+const CHRONOGOLF_IDS = /club_id=(\d+)[^"'\s]*?course_id=(\d+)/i;
+const CHRONOGOLF_SLUG = /chronogolf\.com\/(?:club|en\/club)\/([a-z0-9-]+)/i;
+
+function detectFromHtml(
+  html: string
+): { platform: Detection["platform"]; externalId?: string; note?: string } {
   const ms = html.match(MEMBERSPORTS_URL);
   if (ms) return { platform: "MEMBERSPORTS", externalId: `${ms[1]}:${ms[2]}` };
 
@@ -80,8 +96,19 @@ function detectFromHtml(html: string): { platform: Detection["platform"]; extern
     return { platform: "FOREUP" };
   }
 
+  const fuApi = html.match(FOREUP_API);
+  if (fuApi) return { platform: "FOREUP", note: `schedule_id=${fuApi[1]} (needs course_id)` };
+
   if (/foreupsoftware\.com|foreup/i.test(html)) return { platform: "FOREUP" };
-  if (/chronogolf\.com|lightspeedhq\.com|chronogolf/i.test(html)) return { platform: "CHRONOGOLF" };
+
+  if (/chronogolf\.com|lightspeedhq\.com|chronogolf/i.test(html)) {
+    const ids = html.match(CHRONOGOLF_IDS);
+    if (ids) return { platform: "CHRONOGOLF", note: `club_id=${ids[1]} course_id=${ids[2]}` };
+    const slug = html.match(CHRONOGOLF_SLUG);
+    if (slug) return { platform: "CHRONOGOLF", note: `club=${slug[1]}` };
+    return { platform: "CHRONOGOLF" };
+  }
+
   if (/golfnow\.com|teeoff\.com/i.test(html)) return { platform: "GOLFNOW" };
 
   return { platform: "UNKNOWN" };
