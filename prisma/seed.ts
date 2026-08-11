@@ -19,17 +19,21 @@ const courses: {
   externalId: string;
   bookingUrl: string;
 }[] = [
-  // externalId is "<golfClubId>:<golfCourseId>". Eaglewood's came from a
-  // real onlineBookingTeeTimes capture (see lib/adapters/membersports.ts);
-  // the rest were found by scripts/detect-platform.ts reading the IDs out
-  // of each course's booking URL. Verify a new one with:
-  //   npx tsx scripts/probe-membersports.ts <clubId> <courseId>
+  // Discovered by scripts/detect-platform.ts, which reads each platform's
+  // ids straight out of the course's booking URL:
+  //   MemberSports  "<golfClubId>:<golfCourseId>"
+  //   ForeUp        "<courseId>:<scheduleId>" (an optional third
+  //                 ":<bookingClassId>" selects a rate class; verified
+  //                 unnecessary against Sun Hills)
+  // Eaglewood and Sun Hills are the two the adapters were built against,
+  // so their ids are confirmed by hand; the rest come from detection and
+  // are worth spot-checking with scripts/probe.ts.
   {
     name: "Eaglewood Golf Course",
     city: "North Salt Lake",
     platform: "MEMBERSPORTS",
     externalId: "15391:18901",
-    bookingUrl: "https://eaglewoodgolf.com/golf/",
+    bookingUrl: "https://eaglewoodgolf.com/",
   },
   {
     name: "Cedar Hills Golf Club",
@@ -59,20 +63,98 @@ const courses: {
     externalId: "15404:18918",
     bookingUrl: "https://www.springville.org/golf/",
   },
-  // ForeUp externalId is "<courseId>:<scheduleId>" — both are in the
-  // booking URL. A third ":<bookingClassId>" segment is supported but not
-  // needed: verified against Sun Hills that omitting it returns the same
-  // slots and public rates. See lib/adapters/foreup.ts.
   {
     name: "Sun Hills Golf Course",
     city: "Layton",
     platform: "FOREUP",
-    externalId: "18895:578:177",
-    bookingUrl: "https://foreupsoftware.com/index.php/booking/18895/578#/teetimes",
+    externalId: "18895:578",
+    bookingUrl: "https://www.sunhillsgolf.com/",
   },
-  // 24 more ForeUp courses were identified in the Utah survey — run
-  // scripts/detect-platform.ts to regenerate their entries. Chronogolf
-  // (13 courses) still has no adapter.
+  {
+    name: "Murray Parkway Golf Course",
+    city: "Murray",
+    platform: "FOREUP",
+    externalId: "6263:244",
+    bookingUrl: "https://parkwaygolf.org/",
+  },
+  {
+    name: "Timpanogos Golf Club",
+    city: "Provo",
+    platform: "FOREUP",
+    externalId: "6279:49",
+    bookingUrl: "https://www.timpanogosgolf.com/",
+  },
+  {
+    name: "Links at Sleepy Ridge",
+    city: "Orem",
+    platform: "FOREUP",
+    externalId: "19396:1726",
+    bookingUrl: "https://www.sleepyridgegolf.com/",
+  },
+  {
+    name: "Thanksgiving Point Golf Club",
+    city: "Lehi",
+    platform: "FOREUP",
+    externalId: "19645:2034",
+    bookingUrl: "https://www.thanksgivingpointgolfclub.com/",
+  },
+  {
+    name: "The Oaks at Spanish Fork",
+    city: "Spanish Fork",
+    platform: "FOREUP",
+    externalId: "21698:8633",
+    bookingUrl: "https://www.theoaksatsf.com/",
+  },
+  {
+    name: "Davis Park Golf Course",
+    city: "Kaysville",
+    platform: "FOREUP",
+    externalId: "19500:1757",
+    bookingUrl: "https://www.davisparkutah.com/",
+  },
+  {
+    name: "Glen Eagle Golf Course",
+    city: "Syracuse",
+    platform: "FOREUP",
+    externalId: "20940:6276",
+    bookingUrl: "https://golfgleneagle.com/",
+  },
+  {
+    name: "Wolf Creek Resort Golf Course",
+    city: "Eden",
+    platform: "FOREUP",
+    externalId: "18945:756",
+    bookingUrl: "https://wolfcreekresort.com/golf/",
+  },
+  {
+    name: "Eagle Mountain Golf Club",
+    city: "Brigham City",
+    platform: "FOREUP",
+    externalId: "19943:3033",
+    bookingUrl: "https://eaglemountaingc.com/",
+  },
+  {
+    name: "Carbon Country Club",
+    city: "Helper",
+    platform: "FOREUP",
+    externalId: "22113:9906",
+    bookingUrl: "https://www.carboncountryclub.com/",
+  },
+  {
+    name: "Millsite Golf Course",
+    city: "Ferron",
+    platform: "FOREUP",
+    externalId: "21605:8326",
+    bookingUrl: "https://millsitegolfcourse.com/",
+  },
+  // Not seeded: Crane Field Golf Course. Detection returned "1:1", which
+  // is a placeholder URL in its markup rather than a real booking link --
+  // every genuine Utah ForeUp courseId is 4-5 digits. Needs its real ids
+  // read off the booking page.
+  //
+  // Still unresolved statewide: 13 Chronogolf courses (no adapter yet),
+  // 12 undetected, and 12 ForeUp courses whose ids detection couldn't
+  // reach. See scripts/courses.candidates.json.
 ];
 
 async function main() {

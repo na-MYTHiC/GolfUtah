@@ -13,14 +13,19 @@
  *      "url": "https://eaglewoodgolf.com/golf/" }]
  *
  * Usage:
- *   npm run detect -- scripts/courses.candidates.json
- *   npm run detect -- scripts/courses.candidates.json --json > found.json
+ *   npx tsx scripts/detect-platform.ts candidates.json
+ *   npx tsx scripts/detect-platform.ts candidates.json --json
+ *   npx tsx scripts/detect-platform.ts candidates.json --prune
+ *
+ * --prune rewrites the input file with the resolved courses removed, so
+ * repeat runs only re-check what's still unknown. Seed the resolved ones
+ * before pruning — afterwards their ids live only in prisma/seed.ts.
  *
  * Deliberately sequential with a delay between requests — this is meant
  * to behave like a person clicking through a directory, not to hammer
  * anyone's site. Don't crank the concurrency up.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
 
 const DELAY_MS = 1500;
 
@@ -64,7 +69,16 @@ function detectFromHtml(html: string): { platform: Detection["platform"]; extern
   if (/membersports\.com/i.test(html)) return { platform: "MEMBERSPORTS" };
 
   const fu = html.match(FOREUP_URL);
-  if (fu) return { platform: "FOREUP", externalId: `${fu[1]}:${fu[2]}` };
+  if (fu) {
+    // Guard against placeholder/example URLs in page markup: every real
+    // Utah ForeUp courseId observed is 4-5 digits (6263 and up), so a
+    // tiny id means we matched documentation, not the booking link.
+    // Schedule ids legitimately are small (49, 244), so only check the
+    // course id.
+    const courseId = Number(fu[1]);
+    if (courseId >= 100) return { platform: "FOREUP", externalId: `${fu[1]}:${fu[2]}` };
+    return { platform: "FOREUP" };
+  }
 
   if (/foreupsoftware\.com|foreup/i.test(html)) return { platform: "FOREUP" };
   if (/chronogolf\.com|lightspeedhq\.com|chronogolf/i.test(html)) return { platform: "CHRONOGOLF" };
@@ -192,6 +206,7 @@ function pathOf(url: string): string {
 async function main() {
   const args = process.argv.slice(2);
   const asJson = args.includes("--json");
+  const prune = args.includes("--prune");
   const file = args.find((a) => !a.startsWith("--")) ?? "candidates.json";
 
   if (!existsSync(file)) {
@@ -256,6 +271,19 @@ async function main() {
           `  npx tsx scripts/probe.ts foreup <externalId>`
       );
     }
+  }
+
+  if (prune) {
+    // Drop everything we got ids for, so re-running only re-checks the
+    // courses still missing something. Seed the resolved ones first —
+    // once they're out of this file, the ids live only in prisma/seed.ts.
+    const resolved = new Set(ready.map((r) => r.url));
+    const remaining = candidates.filter((c) => !resolved.has(c.url));
+    writeFileSync(file, JSON.stringify(remaining, null, 2) + "\n", "utf8");
+    console.log(
+      `\nPruned ${candidates.length - remaining.length} resolved course(s) from ${file}; ` +
+        `${remaining.length} left to work out.`
+    );
   }
 }
 

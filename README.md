@@ -141,9 +141,12 @@ For MemberSports courses it pulls the `<golfClubId>:<golfCourseId>` pair
 straight out of the booking URL and prints a ready-to-paste
 `prisma/seed.ts` entry.
 
-`scripts/courses.candidates.json` is a starting list of Utah courses —
-the URLs are best guesses and some will 404, so fix or extend it as you
-go. It requests one site at a time with a delay, deliberately: it should
+Add `--prune` to drop resolved courses from the candidates file, so
+repeat runs only re-check what's still missing (seed the resolved ones
+first — afterwards their ids live only in `prisma/seed.ts`).
+
+`scripts/courses.candidates.json` holds the Utah courses still to work
+out. It requests one site at a time with a delay, deliberately: it should
 behave like a person clicking through a directory. Don't parallelize it.
 
 ## Status
@@ -155,9 +158,14 @@ has yet made a live network call from this repo — development happened in
 a sandbox that can't reach external hosts — so the first real run against
 Postgres via `npm run poll` is the remaining validation step.
 
-Seeded so far: 5 MemberSports courses and Sun Hills (ForeUp). The other
-24 ForeUp courses just need seed rows — run `scripts/detect-platform.ts`
-to regenerate them. Chronogolf (13 courses) has no adapter yet.
+Seeded so far: 17 courses — 5 MemberSports and 12 ForeUp. The remaining
+40 are tracked in `scripts/courses.candidates.json`: 13 Chronogolf (no
+adapter yet), 12 ForeUp whose ids detection couldn't reach, 12 with no
+platform detected, and Crane Field, whose page yielded a placeholder id.
+
+Neither adapter has written to a real database yet — `scripts/probe.ts`
+confirms the live API calls work, but the first `npm run poll` against
+Postgres is still the outstanding validation.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once

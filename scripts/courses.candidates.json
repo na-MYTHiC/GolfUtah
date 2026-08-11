@@ -60,11 +60,6 @@
     "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/south-mountain/"
   },
   {
-    "name": "Fore Lakes Golf Course",
-    "city": "Taylorsville",
-    "url": "https://www.forelakesgc.com/"
-  },
-  {
     "name": "Golf the Round",
     "city": "South Salt Lake",
     "url": "https://www.golftheround.com/"
@@ -80,64 +75,14 @@
     "url": "https://www.golfstonebridgeutah.com/"
   },
   {
-    "name": "Murray Parkway Golf Course",
-    "city": "Murray",
-    "url": "https://parkwaygolf.org/"
-  },
-  {
     "name": "River Oaks Golf",
     "city": "Sandy",
     "url": "https://sandy.utah.gov/1174/River-Oaks-Golf"
   },
   {
-    "name": "Timpanogos Golf Club",
-    "city": "Provo",
-    "url": "https://www.timpanogosgolf.com/"
-  },
-  {
-    "name": "Links at Sleepy Ridge",
-    "city": "Orem",
-    "url": "https://www.sleepyridgegolf.com/"
-  },
-  {
-    "name": "Hobble Creek Golf Course",
-    "city": "Springville",
-    "url": "https://www.springville.org/golf/"
-  },
-  {
-    "name": "Cedar Hills Golf Club",
-    "city": "Cedar Hills",
-    "url": "https://cedarhillsgolfutah.com/"
-  },
-  {
-    "name": "Thanksgiving Point Golf Club",
-    "city": "Lehi",
-    "url": "https://www.thanksgivingpointgolfclub.com/"
-  },
-  {
-    "name": "The Oaks at Spanish Fork",
-    "city": "Spanish Fork",
-    "url": "https://www.theoaksatsf.com/"
-  },
-  {
-    "name": "Fox Hollow Golf Club",
-    "city": "American Fork",
-    "url": "https://www.foxhollowutah.com/"
-  },
-  {
     "name": "Gladstan Golf Course",
     "city": "Payson",
     "url": "https://gladstan.com/"
-  },
-  {
-    "name": "Eaglewood Golf Course",
-    "city": "North Salt Lake",
-    "url": "https://eaglewoodgolf.com/"
-  },
-  {
-    "name": "Davis Park Golf Course",
-    "city": "Kaysville",
-    "url": "https://www.davisparkutah.com/"
   },
   {
     "name": "Bountiful Ridge Golf Club",
@@ -160,19 +105,9 @@
     "url": "https://www.valleyviewutah.com/"
   },
   {
-    "name": "Sun Hills Golf Course",
-    "city": "Layton",
-    "url": "https://www.sunhillsgolf.com/"
-  },
-  {
     "name": "Schneiter's Bluff Golf Course",
     "city": "West Point",
     "url": "https://schneitersgolf.com/"
-  },
-  {
-    "name": "Glen Eagle Golf Course",
-    "city": "Syracuse",
-    "url": "https://golfgleneagle.com/"
   },
   {
     "name": "El Monte Golf Course",
@@ -198,16 +133,6 @@
     "name": "Eagle Lake Golf Course",
     "city": "Roy",
     "url": "https://eaglelake-golf.com/"
-  },
-  {
-    "name": "Wolf Creek Resort Golf Course",
-    "city": "Eden",
-    "url": "https://wolfcreekresort.com/golf/"
-  },
-  {
-    "name": "Eagle Mountain Golf Club",
-    "city": "Brigham City",
-    "url": "https://eaglemountaingc.com/"
   },
   {
     "name": "Park City Golf Club",
@@ -265,19 +190,9 @@
     "url": "https://bearlakegolfcourse.com/"
   },
   {
-    "name": "Carbon Country Club",
-    "city": "Helper",
-    "url": "https://www.carboncountryclub.com/"
-  },
-  {
     "name": "Green River State Park",
     "city": "Green River",
     "url": "https://stateparks.utah.gov/golf/green-river/"
-  },
-  {
-    "name": "Millsite Golf Course",
-    "city": "Ferron",
-    "url": "https://millsitegolfcourse.com/"
   },
   {
     "name": "The Moab Golf Course",
