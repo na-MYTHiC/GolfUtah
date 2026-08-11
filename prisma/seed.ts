@@ -147,14 +147,25 @@ const courses: {
     externalId: "21605:8326",
     bookingUrl: "https://millsitegolfcourse.com/",
   },
+  {
+    name: "Stonebridge Golf Club",
+    city: "West Valley City",
+    platform: "FOREUP",
+    externalId: "22130:9912",
+    bookingUrl: "https://www.golfstonebridgeutah.com/",
+  },
   // Not seeded: Crane Field Golf Course. Detection returned "1:1", which
   // is a placeholder URL in its markup rather than a real booking link --
   // every genuine Utah ForeUp courseId is 4-5 digits. Needs its real ids
   // read off the booking page.
   //
+  // Not seeded: The Ridge Golf Club. Its booking page is ForeUp course
+  // 22131 but lands on #/login -- the tee sheet is gated, so the
+  // schedule_id only appears once signed in. Neighbouring Stonebridge is
+  // 22130, a separate install rather than a shared one.
+  //
   // Still unresolved statewide: 13 Chronogolf courses (no adapter yet),
-  // 12 undetected, and 12 ForeUp courses whose ids detection couldn't
-  // reach. See scripts/courses.candidates.json.
+  // plus the courses in scripts/courses.candidates.json.
 ];
 
 async function main() {

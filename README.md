@@ -181,20 +181,17 @@ per-host under `playwright/.auth/` (gitignored) and reused automatically
 on later runs. The script never asks for or stores credentials — only the
 session that results from you signing in yourself.
 
-Courses that share a booking system share a login, so one capture can
-cover several. Point the others at it with `auth` — see
-`scripts/courses.login-required.json`, where Stonebridge reuses The
-Ridge's session:
+Courses that genuinely share one booking system also share a login, so
+one capture can cover several. Point the others at it with `auth`:
 
 ```json
-{ "name": "Stonebridge Golf Club",
-  "url": "https://www.golfstonebridgeutah.com/",
-  "auth": "golftheridgegc.com" }
+{ "name": "Some Course", "url": "https://...", "auth": "othercourse.com" }
 ```
 
-Two courses on one booking system means one `course_id` with different
-`schedule_id`s, which the `courseId:scheduleId` format already handles —
-they become two ordinary rows.
+Neighbouring courses aren't necessarily one install, though — The Ridge
+and Stonebridge look like a shared page but are ForeUp courses 22131 and
+22130, two separate installs with separate logins. Check the booking URL
+before assuming.
 
 Worth being clear about what this implies for the product: if a course
 gates *availability* behind login (rather than just checkout), GolfUtah
