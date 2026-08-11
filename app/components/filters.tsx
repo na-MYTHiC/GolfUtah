@@ -60,7 +60,7 @@ export function SearchBar({ value }: { value: string }) {
       <svg
         aria-hidden
         viewBox="0 0 20 20"
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-3"
       >
         <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
         <path d="M13.5 13.5 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -71,7 +71,7 @@ export function SearchBar({ value }: { value: string }) {
         value={value}
         onChange={(e) => update(e.target.value)}
         placeholder="Search course or city"
-        className="w-full rounded-full bg-zinc-100 py-2 pl-9 pr-3 text-[15px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:bg-zinc-800/80 dark:text-zinc-100"
+        className="w-full rounded-full bg-surface-2 py-2 pl-9 pr-3 text-[15px] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
       />
     </div>
   );
@@ -90,15 +90,15 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
   };
 
   return (
-    <div className="flex shrink-0 rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800/80">
+    <div className="flex shrink-0 rounded-full bg-surface-2 p-0.5">
       {(["time", "course"] as const).map((option) => (
         <button
           key={option}
           onClick={() => set(option)}
           className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
             view === option
-              ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
-              : "text-zinc-500 dark:text-zinc-400"
+              ? "bg-surface-3 text-text-1"
+              : "text-text-2"
           }`}
         >
           {option === "time" ? "By time" : "By course"}
@@ -134,8 +134,8 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
             onClick={() => pick(date)}
             className={`flex w-[3.25rem] shrink-0 flex-col items-center rounded-xl py-2 transition ${
               isActive
-                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25"
-                : "bg-zinc-100 text-zinc-600 active:bg-zinc-200 dark:bg-zinc-800/80 dark:text-zinc-300"
+                ? "bg-crimson text-white shadow-sm shadow-crimson/30"
+                : "bg-surface-2 text-text-2 active:bg-surface-3"
             }`}
           >
             <span className="text-[10px] font-medium uppercase tracking-wide opacity-75">
@@ -289,12 +289,12 @@ function Chip({
         // faster and more accessible than any custom dropdown.
         className={`appearance-none rounded-full py-1.5 pl-3.5 pr-7 text-sm font-medium transition ${
           active
-            ? "bg-emerald-600 text-white"
-            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300"
+            ? "bg-crimson text-white"
+            : "bg-surface-2 text-text-2"
         }`}
       >
         {options.map(([v, label]) => (
-          <option key={v} value={v} className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+          <option key={v} value={v} className="bg-surface-1 text-text-1">
             {label}
           </option>
         ))}
@@ -303,7 +303,7 @@ function Chip({
         aria-hidden
         viewBox="0 0 12 12"
         className={`pointer-events-none absolute right-2.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 ${
-          active ? "text-white/80" : "text-zinc-400"
+          active ? "text-white/80" : "text-text-3"
         }`}
       >
         <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

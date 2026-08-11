@@ -1,18 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#064e3b"/>
-  <!-- flag stick -->
-  <rect x="286" y="96" width="12" height="248" rx="6" fill="#f4f4f5"/>
-  <!-- pennant -->
-  <path d="M298 104 L410 140 L298 176 Z" fill="#10b981"/>
-  <!-- green -->
-  <ellipse cx="256" cy="372" rx="150" ry="44" fill="#10b981" opacity="0.35"/>
-  <!-- ball -->
-  <circle cx="188" cy="356" r="40" fill="#fafafa"/>
-  <circle cx="174" cy="344" r="4.5" fill="#d4d4d8"/>
-  <circle cx="190" cy="340" r="4.5" fill="#d4d4d8"/>
-  <circle cx="204" cy="350" r="4.5" fill="#d4d4d8"/>
-  <circle cx="178" cy="360" r="4.5" fill="#d4d4d8"/>
-  <circle cx="194" cy="358" r="4.5" fill="#d4d4d8"/>
-  <circle cx="186" cy="372" r="4.5" fill="#d4d4d8"/>
-  <circle cx="202" cy="368" r="4.5" fill="#d4d4d8"/>
+  <defs>
+    <!-- Light from the upper left, so the ball reads as a sphere rather
+         than a flat disc. -->
+    <radialGradient id="ball" cx="38%" cy="32%" r="78%">
+      <stop offset="0%" stop-color="#f4415f"/>
+      <stop offset="55%" stop-color="#dc143c"/>
+      <stop offset="100%" stop-color="#8f0d27"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#dc143c" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#dc143c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0b0809"/>
+  <circle cx="256" cy="256" r="190" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="132" fill="url(#ball)"/>
+
+  <!-- Dimples in staggered rows, denser toward the lit side. -->
+  <g fill="#7d0b22" opacity="0.5">
+    <circle cx="256" cy="168" r="12"/>
+    <circle cx="212" cy="192" r="12"/>
+    <circle cx="300" cy="192" r="12"/>
+    <circle cx="256" cy="216" r="12"/>
+    <circle cx="190" cy="240" r="12"/>
+    <circle cx="322" cy="240" r="12"/>
+    <circle cx="212" cy="264" r="12"/>
+    <circle cx="300" cy="264" r="12"/>
+    <circle cx="256" cy="288" r="12"/>
+    <circle cx="190" cy="312" r="11"/>
+    <circle cx="322" cy="312" r="11"/>
+    <circle cx="212" cy="336" r="10"/>
+    <circle cx="300" cy="336" r="10"/>
+    <circle cx="256" cy="360" r="9"/>
+  </g>
 </svg>

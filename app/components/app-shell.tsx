@@ -124,14 +124,14 @@ export function AppShell() {
   }, [date]);
 
   if (courses === null) {
-    return <p className="py-10 text-center text-sm text-zinc-500">Loading tee times…</p>;
+    return <p className="py-10 text-center text-sm text-text-2">Loading tee times…</p>;
   }
 
   if (courses.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-300 p-6 text-sm dark:border-zinc-700">
-        <p className="font-medium text-zinc-900 dark:text-zinc-100">No data for this day</p>
-        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-dashed border-line p-6 text-sm">
+        <p className="font-medium text-text-1">No data for this day</p>
+        <p className="mt-1 text-text-2">
           {index
             ? `Tee times are published for ${index.dates[0]} through ${
                 index.dates[index.dates.length - 1]
@@ -166,7 +166,7 @@ function Freshness({ generatedAt }: { generatedAt: string }) {
   });
 
   return (
-    <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-500">
+    <p className="mt-6 text-center text-xs text-text-3">
       Availability last checked at {clock} · always confirm on the course&apos;s own page
     </p>
   );

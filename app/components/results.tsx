@@ -135,7 +135,7 @@ export function Results({
 
   return (
     <>
-      <div className="sticky top-0 z-10 -mx-4 border-b border-zinc-200/70 bg-zinc-50/95 px-4 pb-1 pt-2 backdrop-blur-lg dark:border-zinc-800/70 dark:bg-zinc-950/95">
+      <div className="sticky top-0 z-10 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-1 pt-2 backdrop-blur-lg">
         <DateStrip today={today} active={date} />
         <div className="pt-2">
           <SearchBar value={filters.q} />
@@ -149,7 +149,7 @@ export function Results({
       </div>
 
       <div className="flex items-center justify-between gap-3 pb-3 pt-3">
-        <p className="px-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
+        <p className="px-0.5 text-[13px] text-text-2">
           {bookings.length === 0
             ? "No tee times match"
             : `${bookings.length} tee time${bookings.length === 1 ? "" : "s"} · ${coursesWithTimes} of ${courses.length} courses`}
@@ -216,12 +216,12 @@ function TimeSections({
           return (
             <section key={name}>
               <h2 className="mb-2 flex items-baseline justify-between px-0.5">
-                <span className="text-[13px] font-semibold text-zinc-700 dark:text-zinc-200">
+                <span className="text-[13px] font-semibold text-text-1">
                   {name}
-                  <span className="ml-1.5 font-normal text-zinc-400">{items.length}</span>
+                  <span className="ml-1.5 font-normal text-text-3">{items.length}</span>
                 </span>
                 {cheapest !== Infinity && (
-                  <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-500">
+                  <span className="text-[11px] font-medium text-crimson-bright">
                     from ${(cheapest / 100).toFixed(0)}
                   </span>
                 )}
@@ -261,9 +261,9 @@ function TimeSections({
     <div className="flex flex-col gap-5">
       {groups.map((group) => (
         <section key={group.key}>
-          <h2 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+          <h2 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-text-3">
             {group.label}
-            <span className="ml-1.5 font-normal normal-case tracking-normal text-zinc-400/70">
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-text-3">
               {group.items.length}
             </span>
           </h2>
@@ -280,10 +280,10 @@ function TimeSections({
 
 function EmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-300 px-6 py-10 text-center dark:border-zinc-700">
+    <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center">
       <p className="text-2xl">⛳</p>
-      <p className="mt-2 font-medium text-zinc-900 dark:text-zinc-100">Nothing open</p>
-      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="mt-2 font-medium text-text-1">Nothing open</p>
+      <p className="mt-1 text-sm text-text-2">
         Try another day, a smaller group, or a wider time range.
       </p>
     </div>
@@ -301,13 +301,13 @@ function QuietCourses({
   const errored = quiet.filter((q) => q.reason === "error");
 
   return (
-    <div className="mt-6 rounded-2xl bg-white px-4 py-3 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+    <div className="mt-6 rounded-2xl bg-surface-1 px-4 py-3 ring-1 ring-line">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left text-sm font-medium text-zinc-600 dark:text-zinc-300"
+        className="flex w-full items-center justify-between text-left text-sm font-medium text-text-2"
       >
         <span>{quiet.length} other courses</span>
-        <span className="text-lg leading-none text-zinc-400">{open ? "−" : "+"}</span>
+        <span className="text-lg leading-none text-text-3">{open ? "−" : "+"}</span>
       </button>
 
       {open && (
@@ -325,8 +325,8 @@ function QuietGroup({ label, items }: { label: string; items: { name: string }[]
   if (items.length === 0) return null;
   return (
     <div>
-      <p className="text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className="mt-0.5 text-zinc-700 dark:text-zinc-300">
+      <p className="text-text-2">{label}</p>
+      <p className="mt-0.5 text-text-2">
         {items.map((i) => i.name).join(" · ")}
       </p>
     </div>
