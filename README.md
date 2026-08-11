@@ -98,12 +98,26 @@ never say which booking platform a course uses — that only shows up on
 the course's own site, where the "Book Tee Time" link points at the
 platform or embeds its widget.
 
-`scripts/detect-platform.ts` checks a list of course websites and reports
-what it finds:
+Two scripts cover this. First, pull the course links out of a directory
+page (utah.com, UGA, 18birdies, ...):
 
 ```bash
-npm run detect -- scripts/courses.candidates.json
-npm run detect -- scripts/courses.candidates.json --json > found.json
+npm run extract -- https://www.utah.com/.../golfing/ > candidates.json
+```
+
+If the directory blocks plain requests or renders its list with
+JavaScript, open it in a browser, Save Page As, and point the script at
+the saved file instead:
+
+```bash
+npm run extract -- saved-page.html > candidates.json
+```
+
+Then check what platform each course uses:
+
+```bash
+npm run detect -- candidates.json
+npm run detect -- candidates.json --json > found.json
 ```
 
 For MemberSports courses it pulls the `<golfClubId>:<golfCourseId>` pair
