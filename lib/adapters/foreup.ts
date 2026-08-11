@@ -135,27 +135,87 @@ export function foreUpBookingUrl(
   return `${base}?${params}#/teetimes`;
 }
 
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
+
+/**
+ * PHPSESSID per course+schedule.
+ *
+ * A browser never calls the times endpoint cold: it loads
+ * /index.php/booking/<courseId>/<scheduleId> first, which issues a
+ * session, and only then does the widget fetch times. Booking class
+ * selection appears to be held against that session server-side, which
+ * would explain a request carrying booking_class=177 still coming back
+ * with a truncated sheet. So establish a session the same way.
+ */
+const sessions = new Map<string, { cookie: string; at: number }>();
+const SESSION_TTL_MS = 20 * 60 * 1000;
+
+async function getSession(ids: ForeUpIds): Promise<string | undefined> {
+  const key = `${ids.courseId}:${ids.scheduleId}`;
+  const hit = sessions.get(key);
+  if (hit && Date.now() - hit.at < SESSION_TTL_MS) return hit.cookie;
+
+  try {
+    const resp = await fetch(bookingPageUrl(ids.courseId, ids.scheduleId), {
+      headers: { accept: "text/html,application/xhtml+xml", "user-agent": UA },
+    });
+
+    // getSetCookie keeps multiple Set-Cookie headers separate; a plain
+    // get() would join them into one unusable string.
+    const cookies = resp.headers
+      .getSetCookie?.()
+      .map((c) => c.split(";")[0])
+      .filter(Boolean);
+
+    if (cookies?.length) {
+      const cookie = cookies.join("; ");
+      sessions.set(key, { cookie, at: Date.now() });
+      return cookie;
+    }
+  } catch {
+    // No session is survivable — the request still usually returns data,
+    // just possibly a different slice of it.
+  }
+  return undefined;
+}
+
+function bookingPageUrl(courseId: number, scheduleId: number): string {
+  return `https://foreupsoftware.com/index.php/booking/${courseId}/${scheduleId}`;
+}
+
 async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]> {
-  const params = new URLSearchParams({
-    time: "all",
-    date: toForeUpDate(date),
-    holes: "all",
-    players: "0",
-    schedule_id: String(ids.scheduleId),
-    "schedule_ids[]": String(ids.scheduleId),
-    specials_only: "0",
-    api_key: "",
-  });
+  // Built in ForeUp's own parameter order rather than alphabetically or
+  // by convenience — matching the real request exactly costs nothing and
+  // removes a variable when results disagree with the course's page.
+  const params = new URLSearchParams();
+  params.set("time", "all");
+  params.set("date", toForeUpDate(date));
+  params.set("holes", "all");
+  params.set("players", "0");
   if (ids.bookingClassId !== undefined) {
     params.set("booking_class", String(ids.bookingClassId));
   }
+  params.set("schedule_id", String(ids.scheduleId));
+  params.append("schedule_ids[]", String(ids.scheduleId));
+  params.set("specials_only", "0");
+  params.set("api_key", "");
+
+  const cookie = await getSession(ids);
 
   const resp = await fetch(`${API_BASE}/times?${params}`, {
     headers: {
       accept: "application/json, text/javascript, */*; q=0.01",
-      "x-requested-with": "XMLHttpRequest",
+      "accept-language": "en-US,en;q=0.5",
+      // ForeUp's widget sends this header empty; mirrored rather than
+      // omitted in case its presence is what's checked.
+      "api-key": "",
+      referer: bookingPageUrl(ids.courseId, ids.scheduleId),
+      "user-agent": UA,
       "x-fu-golfer-location": "foreup",
-      referer: `https://foreupsoftware.com/index.php/booking/${ids.courseId}/${ids.scheduleId}`,
+      "x-requested-with": "XMLHttpRequest",
+      ...(cookie ? { cookie } : {}),
     },
   });
 
