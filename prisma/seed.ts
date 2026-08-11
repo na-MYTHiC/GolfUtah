@@ -19,14 +19,38 @@ const courses: {
   externalId: string;
   bookingUrl: string;
 }[] = [
+  // externalId is "<golfClubId>:<golfCourseId>". Eaglewood's came from a
+  // real onlineBookingTeeTimes capture (see lib/adapters/membersports.ts);
+  // the rest were found by scripts/detect-platform.ts reading the IDs out
+  // of each course's booking URL. Verify a new one with:
+  //   npx tsx scripts/probe-membersports.ts <clubId> <courseId>
   {
     name: "Eaglewood Golf Course",
     city: "North Salt Lake",
     platform: "MEMBERSPORTS",
-    // "<golfClubId>:<golfCourseId>", confirmed from a real
-    // onlineBookingTeeTimes capture — see lib/adapters/membersports.ts
     externalId: "15391:18901",
     bookingUrl: "https://eaglewoodgolf.com/golf/",
+  },
+  {
+    name: "Cedar Hills Golf Club",
+    city: "Cedar Hills",
+    platform: "MEMBERSPORTS",
+    externalId: "15381:18891",
+    bookingUrl: "https://cedarhillsgolfutah.com/",
+  },
+  {
+    name: "Fore Lakes Golf Course",
+    city: "Taylorsville",
+    platform: "MEMBERSPORTS",
+    externalId: "15394:18905",
+    bookingUrl: "https://forelakesgc.com/",
+  },
+  {
+    name: "Fox Hollow Golf Club",
+    city: "American Fork",
+    platform: "MEMBERSPORTS",
+    externalId: "15396:18907",
+    bookingUrl: "https://foxhollowutah.com/",
   },
   // Example shape once a course is verified — uncomment and fill in with
   // a real, confirmed externalId:

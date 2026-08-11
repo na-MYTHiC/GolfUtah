@@ -62,34 +62,81 @@ function detectFromHtml(html: string): { platform: Detection["platform"]; extern
   return { platform: "UNKNOWN" };
 }
 
-async function detect(candidate: Candidate): Promise<Detection> {
-  try {
-    const resp = await fetch(candidate.url, {
-      redirect: "follow",
-      headers: {
-        // Identify as a normal browser; some course sites 403 bare fetches.
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-        accept: "text/html,application/xhtml+xml",
-      },
-    });
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
-    if (!resp.ok) {
-      return { ...candidate, platform: "ERROR", note: `HTTP ${resp.status}` };
+async function fetchPage(url: string): Promise<{ html: string; finalUrl: string } | { error: string }> {
+  try {
+    const resp = await fetch(url, {
+      redirect: "follow",
+      headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml" },
+    });
+    if (!resp.ok) return { error: `HTTP ${resp.status}` };
+    return { html: await resp.text(), finalUrl: resp.url };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
+/**
+ * Links that look like they lead to booking. Courses very often don't
+ * name their platform on the homepage — the giveaway is one click deeper,
+ * behind a "Book a Tee Time" button.
+ */
+function findBookingLinks(html: string, baseUrl: string): string[] {
+  const anchor = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const bookingish = /book|tee[\s-]?time|reserve|reservation|schedule/i;
+  const found = new Set<string>();
+
+  for (const match of html.matchAll(anchor)) {
+    const [, href, inner] = match;
+    const text = inner.replace(/<[^>]*>/g, " ").trim();
+    if (!bookingish.test(text) && !bookingish.test(href)) continue;
+
+    try {
+      const abs = new URL(href, baseUrl).toString();
+      if (/^https?:/i.test(abs)) found.add(abs);
+    } catch {
+      // malformed href, skip
+    }
+    if (found.size >= 3) break; // cap the fan-out per course
+  }
+
+  return [...found];
+}
+
+async function detect(candidate: Candidate): Promise<Detection> {
+  const page = await fetchPage(candidate.url);
+  if ("error" in page) return { ...candidate, platform: "ERROR", note: page.error };
+
+  // The final URL after redirects is itself a strong signal — a booking
+  // link often redirects straight to the platform.
+  const fromUrl = detectFromHtml(page.finalUrl);
+  if (fromUrl.platform !== "UNKNOWN") return { ...candidate, ...fromUrl };
+
+  const fromHtml = detectFromHtml(page.html);
+  if (fromHtml.platform !== "UNKNOWN") return { ...candidate, ...fromHtml };
+
+  // Homepage gave nothing — follow booking-looking links one level deep.
+  for (const link of findBookingLinks(page.html, page.finalUrl)) {
+    await new Promise((r) => setTimeout(r, DELAY_MS));
+
+    const sub = await fetchPage(link);
+    if ("error" in sub) continue;
+
+    const subUrl = detectFromHtml(sub.finalUrl);
+    if (subUrl.platform !== "UNKNOWN") {
+      return { ...candidate, ...subUrl, note: `via ${new URL(link).pathname}` };
     }
 
-    const html = await resp.text();
-
-    // The final URL after redirects is itself a strong signal — a "Book
-    // Tee Time" link often redirects straight to the platform.
-    const fromUrl = detectFromHtml(resp.url);
-    if (fromUrl.platform !== "UNKNOWN") return { ...candidate, ...fromUrl };
-
-    return { ...candidate, ...detectFromHtml(html) };
-  } catch (err) {
-    return { ...candidate, platform: "ERROR", note: (err as Error).message };
+    const subHtml = detectFromHtml(sub.html);
+    if (subHtml.platform !== "UNKNOWN") {
+      return { ...candidate, ...subHtml, note: `via ${new URL(link).pathname}` };
+    }
   }
+
+  return { ...candidate, platform: "UNKNOWN" };
 }
 
 async function main() {

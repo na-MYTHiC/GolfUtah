@@ -78,6 +78,15 @@ function extract(html: string, sourceUrl?: string): Candidate[] {
     // links, "click here", and other non-names.
     if (name.length < 3 || name.length > 80) continue;
     if (/^(here|more|read more|visit|website|link|book now)$/i.test(name)) continue;
+    // Site furniture that lives on every directory page and links out.
+    if (
+      /^(events?|news|blog|privacy|terms|contact|about|home|sitemap|advertise|subscribe|newsletter|careers?|jobs)\b/i.test(
+        name
+      ) ||
+      /\b(privacy policy|terms of (service|use)|cookie policy|accessibility)\b/i.test(name)
+    ) {
+      continue;
+    }
 
     const url = normalizeUrl(rawHref);
     if (!url) continue;
