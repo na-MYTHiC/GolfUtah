@@ -106,37 +106,76 @@ function findBookingLinks(html: string, baseUrl: string): string[] {
   return [...found];
 }
 
+/**
+ * How many clicks past the homepage to chase. Some courses need two:
+ * Hobble Creek's homepage links to a golf page, which links again to the
+ * actual booking page before the platform ever shows up.
+ */
+const MAX_DEPTH = 2;
+
+/** Bounds total work per course, so a link-heavy site can't blow up. */
+const MAX_PAGES_PER_COURSE = 8;
+
 async function detect(candidate: Candidate): Promise<Detection> {
-  const page = await fetchPage(candidate.url);
-  if ("error" in page) return { ...candidate, platform: "ERROR", note: page.error };
+  const visited = new Set<string>();
+  // Queue of pages to check, each remembering the trail that got us there.
+  let frontier: { url: string; trail: string[] }[] = [{ url: candidate.url, trail: [] }];
+  let firstError: string | undefined;
+  let fetched = 0;
 
-  // The final URL after redirects is itself a strong signal — a booking
-  // link often redirects straight to the platform.
-  const fromUrl = detectFromHtml(page.finalUrl);
-  if (fromUrl.platform !== "UNKNOWN") return { ...candidate, ...fromUrl };
+  for (let depth = 0; depth <= MAX_DEPTH; depth++) {
+    const next: typeof frontier = [];
 
-  const fromHtml = detectFromHtml(page.html);
-  if (fromHtml.platform !== "UNKNOWN") return { ...candidate, ...fromHtml };
+    for (const { url, trail } of frontier) {
+      if (visited.has(url) || fetched >= MAX_PAGES_PER_COURSE) continue;
+      visited.add(url);
 
-  // Homepage gave nothing — follow booking-looking links one level deep.
-  for (const link of findBookingLinks(page.html, page.finalUrl)) {
-    await new Promise((r) => setTimeout(r, DELAY_MS));
+      if (fetched > 0) await new Promise((r) => setTimeout(r, DELAY_MS));
+      const page = await fetchPage(url);
+      fetched++;
 
-    const sub = await fetchPage(link);
-    if ("error" in sub) continue;
+      if ("error" in page) {
+        // Only the landing page's failure is worth reporting as ERROR;
+        // a dead link deeper in just means keep looking.
+        if (depth === 0) firstError = page.error;
+        continue;
+      }
 
-    const subUrl = detectFromHtml(sub.finalUrl);
-    if (subUrl.platform !== "UNKNOWN") {
-      return { ...candidate, ...subUrl, note: `via ${new URL(link).pathname}` };
+      // The final URL after redirects is itself a strong signal — a booking
+      // link often redirects straight to the platform.
+      for (const candidateHtml of [page.finalUrl, page.html]) {
+        const hit = detectFromHtml(candidateHtml);
+        if (hit.platform !== "UNKNOWN") {
+          return {
+            ...candidate,
+            ...hit,
+            note: trail.length > 0 ? `via ${trail.join(" -> ")}` : undefined,
+          };
+        }
+      }
+
+      if (depth < MAX_DEPTH) {
+        for (const link of findBookingLinks(page.html, page.finalUrl)) {
+          if (visited.has(link)) continue;
+          next.push({ url: link, trail: [...trail, pathOf(link)] });
+        }
+      }
     }
 
-    const subHtml = detectFromHtml(sub.html);
-    if (subHtml.platform !== "UNKNOWN") {
-      return { ...candidate, ...subHtml, note: `via ${new URL(link).pathname}` };
-    }
+    frontier = next;
+    if (frontier.length === 0) break;
   }
 
+  if (firstError) return { ...candidate, platform: "ERROR", note: firstError };
   return { ...candidate, platform: "UNKNOWN" };
+}
+
+function pathOf(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
 }
 
 async function main() {
