@@ -120,3 +120,27 @@ aggregation is solid for a real set of courses.
 ## License
 
 TBD.
+
+## Finding which courses use which platform
+
+Course directories (18birdies, UGA, GolfNow) list names and addresses but
+never say which booking platform a course uses — that only shows up on
+the course's own site, where the "Book Tee Time" link points at the
+platform or embeds its widget.
+
+`scripts/detect-platform.ts` checks a list of course websites and reports
+what it finds:
+
+```bash
+npm run detect -- scripts/courses.candidates.json
+npm run detect -- scripts/courses.candidates.json --json > found.json
+```
+
+For MemberSports courses it pulls the `<golfClubId>:<golfCourseId>` pair
+straight out of the booking URL and prints a ready-to-paste
+`prisma/seed.ts` entry.
+
+`scripts/courses.candidates.json` is a starting list of Utah courses —
+the URLs are best guesses and some will 404, so fix or extend it as you
+go. It requests one site at a time with a delay, deliberately: it should
+behave like a person clicking through a directory. Don't parallelize it.

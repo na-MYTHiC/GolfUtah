@@ -13,7 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "generate-key": "tsx scripts/generate-key.ts",
-    "probe": "tsx scripts/probe-membersports.ts"
+    "probe": "tsx scripts/probe-membersports.ts",
+    "detect": "tsx scripts/detect-platform.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
