@@ -10,6 +10,38 @@ that course's own booking page to enter payment and complete the
 reservation — GolfUtah never touches payment info or holds a booking
 itself.
 
+## The app
+
+One page listing every tee time GolfUtah can see for a given day, grouped
+by course.
+
+- **Filters** — date (8 days out), party size, 9 vs 18 holes, earliest and
+  latest tee time, max price. Sort by tee time, price, or distance.
+  Filters live in the URL, so a search is shareable and survives a
+  refresh.
+- **Weather per tee time** — temperature and wind at the hour you'd be
+  playing, from Open-Meteo. Wind is called out above 12 mph, since it
+  changes a round more than most weather widgets suggest. No API key
+  needed.
+- **Distance** — optional, from browser geolocation. The coordinates stay
+  in the browser; they're never sent to the server.
+- **Ratings** — Google Places, only if `GOOGLE_PLACES_API_KEY` is set.
+  Omitted entirely otherwise rather than showing a broken panel.
+- **Honest failure** — a course whose fetch failed is listed with the
+  reason instead of silently vanishing, so an outage doesn't look like
+  "no tee times".
+
+Clicking a time opens that course's own booking page. GolfUtah never
+handles payment.
+
+### Running without a database
+
+With no `DATABASE_URL`, the app calls each course's platform directly on
+page load, so `npm run dev` shows real tee times with zero setup. That's
+for trying it out — it puts one request per course on their systems per
+page load. With Postgres configured it reads what `npm run poll` cached,
+which is both far faster and much lighter on the courses.
+
 ## Architecture
 
 - **Next.js (App Router) + TypeScript** — the web app (`app/`) and a
@@ -31,6 +63,9 @@ itself.
   some adapters will need a real Playwright browser session (for
   courses that require login), which doesn't suit cold-started
   serverless functions.
+- **Enrichment** (`lib/weather.ts`, `lib/places.ts`) — weather and
+  ratings. Both cache aggressively, and both return null rather than
+  throwing, so an upstream outage costs a badge and not the page.
 - **Credential storage** (`lib/crypto.ts`, `CourseCredential` model) —
   for courses that only show full availability (or member rates) to a
   logged-in user, and eventually for auto-booking. Credentials are
@@ -56,21 +91,32 @@ Chronogolf 13, MemberSports 5):
 
 ## Getting started
 
+The quickest way to see it working — no database needed:
+
 ```bash
-cp .env.example .env
-npm run generate-key   # paste the output into .env as CREDENTIALS_ENCRYPTION_KEY
-# set DATABASE_URL in .env too
 npm install
-npm run db:migrate     # create tables
-npm run db:seed        # add real courses to prisma/seed.ts first
 npm run dev            # http://localhost:3000
 ```
 
-To populate tee time data once at least one adapter is implemented:
+That runs in live mode, calling each course's platform per page load.
+Fine for a look; too heavy for real use.
+
+For the cached setup:
 
 ```bash
-npm run poll            # one pass
-npm run poll -- --loop=300   # repeat every 5 minutes
+cp .env.example .env
+npm run generate-key   # paste into .env as CREDENTIALS_ENCRYPTION_KEY
+# set DATABASE_URL in .env too
+npm run db:migrate     # create tables
+npm run db:seed        # 19 courses, from lib/courses.data.ts
+npm run poll           # fetch tee times into Postgres
+npm run dev
+```
+
+Keep the worker running to stay fresh:
+
+```bash
+npm run poll -- --loop=300   # every 5 minutes
 ```
 
 ## Adding a course
@@ -216,7 +262,8 @@ fetch-based detection couldn't reach.
 
 Outstanding validation: nothing has been written to a real database yet.
 `scripts/probe.ts` confirms both adapters' live API calls return real
-tee times, but the first `npm run poll` against Postgres hasn't run.
+tee times, and the UI has been exercised end-to-end against captured
+data, but the first `npm run poll` against Postgres hasn't run.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once

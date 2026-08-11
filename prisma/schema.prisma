@@ -34,6 +34,11 @@ model Course {
   externalId     String
   bookingUrl     String
   active         Boolean   @default(true)
+  // Approximate (city-level) coordinates, used for distance sorting and
+  // for the course's weather forecast. Good enough to rank courses by how
+  // far away they are; not survey-accurate, so don't navigate by them.
+  latitude       Float?
+  longitude      Float?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   teeTimes       TeeTime[]
