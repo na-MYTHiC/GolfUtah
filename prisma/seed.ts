@@ -43,24 +43,25 @@ const courses: {
     city: "Taylorsville",
     platform: "MEMBERSPORTS",
     externalId: "15394:18905",
-    bookingUrl: "https://forelakesgc.com/",
+    bookingUrl: "https://www.forelakesgc.com/",
   },
   {
     name: "Fox Hollow Golf Club",
     city: "American Fork",
     platform: "MEMBERSPORTS",
     externalId: "15396:18907",
-    bookingUrl: "https://foxhollowutah.com/",
+    bookingUrl: "https://www.foxhollowutah.com/",
   },
-  // Example shape once a course is verified — uncomment and fill in with
-  // a real, confirmed externalId:
-  // {
-  //   name: "Example Golf Course",
-  //   city: "Salt Lake City",
-  //   platform: "FOREUP",
-  //   externalId: "<schedule_id from the booking widget's network request>",
-  //   bookingUrl: "https://.../booking/...",
-  // },
+  {
+    name: "Hobble Creek Golf Course",
+    city: "Springville",
+    platform: "MEMBERSPORTS",
+    externalId: "15404:18918",
+    bookingUrl: "https://www.springville.org/golf/",
+  },
+  // ForeUp (25 Utah courses) and Chronogolf (13) are the bigger pools but
+  // have no adapter yet — see lib/adapters/. Add rows here once those are
+  // implemented and their externalId format is settled.
 ];
 
 async function main() {
