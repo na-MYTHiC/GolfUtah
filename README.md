@@ -151,21 +151,18 @@ behave like a person clicking through a directory. Don't parallelize it.
 
 ## Status
 
-Two of the three platforms are implemented, covering 30 of the 57 Utah
-courses surveyed. Both were built against real captured traffic and their
-response mappings are unit-verified against that captured data. Neither
-has yet made a live network call from this repo — development happened in
-a sandbox that can't reach external hosts — so the first real run against
-Postgres via `npm run poll` is the remaining validation step.
+Two of the three platforms are implemented, between them covering 30 of
+the 57 Utah courses surveyed. Both were built against real captured
+traffic, and their response mappings are verified against that data.
 
 Seeded so far: 17 courses — 5 MemberSports and 12 ForeUp. The remaining
 40 are tracked in `scripts/courses.candidates.json`: 13 Chronogolf (no
 adapter yet), 12 ForeUp whose ids detection couldn't reach, 12 with no
 platform detected, and Crane Field, whose page yielded a placeholder id.
 
-Neither adapter has written to a real database yet — `scripts/probe.ts`
-confirms the live API calls work, but the first `npm run poll` against
-Postgres is still the outstanding validation.
+Outstanding validation: nothing has been written to a real database yet.
+`scripts/probe.ts` confirms both adapters' live API calls return real
+tee times, but the first `npm run poll` against Postgres hasn't run.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once
