@@ -118,14 +118,26 @@ async function fetchOneDate(
  * MemberSports' own booking page for a club+course, e.g.
  * https://app.membersports.com/tee-times/15391/18901/0 for Eaglewood —
  * pattern confirmed by matching that public URL against the golfClubId /
- * golfCourseId from our own capture of the same course.
+ * golfCourseId from our own capture of the same course. The trailing 0 is
+ * the configuration type, matching `types/0` in their API paths.
  *
- * Lands on the course's tee sheet rather than its marketing homepage,
- * which is a better handoff. Still course+date level, not slot level —
- * we haven't found a URL form that preselects a specific tee time.
+ * The date is appended as a query parameter. UNVERIFIED: unlike ForeUp,
+ * whose date parameter came from a real link, no MemberSports URL
+ * carrying a date has been observed. It's added as a query rather than a
+ * path segment deliberately — an unrecognised query parameter is ignored
+ * and the page still lands on the tee sheet, whereas a wrong path segment
+ * could 404. So this either works or changes nothing.
+ *
+ * To confirm: open a MemberSports tee sheet, change the date, and see
+ * whether the address bar picks up a parameter.
  */
-export function memberSportsBookingUrl(golfClubId: number, golfCourseId: number): string {
-  return `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
+export function memberSportsBookingUrl(
+  golfClubId: number,
+  golfCourseId: number,
+  date?: string
+): string {
+  const base = `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
+  return date ? `${base}?date=${date}` : base;
 }
 
 /**
@@ -200,12 +212,11 @@ export const memberSportsAdapter: TeeTimeAdapter = {
       dates.push(d.toISOString().slice(0, 10));
     }
 
-    // Prefer MemberSports' own tee sheet over whatever marketing page the
-    // Course row points at — it drops the user straight into booking.
-    const bookingUrl = memberSportsBookingUrl(golfClubId, golfCourseId);
-
     const results: NormalizedTeeTime[] = [];
     for (const date of dates) {
+      // Built per date so each slot links to the day it belongs to,
+      // rather than dropping everyone on today's sheet.
+      const bookingUrl = memberSportsBookingUrl(golfClubId, golfCourseId, date);
       const buckets = await fetchOneDate(golfClubId, golfCourseId, date);
       for (const bucket of buckets) {
         results.push(...toNormalized(bucket, date, bookingUrl));
