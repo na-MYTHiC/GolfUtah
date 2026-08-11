@@ -62,9 +62,14 @@ interface ForeUpIds {
  * The booking class is left optional on purpose: courseId and scheduleId
  * are both readable straight from a course's booking URL, but the booking
  * class is not — it only appears in the widget's own request. Requiring
- * it would mean a hand capture for every course. When it's omitted the
- * request goes out without the param, which may be enough for the default
- * public rate; if a course returns nothing or wrong pricing, capture its
+ * it would mean a hand capture for every course.
+ *
+ * Verified against Sun Hills: for the same date, "18895:578" and
+ * "18895:578:177" return the same slots at the same prices ($21 / $40 on
+ * 2026-08-15), so omitting the param yields the public rate. (An earlier
+ * price gap turned out to be weekday-vs-weekend — 2026-08-11 quotes
+ * $19 / $36 — not the booking class.) That's one course, though; if a
+ * course returns nothing or prices that look wrong, capture its
  * booking_class and add the third segment.
  */
 export function parseExternalId(externalId: string): ForeUpIds {

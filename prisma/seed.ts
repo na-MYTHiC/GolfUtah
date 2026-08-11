@@ -59,11 +59,10 @@ const courses: {
     externalId: "15404:18918",
     bookingUrl: "https://www.springville.org/golf/",
   },
-  // ForeUp externalId is "<courseId>:<scheduleId>" or
-  // "<courseId>:<scheduleId>:<bookingClassId>". The first two are in the
-  // booking URL; the booking class only appears in the widget's own
-  // request and is optional — see lib/adapters/foreup.ts. Sun Hills is
-  // the course the adapter was built and verified against.
+  // ForeUp externalId is "<courseId>:<scheduleId>" — both are in the
+  // booking URL. A third ":<bookingClassId>" segment is supported but not
+  // needed: verified against Sun Hills that omitting it returns the same
+  // slots and public rates. See lib/adapters/foreup.ts.
   {
     name: "Sun Hills Golf Course",
     city: "Layton",
