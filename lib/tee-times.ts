@@ -37,6 +37,8 @@ export interface Slot {
   holes: number;
   playersOpen: number;
   price: number | null; // cents
+  /** "Front" / "Back" when the platform reports it. */
+  side?: string;
   bookingUrl: string;
 }
 
@@ -91,6 +93,7 @@ async function fetchLiveCourse(seed: CourseSeed, date: string): Promise<CourseWi
       holes: t.holes,
       playersOpen: t.playersOpen,
       price: t.price ?? null,
+      side: t.side,
       bookingUrl: t.bookingUrl,
     }));
   } catch (err) {

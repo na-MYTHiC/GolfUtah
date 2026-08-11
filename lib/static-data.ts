@@ -8,6 +8,8 @@ export interface StaticSlot {
   holes: number;
   spots: number;
   price: number | null;
+  /** "Front" / "Back" when the platform reports it. */
+  side?: string;
   url: string;
 }
 

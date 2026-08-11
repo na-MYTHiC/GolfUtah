@@ -7,9 +7,11 @@
  *
  * externalId formats:
  *   MemberSports  "<golfClubId>:<golfCourseId>"
- *   ForeUp        "<courseId>:<scheduleId>" (optional third
- *                 ":<bookingClassId>" selects a rate class; verified
- *                 unnecessary against Sun Hills)
+ *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
+ *                 booking class is optional but should be captured:
+ *                 without it ForeUp can return only part of the tee
+ *                 sheet. Only Sun Hills has one so far, so the other
+ *                 ForeUp courses here may be showing incomplete times.
  *
  * Coordinates are city-level approximations — accurate enough to sort
  * courses by distance and to pull a local forecast, not to navigate by.
@@ -81,7 +83,9 @@ export const COURSES: CourseSeed[] = [
     name: "Sun Hills Golf Course",
     city: "Layton",
     platform: "FOREUP",
-    externalId: "18895:578",
+    // ":177" is the "Regular" booking class from the course's own page.
+    // Without it the tee sheet comes back truncated — see foreup.ts.
+    externalId: "18895:578:177",
     bookingUrl: "https://www.sunhillsgolf.com/",
     latitude: 41.06,
     longitude: -111.971,

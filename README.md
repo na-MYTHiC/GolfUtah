@@ -156,11 +156,17 @@ course usually needs no DevTools work at all:
    ```
 3. Add the row to `prisma/seed.ts`, then `npm run db:seed`.
 
-ForeUp has an optional third segment, `booking_class`, which selects the
-rate class. It isn't in the URL — only in the widget's own request — so
-it's left off by default. If a ForeUp course returns nothing or prices
-that look wrong, capture its `booking_class` from DevTools and append it:
-`18895:578:177`.
+ForeUp has a third segment, `booking_class`, which selects the rate class
+("Booking as: Regular" on the course's own page). It isn't in the URL —
+only in the widget's own request — so it has to be captured from DevTools
+and appended: `18895:578:177`.
+
+**Capture it.** Without it ForeUp can return a *subset* of the tee sheet,
+not merely different prices: Sun Hills lists times from 6:45am with class
+177 and from 11:06am without it. Only Sun Hills has one so far, so the
+other seeded ForeUp courses may be showing incomplete times. To get it:
+open the course's booking page, DevTools → Network → Fetch/XHR, and read
+`booking_class` off the `times` request.
 
 There's no public directory of which courses use which platform — it has
 to be discovered per course.

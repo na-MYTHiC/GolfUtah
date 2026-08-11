@@ -144,6 +144,23 @@ function SlotTile({
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
           <span>{slot.holes} holes</span>
+          {/* Two slots can share a time and hole count while starting on
+              different nines at different prices — without this they read
+              as duplicates. */}
+          {slot.side && (
+            <>
+              <span aria-hidden>·</span>
+              <span
+                className={
+                  slot.side === "Back"
+                    ? "font-medium text-amber-700 dark:text-amber-500"
+                    : undefined
+                }
+              >
+                {slot.side}
+              </span>
+            </>
+          )}
           <span aria-hidden>·</span>
           <span>
             {slot.playersOpen} spot{slot.playersOpen === 1 ? "" : "s"}

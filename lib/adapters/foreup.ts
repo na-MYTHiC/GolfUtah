@@ -64,13 +64,16 @@ interface ForeUpIds {
  * class is not — it only appears in the widget's own request. Requiring
  * it would mean a hand capture for every course.
  *
- * Verified against Sun Hills: for the same date, "18895:578" and
- * "18895:578:177" return the same slots at the same prices ($21 / $40 on
- * 2026-08-15), so omitting the param yields the public rate. (An earlier
- * price gap turned out to be weekday-vs-weekend — 2026-08-11 quotes
- * $19 / $36 — not the booking class.) That's one course, though; if a
- * course returns nothing or prices that look wrong, capture its
- * booking_class and add the third segment.
+ * IMPORTANT: omitting it can return a *subset* of the tee sheet, not
+ * just different prices. Sun Hills' own booking page ("Booking as:
+ * Regular", class 177) lists times from 6:45am on 2026-08-15, while the
+ * same request without booking_class starts at 11:06am. An earlier check
+ * here compared only prices, saw them match, and wrongly concluded the
+ * param was unnecessary — prices matching says nothing about which slots
+ * are visible.
+ *
+ * So: capture booking_class per course. Without it the adapter still
+ * works, but treat the result as possibly incomplete.
  */
 export function parseExternalId(externalId: string): ForeUpIds {
   const [course, schedule, bookingClass] = externalId.split(":");
@@ -175,6 +178,7 @@ export function toNormalized(raw: RawTeeTime, bookingUrl: string): NormalizedTee
       holes: o.holes,
       playersOpen: o.spots,
       price: Math.round(o.greenFee * 100), // dollars -> cents
+      side: raw.teesheet_side_name,
       // Cart fees are quoted separately and are usually optional, so the
       // headline price stays green-fee-only for comparability with other
       // platforms. `cartFee` isn't in the normalized shape yet.

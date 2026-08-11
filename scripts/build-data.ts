@@ -25,6 +25,7 @@ interface StaticSlot {
   holes: number;
   spots: number;
   price: number | null;
+  side?: string;
   url: string;
 }
 
@@ -87,6 +88,7 @@ async function fetchCourse(
       holes: t.holes,
       spots: t.playersOpen,
       price: t.price ?? null,
+      side: t.side,
       url: t.bookingUrl,
     }));
   } catch (err) {

@@ -13,6 +13,13 @@ export interface NormalizedTeeTime {
   playersOpen: number;
   price?: number; // cents
   cartIncluded?: boolean;
+  /**
+   * Which nine the round starts on ("Front" / "Back"), when the platform
+   * says. Two slots can share a time and hole count while starting on
+   * different sides at different prices, so without this they look like
+   * duplicates.
+   */
+  side?: string;
   bookingUrl: string; // deep link to this exact slot when available
 }
 

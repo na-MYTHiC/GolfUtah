@@ -63,6 +63,7 @@ export function AppShell() {
           holes: s.holes,
           playersOpen: s.spots,
           price: s.price,
+          side: s.side,
           bookingUrl: s.url,
         })),
       }));

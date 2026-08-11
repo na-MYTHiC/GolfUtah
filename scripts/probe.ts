@@ -46,7 +46,15 @@ async function main() {
   const bookingUrl = bookingUrlFor(platform, externalId);
 
   console.log(`Probing ${platform} ${externalId} for ${date}`);
-  console.log(`Booking page: ${bookingUrl}\n`);
+  console.log(`Booking page: ${bookingUrl}`);
+
+  if (platform === "FOREUP" && externalId.split(":").length < 3) {
+    console.log(
+      "Note: no booking_class. ForeUp can return only part of the tee sheet\n" +
+        "without it — compare against the course's own page before trusting this."
+    );
+  }
+  console.log("");
 
   // Only the fields adapters actually read — this never hits the DB.
   const course = { name: `probe ${externalId}`, externalId, bookingUrl, platform } as Course;

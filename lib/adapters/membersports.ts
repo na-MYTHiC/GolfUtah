@@ -149,6 +149,10 @@ function toNormalized(
       // open day before trusting this in the UI.
       playersOpen: item.availableCount,
       price: Math.round(item.price * 100), // dollars -> cents
+      // MemberSports flags back-nine starts both on isBackNine and in the
+      // item name ("Eaglewood Back Nine"). Without it, a back-nine slot is
+      // indistinguishable from a front-nine one at the same time.
+      side: item.isBackNine ? "Back" : "Front",
       bookingUrl,
     }));
 }
