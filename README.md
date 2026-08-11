@@ -40,11 +40,13 @@ itself.
   revisit with a real `User` model before this has more than one user.
 
 Adapter status:
-- **MemberSports** — confirmed against a real capture from Eaglewood Golf
-  Course (North Salt Lake). Request/response shape and field mapping are
-  verified (including a subtle bug caught along the way: `teeTime` is
-  minutes-since-midnight, not literal HH:MM digits). Not fully wired up
-  yet — see below.
+- **MemberSports** — done, confirmed end-to-end against real captures
+  from Eaglewood Golf Course (North Salt Lake): request shape, response
+  mapping, and a subtle time-encoding bug caught and fixed (`teeTime` is
+  minutes-since-midnight, not literal HH:MM digits). Turns out no auth is
+  needed at all — a fresh Incognito capture showed the working request
+  sends literally `Authorization: Bearer null`; only the public
+  `x-api-key` header matters.
 - **ForeUp**, **Chronogolf** — not started; see the comments at the top
   of each file in `lib/adapters/` for how to find and verify each
   platform's real API.
@@ -70,13 +72,13 @@ npm run poll -- --loop=300   # repeat every 5 minutes
 
 ## Status
 
-Early stage. Eaglewood Golf Course is seeded (MemberSports), with a
-verified request/response mapping in `lib/adapters/membersports.ts` —
-but `fetchTeeTimes` isn't fully callable yet, since we don't yet know
-how to obtain a valid session token server-side (the captured request
-had a real user session already stored in the browser; the actual
-login/token-issuing request hasn't been captured — see the comment at
-the top of that file). ForeUp and Chronogolf adapters are unstarted.
+Early stage, but MemberSports is a real, working adapter: Eaglewood Golf
+Course is seeded, and `fetchTeeTimes` in `lib/adapters/membersports.ts`
+is fully implemented against a verified request/response shape — no
+credentials required. Untested against a live network call from this
+environment (sandboxed, can't reach external hosts) but ready to try
+against a real Postgres + `npm run poll`. ForeUp and Chronogolf adapters
+are unstarted.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once

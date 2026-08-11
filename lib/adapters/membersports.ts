@@ -19,18 +19,13 @@ import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
  * "<golfClubId>:<golfCourseId>" (e.g. "15391:18901" for Eaglewood) — a
  * single Course only ever maps to one club+course pair.
  *
- * NOT YET RESOLVED: how to obtain a valid `Authorization: Bearer` token
- * server-side. The captured request had a real token identifying the
- * capturing user's own MemberSports profile, even though no login screen
- * was shown — meaning the browser already had a stored MemberSports
- * session (cookie/localStorage) from some earlier visit, not that the
- * endpoint is anonymous. We haven't captured the request that actually
- * issues/refreshes that token, so `getAccessToken` below is a stub.
- * To find it: clear cookies for membersports.com / app.membersports.com
- * (or use a fresh Incognito window), reload the Eaglewood booking page
- * with the Network tab open, and look for the first auth-ish request
- * that fires before `onlineBookingTeeTimes` — likely something under
- * `/api/v1/auth/...` or similar.
+ * Auth: none needed. Confirmed via a fresh Incognito capture — the
+ * request that succeeds (200 OK) sends literally `Authorization: Bearer
+ * null`. The earlier capture's real-looking JWT (with a user's name in
+ * it) was just whatever happened to be sitting in that browser's normal
+ * profile; MemberSports doesn't actually require it for this endpoint.
+ * Only `x-api-key` (a public value baked into their web app, same for
+ * every visitor) is required.
  */
 
 const API_BASE = "https://api.membersports.com/api/v1";
@@ -55,7 +50,7 @@ interface RawTeeTimeItem {
 }
 
 interface RawTeeTimeBucket {
-  teeTime: number; // e.g. 820 = 8:20am, 1110 = 11:10am
+  teeTime: number; // minutes since midnight, e.g. 820 = 13:40 / 1:40pm
   items: RawTeeTimeItem[];
 }
 
@@ -82,25 +77,17 @@ function formatTeeTime(minutesSinceMidnight: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-async function getAccessToken(): Promise<string> {
-  throw new Error(
-    "MemberSports getAccessToken() not implemented — need to capture the " +
-      "request that issues/refreshes the session token (see comment at top " +
-      "of lib/adapters/membersports.ts)."
-  );
-}
-
 async function fetchOneDate(
   golfClubId: number,
   golfCourseId: number,
-  date: string,
-  token: string
+  date: string
 ): Promise<RawTeeTimeBucket[]> {
   const resp = await fetch(`${API_BASE}/golfclubs/onlineBookingTeeTimes`, {
     method: "POST",
     headers: {
       accept: "application/json",
-      authorization: `Bearer ${token}`,
+      // Confirmed real behavior, not a placeholder — see file header.
+      authorization: "Bearer null",
       "content-type": "application/json; charset=UTF-8",
       origin: "https://app.membersports.com",
       referer: "https://app.membersports.com/",
@@ -157,7 +144,6 @@ export const memberSportsAdapter: TeeTimeAdapter = {
 
   async fetchTeeTimes(course, range): Promise<NormalizedTeeTime[]> {
     const { golfClubId, golfCourseId } = parseCourseIds(course.externalId);
-    const token = await getAccessToken();
 
     const dates: string[] = [];
     for (let d = new Date(range.from); d <= new Date(range.to); d.setDate(d.getDate() + 1)) {
@@ -166,7 +152,7 @@ export const memberSportsAdapter: TeeTimeAdapter = {
 
     const results: NormalizedTeeTime[] = [];
     for (const date of dates) {
-      const buckets = await fetchOneDate(golfClubId, golfCourseId, date, token);
+      const buckets = await fetchOneDate(golfClubId, golfCourseId, date);
       for (const bucket of buckets) {
         results.push(...toNormalized(bucket, date, course.bookingUrl));
       }
