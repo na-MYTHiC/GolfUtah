@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { addDays } from "@/lib/format";
 
 /**
@@ -19,8 +19,10 @@ export interface FilterState {
   sort: "time" | "price" | "distance";
   /** Free text matched against course name and city. */
   q: string;
-  /** City to measure distances from, when not using device location. */
+  /** City to measure distances from, set by searching for one. */
   near: string;
+  /** Only show courses within this many miles of the origin. */
+  radius: number | null;
   view: "time" | "course";
 }
 
@@ -39,40 +41,131 @@ export function useFilters(date: string): FilterState {
     sort: (params.get("sort") as FilterState["sort"]) ?? "time",
     q: params.get("q") ?? "",
     near: params.get("near") ?? "",
+    radius: params.get("radius") ? Number(params.get("radius")) : null,
     view: (params.get("view") as FilterState["view"]) ?? "time",
   };
 }
 
-/** Search across course name and city. */
-export function SearchBar({ value }: { value: string }) {
+/**
+ * Search across course name and city, with suggestions.
+ *
+ * Suggestions come from the courses actually loaded, so they can never
+ * offer something that returns nothing. Picking a city also gives the
+ * radius filter something to measure from — see `near` in FilterState.
+ */
+export function SearchBar({
+  value,
+  courses,
+  cities,
+}: {
+  value: string;
+  courses: string[];
+  cities: string[];
+}) {
   const router = useRouter();
   const params = useSearchParams();
+  const [draft, setDraft] = useState(value);
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const update = (next: string) => {
-    const p = new URLSearchParams(params.toString());
-    if (next.trim()) p.set("q", next);
-    else p.delete("q");
-    router.replace(`/?${p}`, { scroll: false });
-  };
+  // Keep the box in step when the URL changes from elsewhere — a shared
+  // link, or tapping the app name to reset. Comparing against the last
+  // value seen during render, rather than syncing in an effect, avoids
+  // the extra render pass an effect would cause.
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    setLastValue(value);
+    setDraft(value);
+  }
+
+  const commit = useCallback(
+    (next: string, city?: string) => {
+      const p = new URLSearchParams(params.toString());
+      if (next.trim()) p.set("q", next);
+      else p.delete("q");
+      // A city match doubles as the origin for radius filtering.
+      if (city) p.set("near", city);
+      else if (!next.trim()) p.delete("near");
+      router.replace(`/?${p}`, { scroll: false });
+    },
+    [params, router]
+  );
+
+  const suggestions = useMemo(() => {
+    const needle = draft.trim().toLowerCase();
+    if (!needle) return [];
+    const cityHits = cities
+      .filter((c) => c.toLowerCase().includes(needle))
+      .map((c) => ({ label: c, kind: "city" as const }));
+    const courseHits = courses
+      .filter((c) => c.toLowerCase().includes(needle))
+      .map((c) => ({ label: c, kind: "course" as const }));
+    return [...cityHits, ...courseHits].slice(0, 6);
+  }, [draft, courses, cities]);
 
   return (
     <div className="relative">
-      <svg
-        aria-hidden
-        viewBox="0 0 20 20"
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-3"
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          // Dismisses the on-screen keyboard.
+          inputRef.current?.blur();
+          setOpen(false);
+          commit(draft, cities.find((c) => c.toLowerCase() === draft.trim().toLowerCase()));
+        }}
       >
-        <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
-        <path d="M13.5 13.5 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <input
-        type="search"
-        inputMode="search"
-        value={value}
-        onChange={(e) => update(e.target.value)}
-        placeholder="Search course or city"
-        className="w-full rounded-full bg-surface-2 py-2 pl-9 pr-3 text-[15px] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
-      />
+        <svg
+          aria-hidden
+          viewBox="0 0 20 20"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-3"
+        >
+          <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+          <path d="M13.5 13.5 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <input
+          ref={inputRef}
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setOpen(true);
+            commit(e.target.value);
+          }}
+          onFocus={() => setOpen(true)}
+          // Delayed so a tap on a suggestion registers before it closes.
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Search course or city"
+          className="w-full rounded-full bg-surface-2 py-2 pl-9 pr-3 text-[15px] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
+        />
+      </form>
+
+      {open && suggestions.length > 0 && (
+        <ul className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-2xl bg-surface-1 py-1 ring-1 ring-line">
+          {suggestions.map((s) => (
+            <li key={`${s.kind}:${s.label}`}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setDraft(s.label);
+                  setOpen(false);
+                  inputRef.current?.blur();
+                  commit(s.label, s.kind === "city" ? s.label : undefined);
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[15px] text-text-1 active:bg-surface-2"
+              >
+                <span className="text-text-3">{s.kind === "city" ? "◎" : "⛳"}</span>
+                <span className="truncate">{s.label}</span>
+                {s.kind === "city" && (
+                  <span className="ml-auto shrink-0 text-[11px] text-text-3">city</span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -153,13 +246,12 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
 
 export function FilterChips({
   filters,
-  cities,
-  hasLocation,
+  hasOrigin,
   onLocate,
 }: {
   filters: FilterState;
-  cities: string[];
-  hasLocation: boolean;
+  /** Whether a distance origin exists (device location or searched city). */
+  hasOrigin: boolean;
   onLocate: () => void;
 }) {
   const router = useRouter();
@@ -235,28 +327,29 @@ export function FilterChips({
           ["100", "Under $100"],
         ]}
       />
+      {/* Measures from your location if shared, otherwise from a city
+          picked in the search box. Without either there's no origin, so
+          the chip prompts for one rather than silently doing nothing. */}
       <Chip
-        value={hasLocation ? "__me" : filters.near}
-        active={hasLocation || filters.near !== ""}
+        value={filters.radius == null ? "" : String(filters.radius)}
+        active={filters.radius != null}
         onChange={(v) => {
-          if (v === "__me") {
-            onLocate();
-            update("near", "");
-          } else {
-            update("near", v);
-          }
+          if (v && !hasOrigin) onLocate();
+          update("radius", v);
         }}
         options={[
-          ["", "Distance from…"],
-          ["__me", "My location"],
-          ...cities.map((c) => [c, c] as [string, string]),
+          ["", hasOrigin ? "Any distance" : "Distance"],
+          ["10", "Within 10 miles"],
+          ["20", "Within 20 miles"],
+          ["30", "Within 30 miles"],
+          ["50", "Within 50 miles"],
         ]}
       />
       <Chip
         value={filters.sort}
         active={filters.sort !== "time"}
         onChange={(v) => {
-          if (v === "distance" && !hasLocation) onLocate();
+          if (v === "distance" && !hasOrigin) onLocate();
           update("sort", v === "time" ? "" : v);
         }}
         options={[

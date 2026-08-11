@@ -37,12 +37,21 @@ export function Results({
   const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
 
-  // Cities we actually have courses in, for the "near" selector.
+  // Suggestion sources, drawn from what's actually loaded so a
+  // suggestion can never lead to an empty result.
   const cities = useMemo(
     () =>
       [...new Set(courses.map((c) => c.city).filter((c): c is string => Boolean(c)))].sort(),
     [courses]
   );
+  const courseNames = useMemo(() => courses.map((c) => c.name).sort(), [courses]);
+
+  // A distance origin is either the device's location or a city the
+  // visitor searched for.
+  const searchedCity = cities.find(
+    (c) => c.toLowerCase() === filters.q.trim().toLowerCase()
+  );
+  const hasOrigin = coords != null || Boolean(filters.near) || Boolean(searchedCity);
 
   const { bookings, coursesWithTimes, quiet } = useMemo(() => {
     const flat: Booking[] = [];
@@ -51,8 +60,12 @@ export function Results({
     // Distances measure from the device when it's been shared, otherwise
     // from a chosen city — useful when planning a round somewhere you
     // aren't yet.
-    const originCity = filters.near
-      ? courses.find((c) => c.city === filters.near && c.latitude != null)
+    // `near` is set when a city is picked from suggestions; typing a
+    // city name by hand should work the same way.
+    const cityName =
+      filters.near || cities.find((c) => c.toLowerCase() === filters.q.trim().toLowerCase());
+    const originCity = cityName
+      ? courses.find((c) => c.city === cityName && c.latitude != null)
       : undefined;
     const origin = coords
       ? { lat: coords.lat, lon: coords.lon }
@@ -61,15 +74,20 @@ export function Results({
         : undefined;
 
     for (const course of courses) {
-      if (needle) {
-        const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
-        if (!haystack.includes(needle)) continue;
-      }
-
       const distance =
         origin && course.latitude != null && course.longitude != null
           ? distanceMiles(origin.lat, origin.lon, course.latitude, course.longitude)
           : undefined;
+
+      // A searched city acts as the radius origin, so text search is
+      // skipped once a radius is doing the narrowing — otherwise
+      // "Layton within 30 miles" would still only ever show Layton.
+      const narrowingByRadius = filters.radius != null && origin != null;
+      if (needle && !narrowingByRadius) {
+        const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
+        if (!haystack.includes(needle)) continue;
+      }
+      if (filters.radius != null && distance != null && distance > filters.radius) continue;
 
       for (const slot of course.slots) {
         if (slot.playersOpen < filters.players) continue;
@@ -131,21 +149,16 @@ export function Results({
       }));
 
     return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
-  }, [courses, filters, coords]);
+  }, [courses, filters, coords, cities]);
 
   return (
     <>
       <div className="sticky top-0 z-10 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-1 pt-2 backdrop-blur-lg">
         <DateStrip today={today} active={date} />
         <div className="pt-2">
-          <SearchBar value={filters.q} />
+          <SearchBar value={filters.q} courses={courseNames} cities={cities} />
         </div>
-        <FilterChips
-          filters={filters}
-          cities={cities}
-          hasLocation={coords != null}
-          onLocate={locate}
-        />
+        <FilterChips filters={filters} hasOrigin={hasOrigin} onLocate={locate} />
       </div>
 
       <div className="flex items-center justify-between gap-3 pb-3 pt-3">
