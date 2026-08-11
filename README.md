@@ -167,6 +167,26 @@ load, and platform API calls. Slower than the fetch-based pass, so run
 that one first and point this at what's left. Set `CHROMIUM_PATH` to use
 an existing browser binary instead of Playwright's own.
 
+### Courses behind a login
+
+A few courses put the tee sheet itself behind a sign-in, so no amount of
+rendering will reveal it anonymously. Capture a session once:
+
+```bash
+npx tsx scripts/render-detect.ts --login https://www.golftheridgegc.com/
+```
+
+A browser opens; sign in by hand, then press Enter. The session is saved
+per-host under `playwright/.auth/` (gitignored) and reused automatically
+on later runs. The script never asks for or stores credentials — only the
+session that results from you signing in yourself.
+
+Worth being clear about what this implies for the product: if a course
+gates *availability* behind login (rather than just checkout), GolfUtah
+can only show its times to someone who has an account there. That's a
+per-user constraint, not something a shared scraper can solve — which is
+what `CourseCredential` and `lib/crypto.ts` exist for.
+
 `scripts/courses.candidates.json` holds the Utah courses still to work
 out. It requests one site at a time with a delay, deliberately: it should
 behave like a person clicking through a directory. Don't parallelize it.

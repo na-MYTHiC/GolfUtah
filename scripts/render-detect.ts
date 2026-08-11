@@ -12,14 +12,36 @@
  *   npx tsx scripts/render-detect.ts candidates.json
  *   npx tsx scripts/render-detect.ts candidates.json --out found.json
  *   npx tsx scripts/render-detect.ts candidates.json --headed   # watch it
+ *   npx tsx scripts/render-detect.ts --login <url>              # see below
+ *
+ * Some courses put the tee sheet itself behind a login. For those, run
+ * --login <url> once: a browser opens, you sign in by hand, and the
+ * resulting session is saved per-host under playwright/.auth (gitignored)
+ * and reused automatically. No credentials are typed into or stored by
+ * this script — only the session it produces.
  *
  * Needs a browser once:  npx playwright install chromium
  *
  * Slower and heavier than scripts/detect-platform.ts — run that first and
  * point this only at what's left.
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { createInterface } from "node:readline/promises";
 import { chromium, type Browser, type Page } from "playwright";
+
+/**
+ * Where signed-in sessions are kept, one file per host. Gitignored —
+ * these are real login sessions and must never be committed.
+ */
+const AUTH_DIR = "playwright/.auth";
+
+function authFileFor(url: string): string | undefined {
+  try {
+    return `${AUTH_DIR}/${new URL(url).hostname.replace(/^www\./, "")}.json`;
+  } catch {
+    return undefined;
+  }
+}
 
 const NAV_TIMEOUT_MS = 30_000;
 /** Time to let the widget's own requests fire after the page settles. */
@@ -96,7 +118,14 @@ async function nudgeBookingUi(page: Page): Promise<void> {
 }
 
 async function inspect(browser: Browser, candidate: Candidate): Promise<Finding> {
+  // Reuse a signed-in session for this host if one was captured with
+  // --login. Some courses (The Ridge, Stonebridge) put their tee sheet
+  // behind a login, so without this they can never be resolved.
+  const authFile = authFileFor(candidate.url);
+  const storageState = authFile && existsSync(authFile) ? authFile : undefined;
+
   const context = await browser.newContext({
+    storageState,
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
       "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
@@ -139,8 +168,59 @@ async function inspect(browser: Browser, candidate: Candidate): Promise<Finding>
   }
 }
 
+/**
+ * Open a real browser, let the operator sign in by hand, then save the
+ * session for later runs. Credentials are never typed here or stored —
+ * only the resulting cookies/localStorage, under playwright/.auth
+ * (gitignored).
+ */
+async function captureLogin(url: string): Promise<void> {
+  const authFile = authFileFor(url);
+  if (!authFile) {
+    console.error(`Not a valid URL: ${url}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const browser = await chromium.launch({
+    headless: false, // the whole point is to let a person sign in
+    executablePath: process.env.CHROMIUM_PATH || undefined,
+  });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+
+  console.log(
+    `\nA browser window is open at ${url}.\n` +
+      `Sign in there, navigate to the tee sheet, then come back here.\n`
+  );
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  await rl.question("Press Enter once you're signed in... ");
+  rl.close();
+
+  mkdirSync(AUTH_DIR, { recursive: true });
+  await context.storageState({ path: authFile });
+  await browser.close();
+
+  console.log(`Saved session to ${authFile}. Future runs against this host will reuse it.`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
+
+  const loginIdx = args.indexOf("--login");
+  if (loginIdx >= 0) {
+    const url = args[loginIdx + 1];
+    if (!url) {
+      console.error("Usage: npx tsx scripts/render-detect.ts --login <url>");
+      process.exitCode = 1;
+      return;
+    }
+    await captureLogin(url);
+    return;
+  }
+
   const outIdx = args.indexOf("--out");
   const outFile = outIdx >= 0 ? args[outIdx + 1] : undefined;
   const outValueIdx = outIdx >= 0 ? outIdx + 1 : -1;
