@@ -3,7 +3,14 @@
 import { useMemo, useState } from "react";
 import type { CourseView } from "./types";
 import { TeeTimeRow, type Booking } from "./tee-time-row";
-import { DateStrip, FilterChips, useFilters, useGeolocation } from "./filters";
+import {
+  DateStrip,
+  FilterChips,
+  SearchBar,
+  ViewToggle,
+  useFilters,
+  useGeolocation,
+} from "./filters";
 import { distanceMiles } from "@/lib/format";
 
 /**
@@ -30,13 +37,38 @@ export function Results({
   const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
 
+  // Cities we actually have courses in, for the "near" selector.
+  const cities = useMemo(
+    () =>
+      [...new Set(courses.map((c) => c.city).filter((c): c is string => Boolean(c)))].sort(),
+    [courses]
+  );
+
   const { bookings, coursesWithTimes, quiet } = useMemo(() => {
     const flat: Booking[] = [];
+    const needle = filters.q.trim().toLowerCase();
+
+    // Distances measure from the device when it's been shared, otherwise
+    // from a chosen city — useful when planning a round somewhere you
+    // aren't yet.
+    const originCity = filters.near
+      ? courses.find((c) => c.city === filters.near && c.latitude != null)
+      : undefined;
+    const origin = coords
+      ? { lat: coords.lat, lon: coords.lon }
+      : originCity
+        ? { lat: originCity.latitude!, lon: originCity.longitude! }
+        : undefined;
 
     for (const course of courses) {
+      if (needle) {
+        const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
+        if (!haystack.includes(needle)) continue;
+      }
+
       const distance =
-        coords && course.latitude != null && course.longitude != null
-          ? distanceMiles(coords.lat, coords.lon, course.latitude, course.longitude)
+        origin && course.latitude != null && course.longitude != null
+          ? distanceMiles(origin.lat, origin.lon, course.latitude, course.longitude)
           : undefined;
 
       for (const slot of course.slots) {
@@ -84,7 +116,11 @@ export function Results({
     // ones silently makes a course look like it isn't covered at all,
     // when usually it's booked out or filtered away.
     const quietCourses = courses
-      .filter((c) => !shown.has(c.name))
+      .filter((c) => {
+        if (shown.has(c.name)) return false;
+        if (!needle) return true;
+        return `${c.name} ${c.city ?? ""}`.toLowerCase().includes(needle);
+      })
       .map((c) => ({
         name: c.name,
         reason: c.error
@@ -101,14 +137,25 @@ export function Results({
     <>
       <div className="sticky top-0 z-10 -mx-4 border-b border-zinc-200/70 bg-zinc-50/95 px-4 pb-1 pt-2 backdrop-blur-lg dark:border-zinc-800/70 dark:bg-zinc-950/95">
         <DateStrip today={today} active={date} />
-        <FilterChips filters={filters} hasLocation={coords != null} onLocate={locate} />
+        <div className="pt-2">
+          <SearchBar value={filters.q} />
+        </div>
+        <FilterChips
+          filters={filters}
+          cities={cities}
+          hasLocation={coords != null}
+          onLocate={locate}
+        />
       </div>
 
-      <p className="px-0.5 pb-3 pt-3 text-[13px] text-zinc-500 dark:text-zinc-400">
-        {bookings.length === 0
-          ? "No tee times match"
-          : `${bookings.length} tee time${bookings.length === 1 ? "" : "s"} · ${coursesWithTimes} of ${courses.length} courses`}
-      </p>
+      <div className="flex items-center justify-between gap-3 pb-3 pt-3">
+        <p className="px-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
+          {bookings.length === 0
+            ? "No tee times match"
+            : `${bookings.length} tee time${bookings.length === 1 ? "" : "s"} · ${coursesWithTimes} of ${courses.length} courses`}
+        </p>
+        <ViewToggle view={filters.view} />
+      </div>
 
       {bookings.length === 0 ? (
         <EmptyState />
@@ -117,6 +164,7 @@ export function Results({
           bookings={bookings}
           players={filters.players}
           byTime={filters.sort === "time"}
+          byCourse={filters.view === "course"}
         />
       )}
 
@@ -137,11 +185,59 @@ function TimeSections({
   bookings,
   players,
   byTime,
+  byCourse,
 }: {
   bookings: Booking[];
   players: number;
   byTime: boolean;
+  byCourse: boolean;
 }) {
+  // Grouped by course for when you're deciding *where* rather than
+  // *when* — the two questions want different shapes.
+  if (byCourse) {
+    const order: string[] = [];
+    const groups = new Map<string, Booking[]>();
+    for (const b of bookings) {
+      if (!groups.has(b.courseName)) {
+        groups.set(b.courseName, []);
+        order.push(b.courseName);
+      }
+      groups.get(b.courseName)!.push(b);
+    }
+
+    return (
+      <div className="flex flex-col gap-5">
+        {order.map((name) => {
+          const items = groups.get(name)!;
+          const cheapest = items.reduce(
+            (min, b) => (b.price != null ? Math.min(min, b.price) : min),
+            Infinity
+          );
+          return (
+            <section key={name}>
+              <h2 className="mb-2 flex items-baseline justify-between px-0.5">
+                <span className="text-[13px] font-semibold text-zinc-700 dark:text-zinc-200">
+                  {name}
+                  <span className="ml-1.5 font-normal text-zinc-400">{items.length}</span>
+                </span>
+                {cheapest !== Infinity && (
+                  <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-500">
+                    from ${(cheapest / 100).toFixed(0)}
+                  </span>
+                )}
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {items.map((b) => (
+                  <TeeTimeRow key={b.id} booking={b} players={players} hideCourse />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
   // Part-of-day headers only make sense in time order; sorted by price
   // they would interleave meaninglessly.
   if (!byTime) {

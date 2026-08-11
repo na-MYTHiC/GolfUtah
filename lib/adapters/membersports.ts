@@ -37,12 +37,10 @@ const X_API_KEY = "A9814038-9E19-4683-B171-5A06B39147FC";
 interface RawTeeTimeItem {
   /**
    * NOT the number of open spots — it reads 0 on every slot, including
-   * ones the course page shows as bookable. Use
-   * maximumPlayersPerBooking - playerCount instead; see toNormalized.
+   * ones the course page shows as bookable. See openSpots().
    */
   availableCount: number;
   bookingNotAllowed: boolean;
-  maximumPlayersPerBooking: number;
   golfClubId: number;
   golfCourseId: number;
   golfCourseNumberOfHoles: number;
@@ -130,16 +128,28 @@ export function memberSportsBookingUrl(golfClubId: number, golfCourseId: number)
   return `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
 }
 
-/** Standard tee sheet capacity, used when the field is missing. */
-const DEFAULT_CAPACITY = 4;
+/**
+ * A tee slot holds a foursome. MemberSports never reports capacity — the
+ * response has no maximum-players field at all — so this is assumed, and
+ * it's what the course's own page implies: every slot sampled displayed a
+ * range topping out at 4 minus those already booked.
+ */
+const CAPACITY = 4;
 
+/**
+ * Open spots = capacity minus who's booked.
+ *
+ * Getting here took two wrong turns worth remembering. First this used
+ * `availableCount`, which reads 0 on every slot and hid every course.
+ * Then it used `maximumPlayersPerBooking - playerCount` — but that field
+ * is ForeUp's, not MemberSports'. Reading a field that doesn't exist
+ * yields undefined, the arithmetic yields NaN, NaN > 0 is false, and
+ * every slot was dropped again. Check a field exists in the actual
+ * captured response before mapping it.
+ */
 function openSpots(item: RawTeeTimeItem): number {
-  const capacity =
-    Number.isFinite(item.maximumPlayersPerBooking) && item.maximumPlayersPerBooking > 0
-      ? item.maximumPlayersPerBooking
-      : DEFAULT_CAPACITY;
   const booked = Number.isFinite(item.playerCount) ? item.playerCount : 0;
-  return Math.max(0, capacity - booked);
+  return Math.max(0, CAPACITY - booked);
 }
 
 function toNormalized(
@@ -165,19 +175,8 @@ function toNormalized(
       // Resolve by checking whether a type-0 slot can actually be booked
       // for 9 holes, and at what rate.
       holes: (item.holesRequirementTypeId === 1 ? 9 : 18) as 9 | 18,
-      // Open spots = capacity minus who's already booked.
-      //
-      // `availableCount` looks like the obvious field but reads 0 on every
-      // slot, which silently hid every MemberSports tee time. Checked
-      // against Eaglewood's own page, maximumPlayersPerBooking -
-      // playerCount reproduces the upper bound it displays (4-2 -> "1-2",
-      // 4-0 -> "2-4", 4-3 -> "1-1") on every slot sampled.
-      //
-      // Falls back to a foursome if capacity is missing: an absent field
-      // would otherwise make this NaN, fail the "> 0" check below, and
-      // hide the whole course — the same failure mode all over again.
-      // Showing a time with a slightly wrong spot count beats hiding a
-      // real one.
+      // Matches the range Eaglewood's own page displays on every slot
+      // sampled: 4-2 -> "1-2", 4-0 -> "2-4", 4-3 -> "1-1".
       playersOpen: openSpots(item),
       price: Math.round(item.price * 100), // dollars -> cents
       // MemberSports flags back-nine starts both on isBackNine and in the

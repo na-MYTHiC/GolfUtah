@@ -24,7 +24,16 @@ export interface Booking {
  * whether the course and price suit. Price sits right-aligned so the
  * column can be compared at a glance without reading each row.
  */
-export function TeeTimeRow({ booking, players }: { booking: Booking; players: number }) {
+export function TeeTimeRow({
+  booking,
+  players,
+  hideCourse = false,
+}: {
+  booking: Booking;
+  players: number;
+  /** Course view already names the course in its header. */
+  hideCourse?: boolean;
+}) {
   const [hour, minute] = booking.time.split(":").map(Number);
   const period = hour >= 12 ? "PM" : "AM";
   const display = `${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, "0")}`;
@@ -47,10 +56,16 @@ export function TeeTimeRow({ booking, players }: { booking: Booking; players: nu
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">
-            {booking.courseName}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          {!hideCourse && (
+            <div className="truncate text-[15px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">
+              {booking.courseName}
+            </div>
+          )}
+          <div
+            className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-zinc-500 dark:text-zinc-400 ${
+              hideCourse ? "text-[13px]" : "mt-1 text-xs"
+            }`}
+          >
             <span className="font-medium text-zinc-600 dark:text-zinc-300">
               {booking.holes}
             </span>

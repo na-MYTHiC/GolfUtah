@@ -17,6 +17,11 @@ export interface FilterState {
   before: string;
   maxPrice: number | null;
   sort: "time" | "price" | "distance";
+  /** Free text matched against course name and city. */
+  q: string;
+  /** City to measure distances from, when not using device location. */
+  near: string;
+  view: "time" | "course";
 }
 
 /** How far ahead data is published; matches build-data.ts --days. */
@@ -32,7 +37,75 @@ export function useFilters(date: string): FilterState {
     before: params.get("before") ?? "",
     maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : null,
     sort: (params.get("sort") as FilterState["sort"]) ?? "time",
+    q: params.get("q") ?? "",
+    near: params.get("near") ?? "",
+    view: (params.get("view") as FilterState["view"]) ?? "time",
   };
+}
+
+/** Search across course name and city. */
+export function SearchBar({ value }: { value: string }) {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  const update = (next: string) => {
+    const p = new URLSearchParams(params.toString());
+    if (next.trim()) p.set("q", next);
+    else p.delete("q");
+    router.replace(`/?${p}`, { scroll: false });
+  };
+
+  return (
+    <div className="relative">
+      <svg
+        aria-hidden
+        viewBox="0 0 20 20"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+      >
+        <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M13.5 13.5 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+      <input
+        type="search"
+        inputMode="search"
+        value={value}
+        onChange={(e) => update(e.target.value)}
+        placeholder="Search course or city"
+        className="w-full rounded-full bg-zinc-100 py-2 pl-9 pr-3 text-[15px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:bg-zinc-800/80 dark:text-zinc-100"
+      />
+    </div>
+  );
+}
+
+/** Time list vs. grouped by course. */
+export function ViewToggle({ view }: { view: FilterState["view"] }) {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  const set = (next: FilterState["view"]) => {
+    const p = new URLSearchParams(params.toString());
+    if (next === "time") p.delete("view");
+    else p.set("view", next);
+    router.replace(`/?${p}`, { scroll: false });
+  };
+
+  return (
+    <div className="flex shrink-0 rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800/80">
+      {(["time", "course"] as const).map((option) => (
+        <button
+          key={option}
+          onClick={() => set(option)}
+          className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+            view === option
+              ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
+              : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
+          {option === "time" ? "By time" : "By course"}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function DateStrip({ today, active }: { today: string; active: string }) {
@@ -80,10 +153,12 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
 
 export function FilterChips({
   filters,
+  cities,
   hasLocation,
   onLocate,
 }: {
   filters: FilterState;
+  cities: string[];
   hasLocation: boolean;
   onLocate: () => void;
 }) {
@@ -158,6 +233,23 @@ export function FilterChips({
           ["40", "Under $40"],
           ["60", "Under $60"],
           ["100", "Under $100"],
+        ]}
+      />
+      <Chip
+        value={hasLocation ? "__me" : filters.near}
+        active={hasLocation || filters.near !== ""}
+        onChange={(v) => {
+          if (v === "__me") {
+            onLocate();
+            update("near", "");
+          } else {
+            update("near", v);
+          }
+        }}
+        options={[
+          ["", "Distance from…"],
+          ["__me", "My location"],
+          ...cities.map((c) => [c, c] as [string, string]),
         ]}
       />
       <Chip
