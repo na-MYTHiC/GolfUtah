@@ -70,6 +70,27 @@ npm run poll            # one pass
 npm run poll -- --loop=300   # repeat every 5 minutes
 ```
 
+## Adding a MemberSports course
+
+The MemberSports adapter is done, so adding a course is just finding its
+two IDs — no new reverse-engineering needed.
+
+1. Open the course's booking page. If it's on MemberSports the URL looks
+   like `app.membersports.com/tee-times/<golfClubId>/<golfCourseId>/0`,
+   so the IDs are often right there in the address bar. Otherwise open
+   DevTools → Network → Fetch/XHR, load the tee sheet, and read them off
+   the `onlineBookingTeeTimes` request body.
+2. Sanity-check the pair before committing to it:
+   ```bash
+   npm run probe -- <golfClubId> <golfCourseId> [YYYY-MM-DD]
+   ```
+   It prints the slots that come back, or tells you if nothing does.
+3. Add a row to `prisma/seed.ts` with the name, city, and
+   `externalId: "<golfClubId>:<golfCourseId>"`, then `npm run db:seed`.
+
+There's no public directory of which courses use MemberSports — it has to
+be discovered per course.
+
 ## Status
 
 Early stage, but MemberSports is a real, working adapter: Eaglewood Golf

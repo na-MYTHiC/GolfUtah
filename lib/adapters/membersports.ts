@@ -110,10 +110,24 @@ async function fetchOneDate(
   return resp.json();
 }
 
+/**
+ * MemberSports' own booking page for a club+course, e.g.
+ * https://app.membersports.com/tee-times/15391/18901/0 for Eaglewood —
+ * pattern confirmed by matching that public URL against the golfClubId /
+ * golfCourseId from our own capture of the same course.
+ *
+ * Lands on the course's tee sheet rather than its marketing homepage,
+ * which is a better handoff. Still course+date level, not slot level —
+ * we haven't found a URL form that preselects a specific tee time.
+ */
+export function memberSportsBookingUrl(golfClubId: number, golfCourseId: number): string {
+  return `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
+}
+
 function toNormalized(
   bucket: RawTeeTimeBucket,
   date: string,
-  fallbackBookingUrl: string
+  bookingUrl: string
 ): NormalizedTeeTime[] {
   const time = formatTeeTime(bucket.teeTime);
 
@@ -135,7 +149,7 @@ function toNormalized(
       // open day before trusting this in the UI.
       playersOpen: item.availableCount,
       price: Math.round(item.price * 100), // dollars -> cents
-      bookingUrl: fallbackBookingUrl, // no slot-level deep link captured yet
+      bookingUrl,
     }));
 }
 
@@ -150,11 +164,15 @@ export const memberSportsAdapter: TeeTimeAdapter = {
       dates.push(d.toISOString().slice(0, 10));
     }
 
+    // Prefer MemberSports' own tee sheet over whatever marketing page the
+    // Course row points at — it drops the user straight into booking.
+    const bookingUrl = memberSportsBookingUrl(golfClubId, golfCourseId);
+
     const results: NormalizedTeeTime[] = [];
     for (const date of dates) {
       const buckets = await fetchOneDate(golfClubId, golfCourseId, date);
       for (const bucket of buckets) {
-        results.push(...toNormalized(bucket, date, course.bookingUrl));
+        results.push(...toNormalized(bucket, date, bookingUrl));
       }
     }
     return results;
