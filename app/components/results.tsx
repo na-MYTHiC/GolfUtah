@@ -93,6 +93,19 @@ export function Results({
   const totalSlots = filtered.reduce((n, c) => n + c.slots.length, 0);
   const earliest = filtered.flatMap((c) => c.slots).sort((a, b) => a.time.localeCompare(b.time))[0];
 
+  // Every course we track should be accounted for. Dropping the empty
+  // ones silently makes a course look like it isn't covered at all, when
+  // usually it's just booked out or filtered away.
+  const shownIds = new Set(filtered.map((c) => c.id));
+  const missing = courses
+    .filter((c) => !shownIds.has(c.id))
+    .map((c) => ({
+      name: c.name,
+      // A course with slots in the data but none after filtering was
+      // excluded by the filters; one with no slots at all had nothing.
+      reason: c.slots.length > 0 ? ("filtered" as const) : ("none" as const),
+    }));
+
   return (
     <>
       <FilterBar
@@ -105,7 +118,8 @@ export function Results({
 
       {totalSlots > 0 && (
         <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-          {totalSlots} tee time{totalSlots === 1 ? "" : "s"} available
+          {totalSlots} tee time{totalSlots === 1 ? "" : "s"} at {filtered.length} of{" "}
+          {courses.length} courses
           {earliest && `, from ${formatTime(earliest.time)}`}
           {mode === "live" && " · live from each course"}
         </p>
@@ -125,6 +139,52 @@ export function Results({
           ))}
         </div>
       )}
+
+      {missing.length > 0 && <MissingCourses missing={missing} />}
     </>
+  );
+}
+
+/**
+ * The courses with nothing to show, and why. Without this the app looks
+ * like it only covers the handful of courses that happen to have
+ * openings today.
+ */
+function MissingCourses({
+  missing,
+}: {
+  missing: { name: string; reason: "filtered" | "none" }[];
+}) {
+  const filteredOut = missing.filter((m) => m.reason === "filtered");
+  const noTimes = missing.filter((m) => m.reason === "none");
+
+  return (
+    <details className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-300">
+        {missing.length} more course{missing.length === 1 ? "" : "s"} with nothing to show
+      </summary>
+
+      {filteredOut.length > 0 && (
+        <div className="mt-3">
+          <p className="text-zinc-500 dark:text-zinc-400">
+            Has times, but none match your filters:
+          </p>
+          <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+            {filteredOut.map((m) => m.name).join(" · ")}
+          </p>
+        </div>
+      )}
+
+      {noTimes.length > 0 && (
+        <div className="mt-3">
+          <p className="text-zinc-500 dark:text-zinc-400">
+            No openings published for this day:
+          </p>
+          <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+            {noTimes.map((m) => m.name).join(" · ")}
+          </p>
+        </div>
+      )}
+    </details>
   );
 }
