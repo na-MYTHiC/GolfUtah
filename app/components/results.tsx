@@ -121,7 +121,7 @@ export function Results({
       ) : (
         <div className="flex flex-col gap-4">
           {filtered.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard key={course.id} course={course} players={filters.players} />
           ))}
         </div>
       )}

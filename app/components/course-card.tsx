@@ -32,7 +32,25 @@ export interface CourseView {
 /** Slots shown before the list collapses behind a "show all" toggle. */
 const PREVIEW_COUNT = 6;
 
-export function CourseCard({ course }: { course: CourseView }) {
+/**
+ * ForeUp's booking page accepts a `players` parameter, so the party size
+ * chosen in the filters is carried into the handoff — one fewer thing to
+ * re-select on the course's own site. Added here rather than baked into
+ * the data because it depends on what the visitor picked.
+ */
+function withPlayers(url: string, players: number): string {
+  if (players <= 1) return url;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("schedule_id")) return url; // not a ForeUp link
+    parsed.searchParams.set("players", String(players));
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+export function CourseCard({ course, players = 1 }: { course: CourseView; players?: number }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? course.slots : course.slots.slice(0, PREVIEW_COUNT);
   const hidden = course.slots.length - visible.length;
@@ -102,6 +120,7 @@ export function CourseCard({ course }: { course: CourseView }) {
               <SlotTile
                 key={slot.id}
                 slot={slot}
+                players={players}
                 weather={course.slotWeather?.[slot.time]}
               />
             ))}
@@ -131,15 +150,17 @@ export function CourseCard({ course }: { course: CourseView }) {
 
 function SlotTile({
   slot,
+  players,
   weather,
 }: {
   slot: Slot;
+  players: number;
   weather?: { temperatureF: number; windMph: number; icon: string };
 }) {
   return (
     <li>
       <a
-        href={slot.bookingUrl}
+        href={withPlayers(slot.bookingUrl, players)}
         target="_blank"
         rel="noopener noreferrer"
         className="block rounded-lg border border-zinc-200 p-2.5 transition-colors hover:border-emerald-500 hover:bg-emerald-50 dark:border-zinc-700 dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30"

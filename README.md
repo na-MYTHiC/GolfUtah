@@ -31,8 +31,11 @@ by course.
   reason instead of silently vanishing, so an outage doesn't look like
   "no tee times".
 
-Clicking a time opens that course's own booking page. GolfUtah never
-handles payment.
+Clicking a time opens that course's own booking page, deep-linked to the
+right date with the round preselected — ForeUp accepts `date`, `holes`,
+`players` and `booking_class_id` as query parameters before its `#/teetimes`
+hash. There's no per-slot parameter, so it lands on the day's tee sheet
+rather than the individual time. GolfUtah never handles payment.
 
 ### How it's hosted
 

@@ -102,9 +102,37 @@ function toForeUpDate(isoDate: string): string {
   return `${month}-${day}-${year}`;
 }
 
-/** ForeUp's own booking page for this course/schedule. */
-export function foreUpBookingUrl(courseId: number, scheduleId: number): string {
-  return `https://foreupsoftware.com/index.php/booking/${courseId}/${scheduleId}#/teetimes`;
+/**
+ * ForeUp's booking page, optionally preselecting the day and round.
+ *
+ * Format confirmed from a real link:
+ *   /index.php/booking/18895/578?date=08-11-2026&players=2&holes=18
+ *     &schedule_id=578&booking_class_id=177#/teetimes
+ *
+ * Note the query string sits *before* the `#/teetimes` hash — putting it
+ * after the hash does nothing. There's no `time` parameter: ForeUp
+ * deep-links to a day's tee sheet, not an individual slot, so the best
+ * we can do is land the golfer on the right date with the right filters
+ * and let them pick their time from the list.
+ */
+export function foreUpBookingUrl(
+  courseId: number,
+  scheduleId: number,
+  opts: { date?: string; holes?: number; players?: number; bookingClassId?: number } = {}
+): string {
+  const base = `https://foreupsoftware.com/index.php/booking/${courseId}/${scheduleId}`;
+  const params = new URLSearchParams();
+
+  // ForeUp wants MM-DD-YYYY here, same as its API.
+  if (opts.date) params.set("date", toForeUpDate(opts.date));
+  if (opts.players) params.set("players", String(opts.players));
+  if (opts.holes) params.set("holes", String(opts.holes));
+  params.set("schedule_id", String(scheduleId));
+  if (opts.bookingClassId !== undefined) {
+    params.set("booking_class_id", String(opts.bookingClassId));
+  }
+
+  return `${base}?${params}#/teetimes`;
 }
 
 async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]> {
@@ -144,7 +172,10 @@ async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]>
  * different prices, so it's listed once per option rather than collapsed
  * into a single ambiguous row.
  */
-export function toNormalized(raw: RawTeeTime, bookingUrl: string): NormalizedTeeTime[] {
+export function toNormalized(
+  raw: RawTeeTime,
+  ids: { courseId: number; scheduleId: number; bookingClassId?: number }
+): NormalizedTeeTime[] {
   const [date, time] = raw.time.split(" ");
   if (!date || !time) return [];
 
@@ -182,7 +213,14 @@ export function toNormalized(raw: RawTeeTime, bookingUrl: string): NormalizedTee
       // Cart fees are quoted separately and are usually optional, so the
       // headline price stays green-fee-only for comparability with other
       // platforms. `cartFee` isn't in the normalized shape yet.
-      bookingUrl,
+      //
+      // Each slot gets its own link so the golfer lands on the right day
+      // with the right round preselected, rather than on today's sheet.
+      bookingUrl: foreUpBookingUrl(ids.courseId, ids.scheduleId, {
+        date,
+        holes: o.holes,
+        bookingClassId: ids.bookingClassId,
+      }),
     }));
 }
 
@@ -191,7 +229,6 @@ export const foreupAdapter: TeeTimeAdapter = {
 
   async fetchTeeTimes(course, range): Promise<NormalizedTeeTime[]> {
     const ids = parseExternalId(course.externalId);
-    const bookingUrl = foreUpBookingUrl(ids.courseId, ids.scheduleId);
 
     const dates: string[] = [];
     for (let d = new Date(range.from); d <= new Date(range.to); d.setDate(d.getDate() + 1)) {
@@ -202,7 +239,7 @@ export const foreupAdapter: TeeTimeAdapter = {
     for (const date of dates) {
       const raw = await fetchOneDate(ids, date);
       for (const slot of raw) {
-        results.push(...toNormalized(slot, bookingUrl));
+        results.push(...toNormalized(slot, ids));
       }
     }
     return results;
