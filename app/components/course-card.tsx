@@ -15,6 +15,8 @@ export interface CourseView {
   longitude: number | null;
   /** Filled in client-side once the visitor shares their location. */
   distanceMiles?: number;
+  /** Listing may be missing times (ForeUp booking class not captured). */
+  partial?: boolean;
   error?: string;
   weather?: {
     highF: number;
@@ -112,6 +114,14 @@ export function CourseCard({ course }: { course: CourseView }) {
             >
               Show {hidden} more time{hidden === 1 ? "" : "s"}
             </button>
+          )}
+
+          {/* Sun Hills proved a missing booking class can hide most of the
+              morning, so don't let a short list look like the whole day. */}
+          {course.partial && (
+            <p className="mt-3 text-xs text-amber-700 dark:text-amber-500">
+              This course may have more times than shown — check its own page.
+            </p>
           )}
         </>
       )}

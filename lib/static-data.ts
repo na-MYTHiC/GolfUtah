@@ -24,6 +24,8 @@ export interface StaticCourse {
   rating?: { rating: number; reviewCount: number; mapsUrl?: string };
   slots: StaticSlot[];
   error?: string;
+  /** Listing may be missing times — see build-data.ts. */
+  partial?: boolean;
 }
 
 export interface DayFile {

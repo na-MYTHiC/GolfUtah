@@ -56,6 +56,7 @@ export function AppShell() {
         longitude: c.lon,
         rating: c.rating,
         error: c.error,
+        partial: c.partial,
         slots: c.slots.map((s, i) => ({
           id: `${c.id}:${i}`,
           date,

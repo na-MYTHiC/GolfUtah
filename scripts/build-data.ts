@@ -40,6 +40,12 @@ interface StaticCourse {
   rating?: { rating: number; reviewCount: number; mapsUrl?: string };
   slots: StaticSlot[];
   error?: string;
+  /**
+   * ForeUp course with no booking_class captured. Sun Hills proved that
+   * omitting it can hide most of the morning, so these listings may be
+   * incomplete and the UI says so.
+   */
+  partial?: boolean;
 }
 
 interface DayFile {
@@ -68,6 +74,7 @@ async function fetchCourse(
     lon: seed.longitude,
     rating,
     slots: [],
+    partial: seed.platform === "FOREUP" && seed.externalId.split(":").length < 3,
   };
 
   try {
