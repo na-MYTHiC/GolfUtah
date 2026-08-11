@@ -209,10 +209,10 @@ Two of the three platforms are implemented, between them covering 30 of
 the 57 Utah courses surveyed. Both were built against real captured
 traffic, and their response mappings are verified against that data.
 
-Seeded so far: 17 courses — 5 MemberSports and 12 ForeUp. The remaining
-40 are tracked in `scripts/courses.candidates.json`: 13 Chronogolf (no
-adapter yet), 12 ForeUp whose ids detection couldn't reach, 12 with no
-platform detected, and Crane Field, whose page yielded a placeholder id.
+Seeded so far: 19 courses — 5 MemberSports and 14 ForeUp. The remaining
+38 are tracked in `scripts/courses.candidates.json`, mostly the 13
+Chronogolf courses (no adapter yet) plus ForeUp courses whose ids
+fetch-based detection couldn't reach.
 
 Outstanding validation: nothing has been written to a real database yet.
 `scripts/probe.ts` confirms both adapters' live API calls return real

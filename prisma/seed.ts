@@ -154,15 +154,22 @@ const courses: {
     externalId: "22130:9912",
     bookingUrl: "https://www.golfstonebridgeutah.com/",
   },
+  // The Ridge sits on its own ForeUp install (22131), separate from
+  // neighbouring Stonebridge (22130) despite the two looking related.
+  // Its booking page lands on #/login, so this schedule_id came from the
+  // signed-in tee sheet URL -- worth re-checking with scripts/probe.ts
+  // whether availability is actually readable without a session.
+  {
+    name: "The Ridge Golf Club",
+    city: "West Valley City",
+    platform: "FOREUP",
+    externalId: "22131:9898",
+    bookingUrl: "https://www.golftheridgegc.com/",
+  },
   // Not seeded: Crane Field Golf Course. Detection returned "1:1", which
   // is a placeholder URL in its markup rather than a real booking link --
   // every genuine Utah ForeUp courseId is 4-5 digits. Needs its real ids
   // read off the booking page.
-  //
-  // Not seeded: The Ridge Golf Club. Its booking page is ForeUp course
-  // 22131 but lands on #/login -- the tee sheet is gated, so the
-  // schedule_id only appears once signed in. Neighbouring Stonebridge is
-  // 22130, a separate install rather than a shared one.
   //
   // Still unresolved statewide: 13 Chronogolf courses (no adapter yet),
   // plus the courses in scripts/courses.candidates.json.
