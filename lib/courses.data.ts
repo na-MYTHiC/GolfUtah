@@ -22,7 +22,10 @@ export type PlatformName = "FOREUP" | "CHRONOGOLF" | "MEMBERSPORTS";
 
 export interface CourseSeed {
   name: string;
+  /** URL-safe id for the course's own page. */
+  slug: string;
   city: string;
+  county: string;
   platform: PlatformName;
   externalId: string;
   bookingUrl: string;
@@ -34,6 +37,8 @@ export const COURSES: CourseSeed[] = [
   // --- MemberSports ---
   {
     name: "Eaglewood Golf Course",
+    slug: "eaglewood-golf-course",
+    county: "Davis",
     city: "North Salt Lake",
     platform: "MEMBERSPORTS",
     externalId: "15391:18901",
@@ -43,6 +48,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Cedar Hills Golf Club",
+    slug: "cedar-hills-golf-club",
+    county: "Utah",
     city: "Cedar Hills",
     platform: "MEMBERSPORTS",
     externalId: "15381:18891",
@@ -52,6 +59,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Fore Lakes Golf Course",
+    slug: "fore-lakes-golf-course",
+    county: "Salt Lake",
     city: "Taylorsville",
     platform: "MEMBERSPORTS",
     externalId: "15394:18905",
@@ -61,6 +70,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Fox Hollow Golf Club",
+    slug: "fox-hollow-golf-club",
+    county: "Utah",
     city: "American Fork",
     platform: "MEMBERSPORTS",
     externalId: "15396:18907",
@@ -70,6 +81,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Hobble Creek Golf Course",
+    slug: "hobble-creek-golf-course",
+    county: "Utah",
     city: "Springville",
     platform: "MEMBERSPORTS",
     externalId: "15404:18918",
@@ -81,6 +94,8 @@ export const COURSES: CourseSeed[] = [
   // --- ForeUp ---
   {
     name: "Sun Hills Golf Course",
+    slug: "sun-hills-golf-course",
+    county: "Davis",
     city: "Layton",
     platform: "FOREUP",
     // ":177" is the "Regular" booking class from the course's own page.
@@ -92,6 +107,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Murray Parkway Golf Course",
+    slug: "murray-parkway-golf-course",
+    county: "Salt Lake",
     city: "Murray",
     platform: "FOREUP",
     externalId: "6263:244",
@@ -101,6 +118,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Timpanogos Golf Club",
+    slug: "timpanogos-golf-club",
+    county: "Utah",
     city: "Provo",
     platform: "FOREUP",
     externalId: "6279:49",
@@ -110,6 +129,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Links at Sleepy Ridge",
+    slug: "links-at-sleepy-ridge",
+    county: "Utah",
     city: "Orem",
     platform: "FOREUP",
     externalId: "19396:1726",
@@ -119,6 +140,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Thanksgiving Point Golf Club",
+    slug: "thanksgiving-point-golf-club",
+    county: "Utah",
     city: "Lehi",
     platform: "FOREUP",
     externalId: "19645:2034",
@@ -128,6 +151,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "The Oaks at Spanish Fork",
+    slug: "the-oaks-at-spanish-fork",
+    county: "Utah",
     city: "Spanish Fork",
     platform: "FOREUP",
     externalId: "21698:8633",
@@ -137,6 +162,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Davis Park Golf Course",
+    slug: "davis-park-golf-course",
+    county: "Davis",
     city: "Kaysville",
     platform: "FOREUP",
     externalId: "19500:1757",
@@ -146,6 +173,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Glen Eagle Golf Course",
+    slug: "glen-eagle-golf-course",
+    county: "Davis",
     city: "Syracuse",
     platform: "FOREUP",
     externalId: "20940:6276",
@@ -155,6 +184,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Wolf Creek Resort Golf Course",
+    slug: "wolf-creek-resort-golf-course",
+    county: "Weber",
     city: "Eden",
     platform: "FOREUP",
     externalId: "18945:756",
@@ -164,6 +195,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Eagle Mountain Golf Club",
+    slug: "eagle-mountain-golf-club",
+    county: "Box Elder",
     city: "Brigham City",
     platform: "FOREUP",
     externalId: "19943:3033",
@@ -173,6 +206,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Carbon Country Club",
+    slug: "carbon-country-club",
+    county: "Carbon",
     city: "Helper",
     platform: "FOREUP",
     externalId: "22113:9906",
@@ -182,6 +217,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Millsite Golf Course",
+    slug: "millsite-golf-course",
+    county: "Emery",
     city: "Ferron",
     platform: "FOREUP",
     externalId: "21605:8326",
@@ -191,6 +228,8 @@ export const COURSES: CourseSeed[] = [
   },
   {
     name: "Stonebridge Golf Club",
+    slug: "stonebridge-golf-club",
+    county: "Salt Lake",
     city: "West Valley City",
     platform: "FOREUP",
     externalId: "22130:9912",
@@ -204,6 +243,8 @@ export const COURSES: CourseSeed[] = [
   // sheet — availability may not be readable without a session.
   {
     name: "The Ridge Golf Club",
+    slug: "the-ridge-golf-club",
+    county: "Salt Lake",
     city: "West Valley City",
     platform: "FOREUP",
     externalId: "22131:9898",

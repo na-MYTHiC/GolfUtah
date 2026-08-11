@@ -8,7 +8,9 @@ import type { Slot } from "@/lib/tee-times";
 export interface CourseView {
   id: string;
   name: string;
+  slug: string;
   city: string | null;
+  county: string;
   platform: string;
   bookingUrl: string;
   slots: Slot[];

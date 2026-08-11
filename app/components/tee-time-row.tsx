@@ -11,6 +11,7 @@ export interface Booking {
   side?: string;
   bookingUrl: string;
   courseName: string;
+  courseSlug: string;
   courseCity: string | null;
   distanceMiles?: number;
   weather?: { temperatureF: number; windMph: number; icon: string };

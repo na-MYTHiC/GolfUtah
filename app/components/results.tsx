@@ -12,6 +12,9 @@ import {
   useGeolocation,
 } from "./filters";
 import { distanceMiles } from "@/lib/format";
+import { findCity } from "@/lib/utah-places";
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 /**
  * The day's tee times as one chronological list across every course.
@@ -37,21 +40,13 @@ export function Results({
   const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
 
-  // Suggestion sources, drawn from what's actually loaded so a
-  // suggestion can never lead to an empty result.
-  const cities = useMemo(
-    () =>
-      [...new Set(courses.map((c) => c.city).filter((c): c is string => Boolean(c)))].sort(),
-    [courses]
-  );
+  // Course names for suggestions, drawn from what's actually loaded.
   const courseNames = useMemo(() => courses.map((c) => c.name).sort(), [courses]);
 
-  // A distance origin is either the device's location or a city the
-  // visitor searched for.
-  const searchedCity = cities.find(
-    (c) => c.toLowerCase() === filters.q.trim().toLowerCase()
-  );
-  const hasOrigin = coords != null || Boolean(filters.near) || Boolean(searchedCity);
+  // A distance origin is the device's location, or any Utah city that
+  // was searched for — including ones with no course of their own.
+  const hasOrigin =
+    coords != null || Boolean(findCity(filters.near || filters.q));
 
   const { bookings, coursesWithTimes, quiet } = useMemo(() => {
     const flat: Booking[] = [];
@@ -60,18 +55,11 @@ export function Results({
     // Distances measure from the device when it's been shared, otherwise
     // from a chosen city — useful when planning a round somewhere you
     // aren't yet.
-    // `near` is set when a city is picked from suggestions; typing a
-    // city name by hand should work the same way.
-    const cityName =
-      filters.near || cities.find((c) => c.toLowerCase() === filters.q.trim().toLowerCase());
-    const originCity = cityName
-      ? courses.find((c) => c.city === cityName && c.latitude != null)
-      : undefined;
-    const origin = coords
-      ? { lat: coords.lat, lon: coords.lon }
-      : originCity
-        ? { lat: originCity.latitude!, lon: originCity.longitude! }
-        : undefined;
+    // Origin comes from the full Utah city list, not just cities with
+    // courses — searching "Bluffdale" should find courses near it even
+    // though Bluffdale has none.
+    const city = findCity(filters.near || filters.q);
+    const origin = coords ? { lat: coords.lat, lon: coords.lon } : city;
 
     for (const course of courses) {
       const distance =
@@ -79,15 +67,22 @@ export function Results({
           ? distanceMiles(origin.lat, origin.lon, course.latitude, course.longitude)
           : undefined;
 
-      // A searched city acts as the radius origin, so text search is
-      // skipped once a radius is doing the narrowing — otherwise
-      // "Layton within 30 miles" would still only ever show Layton.
-      const narrowingByRadius = filters.radius != null && origin != null;
-      if (needle && !narrowingByRadius) {
-        const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
-        if (!haystack.includes(needle)) continue;
+      // A county is a boundary, so it filters directly and the text
+      // search steps aside — "Salt Lake" the county shouldn't also have
+      // to match a course name.
+      if (filters.county) {
+        if (course.county !== filters.county) continue;
+      } else {
+        // A searched city acts as the radius origin, so text search is
+        // skipped once a radius is doing the narrowing — otherwise
+        // "Layton within 30 miles" would still only ever show Layton.
+        const narrowingByRadius = filters.radius != null && origin != null;
+        if (needle && !narrowingByRadius) {
+          const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
+          if (!haystack.includes(needle)) continue;
+        }
+        if (filters.radius != null && distance != null && distance > filters.radius) continue;
       }
-      if (filters.radius != null && distance != null && distance > filters.radius) continue;
 
       for (const slot of course.slots) {
         if (slot.playersOpen < filters.players) continue;
@@ -109,6 +104,7 @@ export function Results({
           side: slot.side,
           bookingUrl: slot.bookingUrl,
           courseName: course.name,
+          courseSlug: course.slug,
           courseCity: course.city,
           distanceMiles: distance,
           weather: course.slotWeather?.[slot.time],
@@ -136,6 +132,7 @@ export function Results({
     const quietCourses = courses
       .filter((c) => {
         if (shown.has(c.name)) return false;
+        if (filters.county) return c.county === filters.county;
         if (!needle) return true;
         return `${c.name} ${c.city ?? ""}`.toLowerCase().includes(needle);
       })
@@ -149,14 +146,14 @@ export function Results({
       }));
 
     return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
-  }, [courses, filters, coords, cities]);
+  }, [courses, filters, coords]);
 
   return (
     <>
       <div className="sticky top-0 z-10 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-1 pt-2 backdrop-blur-lg">
         <DateStrip today={today} active={date} />
         <div className="pt-2">
-          <SearchBar value={filters.q} courses={courseNames} cities={cities} />
+          <SearchBar value={filters.q} courses={courseNames} />
         </div>
         <FilterChips filters={filters} hasOrigin={hasOrigin} onLocate={locate} />
       </div>
@@ -178,6 +175,7 @@ export function Results({
           players={filters.players}
           byTime={filters.sort === "time"}
           byCourse={filters.view === "course"}
+          date={date}
         />
       )}
 
@@ -194,16 +192,22 @@ const PARTS = [
   { key: "twilight", label: "Twilight", until: "24:00" },
 ] as const;
 
+/** Times shown per course before sending you to its own page. */
+const COURSE_PREVIEW = 4;
+
 function TimeSections({
   bookings,
   players,
   byTime,
   byCourse,
+  date,
 }: {
   bookings: Booking[];
   players: number;
+  /** Part-of-day headers only make sense in time order. */
   byTime: boolean;
   byCourse: boolean;
+  date: string;
 }) {
   // Grouped by course for when you're deciding *where* rather than
   // *when* — the two questions want different shapes.
@@ -222,10 +226,14 @@ function TimeSections({
       <div className="flex flex-col gap-5">
         {order.map((name) => {
           const items = groups.get(name)!;
+          const preview = items.slice(0, COURSE_PREVIEW);
+          const rest = items.length - preview.length;
           const cheapest = items.reduce(
             (min, b) => (b.price != null ? Math.min(min, b.price) : min),
             Infinity
           );
+          const slug = items[0].courseSlug;
+
           return (
             <section key={name}>
               <h2 className="mb-2 flex items-baseline justify-between px-0.5">
@@ -240,10 +248,21 @@ function TimeSections({
                 )}
               </h2>
               <ul className="flex flex-col gap-2">
-                {items.map((b) => (
+                {preview.map((b) => (
                   <TeeTimeRow key={b.id} booking={b} players={players} hideCourse />
                 ))}
               </ul>
+
+              {/* The whole day, the forecast hour by hour, and the
+                  course's rating live on its own page — this list is for
+                  scanning, not for deciding. */}
+              <a
+                href={`${basePath}/course/${slug}/?${new URLSearchParams({ date })}`}
+                className="mt-2 flex items-center justify-center gap-1 rounded-xl bg-surface-2 py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
+              >
+                {rest > 0 ? `See all ${items.length} times` : "Course details"}
+                <span aria-hidden className="text-text-3">→</span>
+              </a>
             </section>
           );
         })}
@@ -252,7 +271,7 @@ function TimeSections({
   }
 
   // Part-of-day headers only make sense in time order; sorted by price
-  // they would interleave meaninglessly.
+  // or distance they would interleave meaninglessly.
   if (!byTime) {
     return (
       <ul className="flex flex-col gap-2">

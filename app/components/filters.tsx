@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { addDays } from "@/lib/format";
+import { CITIES, COUNTIES } from "@/lib/utah-places";
 
 /**
  * Filters live in the URL so a search is shareable and survives a
@@ -23,6 +24,8 @@ export interface FilterState {
   near: string;
   /** Only show courses within this many miles of the origin. */
   radius: number | null;
+  /** Restrict to one Utah county. Mutually exclusive with radius. */
+  county: string;
   view: "time" | "course";
 }
 
@@ -42,6 +45,7 @@ export function useFilters(date: string): FilterState {
     q: params.get("q") ?? "",
     near: params.get("near") ?? "",
     radius: params.get("radius") ? Number(params.get("radius")) : null,
+    county: params.get("county") ?? "",
     view: (params.get("view") as FilterState["view"]) ?? "time",
   };
 }
@@ -53,15 +57,7 @@ export function useFilters(date: string): FilterState {
  * offer something that returns nothing. Picking a city also gives the
  * radius filter something to measure from — see `near` in FilterState.
  */
-export function SearchBar({
-  value,
-  courses,
-  cities,
-}: {
-  value: string;
-  courses: string[];
-  cities: string[];
-}) {
+export function SearchBar({ value, courses }: { value: string; courses: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
   const [draft, setDraft] = useState(value);
@@ -79,13 +75,23 @@ export function SearchBar({
   }
 
   const commit = useCallback(
-    (next: string, city?: string) => {
+    (next: string, kind?: "course" | "city" | "county") => {
       const p = new URLSearchParams(params.toString());
       if (next.trim()) p.set("q", next);
       else p.delete("q");
-      // A city match doubles as the origin for radius filtering.
-      if (city) p.set("near", city);
-      else if (!next.trim()) p.delete("near");
+
+      if (kind === "county") {
+        // A county is a boundary, not a point — a radius around it would
+        // mean something different from what was asked, so clear it.
+        p.set("county", next);
+        p.delete("near");
+        p.delete("radius");
+      } else {
+        p.delete("county");
+        // A city doubles as the origin for radius filtering.
+        if (kind === "city") p.set("near", next);
+        else if (!next.trim()) p.delete("near");
+      }
       router.replace(`/?${p}`, { scroll: false });
     },
     [params, router]
@@ -94,14 +100,28 @@ export function SearchBar({
   const suggestions = useMemo(() => {
     const needle = draft.trim().toLowerCase();
     if (!needle) return [];
-    const cityHits = cities
-      .filter((c) => c.toLowerCase().includes(needle))
-      .map((c) => ({ label: c, kind: "city" as const }));
+
     const courseHits = courses
       .filter((c) => c.toLowerCase().includes(needle))
       .map((c) => ({ label: c, kind: "course" as const }));
-    return [...cityHits, ...courseHits].slice(0, 6);
-  }, [draft, courses, cities]);
+
+    // Every Utah city, not just ones with a course: people search from
+    // where they live, then widen the radius to find somewhere to play.
+    const cityHits = CITIES.filter((c) => c.name.toLowerCase().includes(needle)).map((c) => ({
+      label: c.name,
+      kind: "city" as const,
+      hint: `${c.county} County`,
+    }));
+
+    const countyHits = COUNTIES.filter((c) => c.toLowerCase().includes(needle)).map((c) => ({
+      label: c,
+      kind: "county" as const,
+    }));
+
+    // Courses first — an exact course match is the most specific thing
+    // the searcher could have meant.
+    return [...courseHits, ...countyHits, ...cityHits].slice(0, 7);
+  }, [draft, courses]);
 
   return (
     <div className="relative">
@@ -111,7 +131,15 @@ export function SearchBar({
           // Dismisses the on-screen keyboard.
           inputRef.current?.blur();
           setOpen(false);
-          commit(draft, cities.find((c) => c.toLowerCase() === draft.trim().toLowerCase()));
+          // Typing a place name by hand should behave the same as
+          // picking it from the suggestions.
+          const typed = draft.trim().toLowerCase();
+          const kind = COUNTIES.some((c) => c.toLowerCase() === typed)
+            ? ("county" as const)
+            : CITIES.some((c) => c.name.toLowerCase() === typed)
+              ? ("city" as const)
+              : undefined;
+          commit(draft, kind);
         }}
       >
         <svg
@@ -152,15 +180,21 @@ export function SearchBar({
                   setDraft(s.label);
                   setOpen(false);
                   inputRef.current?.blur();
-                  commit(s.label, s.kind === "city" ? s.label : undefined);
+                  commit(s.label, s.kind);
                 }}
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[15px] text-text-1 active:bg-surface-2"
               >
-                <span className="text-text-3">{s.kind === "city" ? "◎" : "⛳"}</span>
+                <span className="text-text-3">
+                  {s.kind === "course" ? "⛳" : s.kind === "county" ? "▨" : "◎"}
+                </span>
                 <span className="truncate">{s.label}</span>
-                {s.kind === "city" && (
-                  <span className="ml-auto shrink-0 text-[11px] text-text-3">city</span>
-                )}
+                <span className="ml-auto shrink-0 text-[11px] text-text-3">
+                  {s.kind === "county"
+                    ? "county"
+                    : s.kind === "city"
+                      ? ("hint" in s ? s.hint : "city")
+                      : ""}
+                </span>
               </button>
             </li>
           ))}
@@ -333,12 +367,13 @@ export function FilterChips({
       <Chip
         value={filters.radius == null ? "" : String(filters.radius)}
         active={filters.radius != null}
+        disabled={filters.county !== ""}
         onChange={(v) => {
           if (v && !hasOrigin) onLocate();
           update("radius", v);
         }}
         options={[
-          ["", hasOrigin ? "Any distance" : "Distance"],
+          ["", filters.county ? "Whole county" : hasOrigin ? "Any distance" : "Distance"],
           ["10", "Within 10 miles"],
           ["20", "Within 20 miles"],
           ["30", "Within 30 miles"],
@@ -367,16 +402,19 @@ function Chip({
   active,
   onChange,
   options,
+  disabled = false,
 }: {
   value: string;
   active: boolean;
   onChange: (value: string) => void;
   options: [string, string][];
+  disabled?: boolean;
 }) {
   return (
-    <div className="relative shrink-0">
+    <div className={`relative shrink-0 ${disabled ? "opacity-40" : ""}`}>
       <select
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         // Native select: on a phone this opens the OS picker, which is
         // faster and more accessible than any custom dropdown.

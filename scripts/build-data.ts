@@ -32,7 +32,9 @@ interface StaticSlot {
 interface StaticCourse {
   id: string;
   name: string;
+  slug: string;
   city: string;
+  county: string;
   platform: string;
   bookingUrl: string;
   lat: number;
@@ -74,7 +76,9 @@ async function fetchCourse(
   const base: StaticCourse = {
     id: `${seed.platform}:${seed.externalId}`,
     name: seed.name,
+    slug: seed.slug,
     city: seed.city,
+    county: seed.county,
     platform: seed.platform,
     bookingUrl: seed.bookingUrl,
     lat: seed.latitude,

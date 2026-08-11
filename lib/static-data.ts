@@ -16,7 +16,9 @@ export interface StaticSlot {
 export interface StaticCourse {
   id: string;
   name: string;
+  slug: string;
   city: string;
+  county: string;
   platform: string;
   bookingUrl: string;
   lat: number;

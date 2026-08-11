@@ -49,7 +49,9 @@ export function AppShell() {
       const base: CourseView[] = day.courses.map((c) => ({
         id: c.id,
         name: c.name,
+        slug: c.slug,
         city: c.city,
+        county: c.county,
         platform: c.platform,
         bookingUrl: c.bookingUrl,
         latitude: c.lat,
