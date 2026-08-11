@@ -102,7 +102,7 @@ Two scripts cover this. First, pull the course links out of a directory
 page (utah.com, UGA, 18birdies, ...):
 
 ```bash
-npm run extract -- https://www.utah.com/.../golfing/ > candidates.json
+npx tsx scripts/extract-directory.ts https://www.utah.com/.../golfing/
 ```
 
 If the directory blocks plain requests or renders its list with
@@ -110,15 +110,21 @@ JavaScript, open it in a browser, Save Page As, and point the script at
 the saved file instead:
 
 ```bash
-npm run extract -- saved-page.html > candidates.json
+npx tsx scripts/extract-directory.ts saved-page.html
 ```
 
 Then check what platform each course uses:
 
 ```bash
-npm run detect -- candidates.json
-npm run detect -- candidates.json --json > found.json
+npx tsx scripts/detect-platform.ts
+npx tsx scripts/detect-platform.ts --json
 ```
+
+Both default to `candidates.json`; pass `--out`/a filename to change it.
+Invoke them via `npx tsx` rather than `npm run` — PowerShell eats the
+`--` that `npm run` needs to forward arguments, and its `>` redirect
+writes UTF-16 that fails to parse later. The scripts write their own
+files to avoid both.
 
 For MemberSports courses it pulls the `<golfClubId>:<golfCourseId>` pair
 straight out of the booking URL and prints a ready-to-paste

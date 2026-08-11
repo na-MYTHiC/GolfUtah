@@ -20,7 +20,7 @@
  * to behave like a person clicking through a directory, not to hammer
  * anyone's site. Don't crank the concurrency up.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 const DELAY_MS = 1500;
 
@@ -95,10 +95,14 @@ async function detect(candidate: Candidate): Promise<Detection> {
 async function main() {
   const args = process.argv.slice(2);
   const asJson = args.includes("--json");
-  const file = args.find((a) => !a.startsWith("--"));
+  const file = args.find((a) => !a.startsWith("--")) ?? "candidates.json";
 
-  if (!file) {
-    console.error("Usage: npm run detect -- <candidates.json> [--json]");
+  if (!existsSync(file)) {
+    console.error(
+      `No such file: ${file}\n` +
+        `Run the extractor first:\n` +
+        `  npx tsx scripts/extract-directory.ts <directory-url>`
+    );
     process.exitCode = 1;
     return;
   }

@@ -8,8 +8,11 @@
  * through is only visible on the course's own site, not the directory.
  *
  * Usage:
- *   npm run extract -- https://www.utah.com/.../golfing/ > candidates.json
- *   npm run extract -- saved-page.html > candidates.json
+ *   npx tsx scripts/extract-directory.ts <url-or-file> [--out candidates.json]
+ *
+ * Writes to candidates.json by default. Prefer --out over shell
+ * redirection: PowerShell's `>` writes UTF-16, which later reads back as
+ * unparseable JSON.
  *
  * The second form is the fallback for directories that block plain
  * fetches: open the page in a browser, Save Page As, and point this at
@@ -19,7 +22,7 @@
  * of things that aren't golf courses. Skim the result before running it
  * through detect.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
 
 interface Candidate {
   name: string;
@@ -114,9 +117,15 @@ function normalizeUrl(raw: string): string | undefined {
 }
 
 async function main() {
-  const source = process.argv[2];
+  const args = process.argv.slice(2);
+  const outIdx = args.findIndex((a) => a === "--out");
+  const outFile = outIdx >= 0 ? args[outIdx + 1] : "candidates.json";
+  const source = args.find((a, i) => !a.startsWith("--") && i !== outIdx + 1);
+
   if (!source) {
-    console.error("Usage: npm run extract -- <directory-url|saved-page.html>");
+    console.error(
+      "Usage: npx tsx scripts/extract-directory.ts <directory-url|saved-page.html> [--out candidates.json]"
+    );
     process.exitCode = 1;
     return;
   }
@@ -157,8 +166,12 @@ async function main() {
     return;
   }
 
-  console.error(`Extracted ${candidates.length} candidate(s).`); // stderr so stdout stays pipeable
-  console.log(JSON.stringify(candidates, null, 2));
+  // Write the file ourselves rather than relying on shell redirection,
+  // which on PowerShell produces UTF-16 that later fails to parse.
+  writeFileSync(outFile, JSON.stringify(candidates, null, 2), "utf8");
+  console.log(`Extracted ${candidates.length} candidate(s) -> ${outFile}`);
+  for (const c of candidates.slice(0, 10)) console.log(`  ${c.name}  ${c.url}`);
+  if (candidates.length > 10) console.log(`  ... and ${candidates.length - 10} more`);
 }
 
 main().catch((err) => {
