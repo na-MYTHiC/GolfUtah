@@ -120,7 +120,11 @@ async function main() {
   const args = process.argv.slice(2);
   const outIdx = args.findIndex((a) => a === "--out");
   const outFile = outIdx >= 0 ? args[outIdx + 1] : "candidates.json";
-  const source = args.find((a, i) => !a.startsWith("--") && i !== outIdx + 1);
+  // Skip the value that belongs to --out, but only when --out is actually
+  // present: with outIdx === -1, `outIdx + 1` is 0 and would swallow the
+  // source argument itself.
+  const outValueIdx = outIdx >= 0 ? outIdx + 1 : -1;
+  const source = args.find((a, i) => !a.startsWith("--") && i !== outValueIdx);
 
   if (!source) {
     console.error(
