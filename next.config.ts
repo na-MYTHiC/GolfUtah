@@ -26,9 +26,6 @@ const nextConfig: NextConfig = {
     // Needed at runtime to build asset URLs (data files, manifest) that
     // still resolve under the Pages sub-path.
     NEXT_PUBLIC_BASE_PATH: basePath,
-    // Surfaced in the header so a stale cached build is obvious.
-    NEXT_PUBLIC_BUILD_ID: process.env.BUILD_ID ?? "dev",
-    NEXT_PUBLIC_BUILD_TIME: process.env.BUILD_TIME ?? "",
   },
 };
 

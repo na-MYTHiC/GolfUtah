@@ -1,21 +1,11 @@
 /**
- * Build identity, shown in the header so it's possible to tell at a
- * glance which build you're looking at — cached service workers and
- * scheduled deploys otherwise make that invisible.
+ * App version, shown in the header.
  *
- * Set by the deploy workflow; "dev" when running locally.
+ * Bumped by hand whenever the code changes — deliberately NOT tied to the
+ * deploy or commit, because the scheduled build runs every 20 minutes and
+ * a version that churned on its own would be useless for the one question
+ * it exists to answer: "am I looking at the latest code?"
+ *
+ * Bump this in the same commit as the change it describes.
  */
-export const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
-export const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME || "";
-
-export function buildLabel(): string {
-  if (!BUILD_TIME) return BUILD_ID;
-  const when = new Date(BUILD_TIME).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "America/Denver",
-  });
-  return `${BUILD_ID} · ${when}`;
-}
+export const APP_VERSION = "v1";

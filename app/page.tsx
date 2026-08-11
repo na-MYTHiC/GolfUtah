@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { AppShell } from "./components/app-shell";
-import { buildLabel } from "@/lib/version";
+import { APP_VERSION } from "@/lib/version";
 
 export default function Home() {
   return (
@@ -13,8 +13,8 @@ export default function Home() {
             </h1>
             {/* Which build you're actually looking at. A cached service
                 worker can otherwise keep serving an old one silently. */}
-            <span className="shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 font-mono text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-              {buildLabel()}
+            <span className="shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 font-mono text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              {APP_VERSION}
             </span>
           </div>
           <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
