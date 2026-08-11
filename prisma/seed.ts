@@ -19,6 +19,15 @@ const courses: {
   externalId: string;
   bookingUrl: string;
 }[] = [
+  {
+    name: "Eaglewood Golf Course",
+    city: "North Salt Lake",
+    platform: "MEMBERSPORTS",
+    // "<golfClubId>:<golfCourseId>", confirmed from a real
+    // onlineBookingTeeTimes capture — see lib/adapters/membersports.ts
+    externalId: "15391:18901",
+    bookingUrl: "https://eaglewoodgolf.com/golf/",
+  },
   // Example shape once a course is verified — uncomment and fill in with
   // a real, confirmed externalId:
   // {

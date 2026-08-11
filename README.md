@@ -39,9 +39,15 @@ itself.
   One credential row per course for now (single-user assumption);
   revisit with a real `User` model before this has more than one user.
 
-None of the adapters are wired up to real endpoints yet — see the
-comments at the top of each file in `lib/adapters/` for how to find and
-verify each platform's real API before implementing it.
+Adapter status:
+- **MemberSports** — confirmed against a real capture from Eaglewood Golf
+  Course (North Salt Lake). Request/response shape and field mapping are
+  verified (including a subtle bug caught along the way: `teeTime` is
+  minutes-since-midnight, not literal HH:MM digits). Not fully wired up
+  yet — see below.
+- **ForeUp**, **Chronogolf** — not started; see the comments at the top
+  of each file in `lib/adapters/` for how to find and verify each
+  platform's real API.
 
 ## Getting started
 
@@ -64,9 +70,13 @@ npm run poll -- --loop=300   # repeat every 5 minutes
 
 ## Status
 
-Early stage. Scaffolding (app, DB schema, adapter architecture,
-encrypted credential storage) is in place; no adapter is wired up to a
-real platform endpoint yet, and no courses are seeded.
+Early stage. Eaglewood Golf Course is seeded (MemberSports), with a
+verified request/response mapping in `lib/adapters/membersports.ts` —
+but `fetchTeeTimes` isn't fully callable yet, since we don't yet know
+how to obtain a valid session token server-side (the captured request
+had a real user session already stored in the browser; the actual
+login/token-issuing request hasn't been captured — see the comment at
+the top of that file). ForeUp and Chronogolf adapters are unstarted.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once
