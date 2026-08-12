@@ -234,6 +234,35 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.887,
   },
 
+  // --- TeeItUp ---
+  // Utah State Parks golf, run by Aspira Management, which is why both
+  // sit on one booking site under one alias. Each park has two 18s, and
+  // the pair of facility ids per course is those two — not two different
+  // courses, which is what the ids looked like before Soldier Hollow's
+  // own request showed a different pair.
+  {
+    name: "Wasatch Mountain Golf Course",
+    slug: "wasatch-mountain-golf-course",
+    county: "Wasatch",
+    city: "Midway",
+    platform: "TEEITUP",
+    externalId: "aspira-management-company:17070,17067",
+    bookingUrl: "https://stateparks.utah.gov/golf/wasatch/",
+    latitude: 40.518,
+    longitude: -111.489,
+  },
+  {
+    name: "Soldier Hollow Golf Course",
+    slug: "soldier-hollow-golf-course",
+    county: "Wasatch",
+    city: "Midway",
+    platform: "TEEITUP",
+    externalId: "aspira-management-company:17072,17073",
+    bookingUrl: "https://stateparks.utah.gov/golf/soldier-hollow/",
+    latitude: 40.401,
+    longitude: -111.505,
+  },
+
   // --- MemberSports ---
   {
     name: "Eaglewood Golf Course",
@@ -475,5 +504,18 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://bountifulridgegolf.com/",
     latitude: 40.868,
     longitude: -111.845,
+  },
+  {
+    name: "Eagle Lake Golf Course",
+    slug: "eagle-lake-golf-course",
+    county: "Weber",
+    city: "Roy",
+    platform: "FOREUP",
+    // ForeUp calls it "Eagle Lake Golf Course (UT)"; the suffix is
+    // theirs, disambiguating from a same-named course elsewhere.
+    externalId: "22784:11989:51088",
+    bookingUrl: "https://eaglelake-golf.com/",
+    latitude: 41.16,
+    longitude: -112.06,
   },
 ];

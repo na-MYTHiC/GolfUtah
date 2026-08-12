@@ -105,7 +105,8 @@ class Collector {
 
   offer(ids: Ids | undefined): void {
     if (!ids) return;
-    if (ids.source === "booking url" && ids.externalId === this.baseline) return;
+    // Nothing new: same ids we were handed, and no name to go with them.
+    if (ids.externalId === this.baseline && !ids.courseName) return;
     if (!this.best || rank(ids) > rank(this.best)) this.best = ids;
   }
 
@@ -121,9 +122,19 @@ function rank(ids: Ids): number {
 
 const FOREUP_BOOKING_URL = /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/;
 
+/**
+ * Real ForeUp course ids are five digits; Crane Field's page yields
+ * "1:1", which is placeholder markup rather than a course. Schedule ids
+ * genuinely can be small (Timpanogos is 6279:49), so only the course id
+ * is checked.
+ */
+function isPlaceholder(courseId: string): boolean {
+  return Number(courseId) < 100;
+}
+
 function fromForeUpUrl(url: string): Ids | undefined {
   const m = FOREUP_BOOKING_URL.exec(url);
-  if (!m) return undefined;
+  if (!m || isPlaceholder(m[1])) return undefined;
   return { platform: "FOREUP", externalId: `${m[1]}:${m[2]}`, source: "booking url" };
 }
 
@@ -209,7 +220,7 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
   {
     platform: "FOREUP",
     re: /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/i,
-    ids: (m) => `${m[1]}:${m[2]}`,
+    ids: (m) => (isPlaceholder(m[1]) ? "" : `${m[1]}:${m[2]}`),
   },
   {
     platform: "MEMBERSPORTS",
@@ -297,10 +308,24 @@ function fromTeeItUp(url: string, headers: Record<string, string>): Ids | undefi
 function fromAnyUrl(url: string, source: string): Ids | undefined {
   for (const { platform, re, ids } of LINK_PATTERNS) {
     const m = re.exec(url);
-    if (m) return { platform, externalId: ids(m), source };
+    if (!m) continue;
+    const externalId = ids(m);
+    if (!externalId) return undefined; // placeholder, not a course
+    return { platform, externalId, source };
   }
   return undefined;
 }
+
+/**
+ * Hosts worth following a link to. Most misses in the first full run
+ * were courses whose site links out to a booking platform in a shape
+ * this script didn't recognise — "booking links point at
+ * foreupsoftware.com" on six courses that are plainly ForeUp. Following
+ * the link lands on the booking page, where the widget names its own
+ * ids.
+ */
+const BOOKING_HOSTS =
+  /foreupsoftware\.com|chronogolf\.com|app\.membersports\.com|teeitup\.(?:golf|com)|kenna\.io|golfpay\.co|quick18\.com|golfrev\.com|trwidget\.web\.app/i;
 
 /**
  * Every address the page mentions: link targets, embedded frames, and
@@ -475,6 +500,9 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
   // the link that got us there, so it's kept aside and stitched back on.
   let chronoSlug: string | undefined;
 
+  /** Links to a booking platform, to be followed when nothing else works. */
+  const bookingLinks = new Set<string>();
+
   /** Read every address a page mentions, and note where bookings point. */
   const harvest = async (p: Page) => {
     for (const url of await pageUrls(p)) {
@@ -483,7 +511,10 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
         chronoSlug ??= hit.externalId;
       }
       found.offer(hit);
-      if (/tee.?time|booking|reserve/i.test(url)) {
+
+      if (BOOKING_HOSTS.test(url)) bookingLinks.add(url.split("#")[0]);
+
+      if (BOOKING_HOSTS.test(url) || /tee.?time|booking|reserve/i.test(url)) {
         try {
           const host = new URL(url).hostname.replace(/^www\./, "");
           if (host !== new URL(p.url()).hostname.replace(/^www\./, "")) bookingHosts.add(host);
@@ -493,6 +524,18 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
       }
     }
   };
+
+  /** Wait for whichever availability call the platform makes. */
+  const awaitAvailability = (p: Page) =>
+    p
+      .waitForResponse(
+        (r) =>
+          /api\/booking\/times|onlineBookingTeeTimes|marketplace\/v2\/teetimes|kenna\.io\/v\d+\/tee-times/.test(
+            r.url()
+          ),
+        { timeout: CAPTURE_TIMEOUT_MS }
+      )
+      .catch(() => undefined);
 
   try {
     await page.goto(target.url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
@@ -513,6 +556,26 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
       await nudge(page);
       await harvest(page);
       for (const p of context.pages()) await harvest(p);
+    }
+
+    // Still nothing, but the site links out to a platform we know: go
+    // there. This is what the first full run was missing — six courses
+    // reported "booking links point at foreupsoftware.com" while their
+    // ids sat one navigation away.
+    if (!found.result) {
+      for (const link of [...bookingLinks].slice(0, 3)) {
+        await page
+          .goto(link, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS })
+          .catch(() => undefined);
+        await page.waitForTimeout(SETTLE_MS);
+        await harvest(page);
+        if (!found.result) {
+          await nudge(page);
+          await awaitAvailability(page);
+          await harvest(page);
+        }
+        if (found.result) break;
+      }
     }
 
     // A link gives ids but never a ForeUp booking class, and never
@@ -636,6 +699,26 @@ async function main() {
   const hits = findings.filter((f) => f.ids);
   console.log(`\nResolved ${hits.length} of ${findings.length}.`);
 
+  // Two courses resolving to one id means the site has a single shared
+  // booking link and the per-course schedule was never reached. Seeding
+  // both would show every golfer the same tee sheet under two names, so
+  // this is called out rather than printed as a clean result.
+  const byId = new Map<string, Finding[]>();
+  for (const f of hits) {
+    const key = `${f.ids!.platform}:${f.ids!.externalId}`;
+    byId.set(key, [...(byId.get(key) ?? []), f]);
+  }
+  const collisions = [...byId.entries()].filter(([, fs]) => fs.length > 1);
+  if (collisions.length) {
+    console.log(`\nSAME IDS FOR DIFFERENT COURSES — do not seed these as-is:`);
+    for (const [key, fs] of collisions) {
+      console.log(`  ${key}\n    ${fs.map((f) => f.name).join("\n    ")}`);
+    }
+    console.log(
+      `  Open each course's own booking link; they'll differ by schedule id.`
+    );
+  }
+
   if (refresh) {
     const withClass = hits.filter((f) => f.ids!.externalId.split(":").length === 3);
     console.log(`Captured a booking class for ${withClass.length}.\n`);
@@ -643,8 +726,12 @@ async function main() {
       console.log(`  ${f.name}: externalId: "${f.ids!.externalId}",`);
     }
   } else if (hits.length) {
-    console.log(`\nPaste into lib/courses.data.ts:\n`);
-    for (const f of hits) printSeed(f);
+    const collided = new Set(collisions.flatMap(([, fs]) => fs.map((f) => f.name)));
+    const clean = hits.filter((f) => !collided.has(f.name));
+    if (clean.length) {
+      console.log(`\nPaste into lib/courses.data.ts:\n`);
+      for (const f of clean) printSeed(f);
+    }
   }
 
   const misses = findings.filter((f) => !f.ids);
