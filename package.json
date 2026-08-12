@@ -17,6 +17,7 @@
     "extract": "tsx scripts/extract-directory.ts",
     "probe": "tsx scripts/probe.ts",
     "test:chronogolf": "tsx scripts/test-chronogolf.ts",
+    "test:teeitup": "tsx scripts/test-teeitup.ts",
     "chronogolf:add": "tsx scripts/chronogolf-add.ts",
     "chronogolf:discover": "tsx scripts/chronogolf-discover.ts",
     "discover": "tsx scripts/discover-ids.ts",

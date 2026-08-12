@@ -32,7 +32,7 @@
  * Needs a browser once:  npx playwright install chromium
  */
 import { writeFileSync } from "node:fs";
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { COURSES } from "../lib/courses.data";
 import CANDIDATES from "./courses.candidates.json";
 
@@ -47,7 +47,13 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
-type Platform = "FOREUP" | "MEMBERSPORTS" | "CHRONOGOLF";
+/**
+ * TEEITUP has no adapter yet — it turned up while surveying the last
+ * stragglers. It's reported so its courses can be counted and seeded
+ * once one exists; a seed entry naming it won't typecheck against
+ * PlatformName until then, which is the intended nudge.
+ */
+type Platform = "FOREUP" | "MEMBERSPORTS" | "CHRONOGOLF" | "TEEITUP";
 
 interface Ids {
   platform: Platform;
@@ -171,6 +177,125 @@ function fromChronogolf(url: string): Ids | undefined {
   };
 }
 
+/**
+ * Ids straight out of a booking link's address, no traffic required.
+ *
+ * This is the cheap path and should be tried first. Most course websites
+ * don't embed a booking widget at all — they just link out to it, and
+ * the link's href already contains the ids. The first version of this
+ * script only watched network traffic and so found nothing on 24 of 24
+ * courses, including Valley View, whose ForeUp ids were sitting in an
+ * anchor tag the whole time.
+ */
+const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray) => string }[] = [
+  {
+    platform: "FOREUP",
+    re: /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/i,
+    ids: (m) => `${m[1]}:${m[2]}`,
+  },
+  {
+    platform: "MEMBERSPORTS",
+    re: /app\.membersports\.com\/tee-times\/(\d+)\/(\d+)/i,
+    ids: (m) => `${m[1]}:${m[2]}`,
+  },
+  {
+    // Only the club slug — the course uuids still need a page load, which
+    // followUp() does.
+    platform: "CHRONOGOLF",
+    re: /chronogolf\.com\/(?:en\/)?club\/([a-z0-9-]+)/i,
+    ids: (m) => m[1],
+  },
+  {
+    // TeeItUp books under a per-operator subdomain; the alias in it is
+    // also the x-be-alias header its API wants. Facility ids come from
+    // the API call, not the link.
+    platform: "TEEITUP",
+    re: /([a-z0-9-]+)\.book-v2\.teeitup\.golf/i,
+    ids: (m) => m[1],
+  },
+];
+
+/**
+ * TeeItUp's availability call, e.g.
+ *   phx-api-be-east-1b.kenna.io/v2/tee-times
+ *     ?date=2026-08-16&facilityIds=17070,17067&returnPromotedRates=true
+ *
+ * A booking site can front several facilities at once, the way a
+ * Chronogolf club can publish several courses — so facilityIds is a
+ * list. The operator alias rides in the x-be-alias header and in the
+ * request's own origin.
+ */
+function fromTeeItUp(url: string, headers: Record<string, string>): Ids | undefined {
+  if (!/kenna\.io\/v\d+\/tee-times/i.test(url)) return undefined;
+  const facilityIds = new URL(url).searchParams.get("facilityIds");
+  if (!facilityIds) return undefined;
+  const alias =
+    headers["x-be-alias"] ||
+    /([a-z0-9-]+)\.book-v2\.teeitup\.golf/i.exec(headers["origin"] ?? "")?.[1] ||
+    "<alias>";
+  return {
+    platform: "TEEITUP",
+    externalId: `${alias}:${facilityIds}`,
+    source: "tee-times request",
+  };
+}
+
+function fromAnyUrl(url: string, source: string): Ids | undefined {
+  for (const { platform, re, ids } of LINK_PATTERNS) {
+    const m = re.exec(url);
+    if (m) return { platform, externalId: ids(m), source };
+  }
+  return undefined;
+}
+
+/**
+ * Every address the page mentions: link targets, embedded frames, and
+ * anything URL-shaped in the markup. Widgets are often injected by a
+ * script, so the raw HTML is worth scanning too.
+ */
+async function pageUrls(page: Page): Promise<string[]> {
+  const urls: string[] = [];
+  try {
+    urls.push(
+      ...(await page.$$eval("a[href]", (els) => els.map((e) => (e as HTMLAnchorElement).href)))
+    );
+    urls.push(
+      ...(await page.$$eval("iframe[src]", (els) => els.map((e) => (e as HTMLIFrameElement).src)))
+    );
+    for (const frame of page.frames()) urls.push(frame.url());
+    const html = await page.content();
+    urls.push(...(html.match(/https?:\/\/[^\s"'<>\\)]+/g) ?? []));
+  } catch {
+    // Page navigated or closed mid-scan; whatever was collected stands.
+  }
+  return urls;
+}
+
+/**
+ * Same-origin pages worth a look when the landing page has no booking
+ * link — courses commonly keep it one click away under "Tee Times".
+ */
+async function bookingSubpages(page: Page, limit: number): Promise<string[]> {
+  try {
+    const origin = new URL(page.url()).origin;
+    const links = await page.$$eval("a[href]", (els) =>
+      els.map((e) => ({
+        href: (e as HTMLAnchorElement).href,
+        text: (e.textContent ?? "").trim().slice(0, 80),
+      }))
+    );
+    const seen = new Set<string>();
+    return links
+      .filter((l) => l.href.startsWith(origin))
+      .filter((l) => /tee.?time|book|reserve|golf/i.test(`${l.text} ${l.href}`))
+      .map((l) => l.href.split("#")[0])
+      .filter((h) => h !== page.url() && !seen.has(h) && seen.add(h))
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 /** Click a booking-looking control — some widgets load only on demand. */
 async function nudge(page: Page): Promise<void> {
   const patterns = [
@@ -198,23 +323,83 @@ async function nudge(page: Page): Promise<void> {
   }
 }
 
-async function inspect(browser: Browser, target: Target): Promise<Finding> {
-  const context = await browser.newContext({ userAgent: UA });
-  const page = await context.newPage();
-  const found = new Collector(fromForeUpUrl(target.url)?.externalId);
+/** A link-derived hit that's still missing the part only a page load gives. */
+function needsFollowUp(ids: Ids): boolean {
+  if (ids.platform === "FOREUP") return ids.externalId.split(":").length < 3;
+  if (ids.platform === "CHRONOGOLF") return !ids.externalId.includes(":");
+  return false;
+}
 
-  page.on("request", (req) => {
+/**
+ * Opens the platform's own booking page so its widget fires the request
+ * that carries the rest: ForeUp's booking_class_id, or Chronogolf's
+ * course uuids. The context listeners pick both up, so this only has to
+ * navigate and wait.
+ */
+async function followUp(
+  context: BrowserContext,
+  ids: Ids,
+  found: Collector
+): Promise<void> {
+  const [a, b] = ids.externalId.split(":");
+  const url =
+    ids.platform === "FOREUP"
+      ? `https://foreupsoftware.com/index.php/booking/${a}/${b}#/teetimes`
+      : `https://www.chronogolf.com/club/${a}?${new URLSearchParams({
+          date: new Date().toISOString().slice(0, 10),
+          step: "teetimes",
+          holes: "",
+          coursesIds: "",
+          deals: "false",
+          groupSize: "0",
+        })}`;
+
+  const page = await context.newPage();
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+    await page
+      .waitForResponse((r) => /api\/booking\/times|marketplace\/v2\/teetimes/.test(r.url()), {
+        timeout: CAPTURE_TIMEOUT_MS,
+      })
+      .catch(() => undefined);
+    // ForeUp may ask which rate class first; that choice is the id.
+    if (needsFollowUp(found.result ?? ids)) {
+      await nudge(page);
+    }
+    await page.waitForTimeout(2_000);
+  } catch {
+    // The link-derived ids still stand.
+  } finally {
+    await page.close();
+  }
+}
+
+async function inspect(browser: Browser, target: Target): Promise<Finding> {
+  const context = await browser.newContext({
+    userAgent: UA,
+    // One course (Homestead) serves a TLS setup Chromium rejects
+    // outright. We're reading public booking ids, not trusting the site
+    // with anything, so a handshake it dislikes shouldn't end the run.
+    ignoreHTTPSErrors: true,
+  });
+  const found = new Collector(fromForeUpUrl(target.url)?.externalId);
+  /** Third-party hosts a booking link pointed at, for the ones that miss. */
+  const bookingHosts = new Set<string>();
+
+  // Listening on the context rather than the page is the important part:
+  // booking links routinely open in a new tab, and a page-level listener
+  // never sees a word of what happens there.
+  context.on("request", (req) => {
     const url = req.url();
     found.offer(fromForeUpUrl(url));
     found.offer(fromChronogolf(url));
+    found.offer(fromTeeItUp(url, req.headers()));
     if (url.includes("onlineBookingTeeTimes")) {
       found.offer(fromMemberSportsRequest(req.postData()));
     }
   });
 
-  page.on("framenavigated", (frame) => found.offer(fromForeUpUrl(frame.url())));
-
-  page.on("response", async (resp) => {
+  context.on("response", async (resp) => {
     const url = resp.url();
     if (!resp.ok()) return;
     try {
@@ -228,31 +413,69 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
     }
   });
 
+  const page = await context.newPage();
+
+  // Chronogolf's API is addressed by uuid and never mentions the club
+  // slug, but the seed entry needs both. The slug only ever appears in
+  // the link that got us there, so it's kept aside and stitched back on.
+  let chronoSlug: string | undefined;
+
+  /** Read every address a page mentions, and note where bookings point. */
+  const harvest = async (p: Page) => {
+    for (const url of await pageUrls(p)) {
+      const hit = fromAnyUrl(url, "page link");
+      if (hit?.platform === "CHRONOGOLF" && !hit.externalId.includes(":")) {
+        chronoSlug ??= hit.externalId;
+      }
+      found.offer(hit);
+      if (/tee.?time|booking|reserve/i.test(url)) {
+        try {
+          const host = new URL(url).hostname.replace(/^www\./, "");
+          if (host !== new URL(p.url()).hostname.replace(/^www\./, "")) bookingHosts.add(host);
+        } catch {
+          // not a parseable URL — ignore
+        }
+      }
+    }
+  };
+
   try {
     await page.goto(target.url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
     await page.waitForTimeout(SETTLE_MS);
+    await harvest(page);
 
-    // An embedded widget shows the platform in its frame's own URL.
-    for (const frame of page.frames()) found.offer(fromForeUpUrl(frame.url()));
+    // Nothing on the landing page — try the obvious subpages, then a click.
+    if (!found.result) {
+      for (const url of await bookingSubpages(page, 3)) {
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS }).catch(() => undefined);
+        await page.waitForTimeout(2_000);
+        await harvest(page);
+        if (found.result) break;
+      }
+    }
 
     if (!found.result) {
       await nudge(page);
-      for (const frame of page.frames()) found.offer(fromForeUpUrl(frame.url()));
+      await harvest(page);
+      for (const p of context.pages()) await harvest(p);
     }
 
-    // Give an availability request that's already in flight time to land,
-    // since the response is what carries the booking class.
-    if (!found.result?.externalId.includes(":")) {
-      await page
-        .waitForResponse((r) => /api\/booking\/times|onlineBookingTeeTimes/.test(r.url()), {
-          timeout: CAPTURE_TIMEOUT_MS,
-        })
-        .catch(() => undefined);
+    // A link gives ids but never a ForeUp booking class, and never
+    // Chronogolf's course uuids. Both need the booking page itself, so
+    // go there and let the widget do the work.
+    const partial = found.result;
+    if (partial && needsFollowUp(partial)) {
+      await followUp(context, partial, found);
     }
-    await page.waitForTimeout(2_000);
 
     const ids = found.result;
-    return ids ? { ...target, ids } : { ...target, note: "no booking traffic captured" };
+    if (ids) return { ...target, ids };
+    return {
+      ...target,
+      note: bookingHosts.size
+        ? `no ids found; booking links point at ${[...bookingHosts].join(", ")}`
+        : "no booking link or traffic found",
+    };
   } catch (err) {
     // A timeout after a sighting still counts — the ids are real.
     const ids = found.result;

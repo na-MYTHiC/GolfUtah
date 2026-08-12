@@ -21,6 +21,7 @@ enum Platform {
   FOREUP
   CHRONOGOLF
   MEMBERSPORTS
+  TEEITUP
 }
 
 model Course {

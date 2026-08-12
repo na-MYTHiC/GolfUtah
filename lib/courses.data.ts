@@ -26,7 +26,7 @@
  * Refine them per course as real ones turn up.
  */
 
-export type PlatformName = "FOREUP" | "CHRONOGOLF" | "MEMBERSPORTS";
+export type PlatformName = "FOREUP" | "CHRONOGOLF" | "MEMBERSPORTS" | "TEEITUP";
 
 export interface CourseSeed {
   name: string;
