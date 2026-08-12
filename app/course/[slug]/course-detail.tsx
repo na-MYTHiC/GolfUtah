@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
 import { getProfile, profileSummary } from "@/lib/course-profiles";
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
-import { todayInUtah, formatDateLabel, formatPrice, formatTime } from "@/lib/format";
+import { todayInUtah, formatDateLabel, formatPrice, formatTime, addDays } from "@/lib/format";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -31,12 +31,14 @@ export function CourseDetail({
   bookingUrl: string;
 }) {
   const params = useSearchParams();
+  const router = useRouter();
   const today = todayInUtah();
   const date = params.get("date") ?? today;
 
   const [course, setCourse] = useState<StaticCourse | null | undefined>(undefined);
   const [weather, setWeather] = useState<DayWeather | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   /** Bumped to re-run the load; how a manual refresh is triggered. */
   const [reloads, setReloads] = useState(0);
@@ -73,6 +75,13 @@ export function CourseDetail({
       const match = day?.courses.find((c) => c.slug === slug) ?? null;
       setCourse(match);
       setCheckedAt(day?.generatedAt ?? null);
+      setLastChecked(
+        new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/Denver",
+        })
+      );
       setRefreshing(false);
 
       if (match) {
@@ -97,6 +106,16 @@ export function CourseDetail({
           <span aria-hidden>←</span> All courses
         </a>
 
+        <DateStrip
+          today={today}
+          active={date}
+          onPick={(next) => {
+            const p = new URLSearchParams(params.toString());
+            p.set("date", next);
+            router.replace(`?${p}`, { scroll: false });
+          }}
+        />
+
         <header className="mt-3">
           <h1 className="text-[26px] font-bold leading-tight tracking-tight text-text-1">
             {name}
@@ -119,6 +138,7 @@ export function CourseDetail({
 
         <Freshness
           generatedAt={checkedAt}
+          lastChecked={lastChecked}
           refreshing={refreshing}
           onRefresh={() => setReloads((n) => n + 1)}
         />
@@ -241,6 +261,52 @@ function Conditions({
 }
 
 /**
+ * The same ten-day strip as the list view.
+ *
+ * Written locally rather than shared with the list's version because
+ * that one navigates to "/?date=…"; here the day should change without
+ * leaving the course.
+ */
+function DateStrip({
+  today,
+  active,
+  onPick,
+}: {
+  today: string;
+  active: string;
+  onPick: (date: string) => void;
+}) {
+  const dates = Array.from({ length: 10 }, (_, i) => addDays(today, i));
+
+  return (
+    <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {dates.map((date) => {
+        const d = new Date(`${date}T12:00:00`);
+        const isActive = date === active;
+        return (
+          <button
+            key={date}
+            onClick={() => onPick(date)}
+            className={`flex w-[3.25rem] shrink-0 flex-col items-center rounded-xl py-2 transition ${
+              isActive
+                ? "bg-crimson text-white shadow-sm shadow-crimson/30"
+                : "bg-surface-2 text-text-2 active:bg-surface-3"
+            }`}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wide opacity-75">
+              {date === today ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}
+            </span>
+            <span className="text-base font-semibold leading-tight tabular-nums">
+              {d.getDate()}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * What the course is like, and what golfers said about it.
  *
  * The facts come first and the opinions second, deliberately. Choosing
@@ -331,10 +397,13 @@ function About({ slug, info }: { slug: string; info: CourseInfo | null }) {
  */
 function Freshness({
   generatedAt,
+  lastChecked,
   refreshing,
   onRefresh,
 }: {
   generatedAt: string | null;
+  /** When this page last asked, as opposed to when the times were gathered. */
+  lastChecked: string | null;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -348,9 +417,15 @@ function Freshness({
 
   return (
     <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface-1 px-3.5 py-2.5 ring-1 ring-line">
+      {/* Two different times, and conflating them was confusing: one is
+          when the courses were last polled, the other is when this page
+          last asked for that data. Tapping Refresh moves the second and
+          only moves the first if a new build has landed. */}
       <p className="min-w-0 text-[12px] leading-snug text-text-2">
-        {clock ? `Times as of ${clock}` : "Checking…"}
-        <span className="block text-text-3">Confirm on the course&apos;s page before paying</span>
+        {clock ? `Times gathered ${clock}` : "Checking…"}
+        <span className="block text-text-3">
+          {lastChecked ? `Checked ${lastChecked} · ` : ""}confirm on the course&apos;s page
+        </span>
       </p>
       <button
         onClick={onRefresh}

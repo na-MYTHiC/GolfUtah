@@ -14,10 +14,11 @@ export interface FilterState {
   date: string;
   players: number;
   holes: "all" | "9" | "18";
-  after: string;
-  before: string;
+  /** Part of day, replacing the old from/until pair. */
+  when: "any" | "morning" | "midday" | "evening";
   maxPrice: number | null;
-  sort: "time" | "price" | "distance";
+  /** Only meaningful grouped by course; the time list is always chronological. */
+  sort: "distance" | "price";
   /** Free text matched against course name and city. */
   q: string;
   /** City to measure distances from, set by searching for one. */
@@ -40,16 +41,17 @@ export function useFilters(date: string): FilterState {
     date,
     players: Number(params.get("players") ?? 1),
     holes: (params.get("holes") as FilterState["holes"]) ?? "all",
-    after: params.get("after") ?? "",
-    before: params.get("before") ?? "",
+    when: (params.get("when") as FilterState["when"]) ?? "any",
     maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : null,
-    sort: (params.get("sort") as FilterState["sort"]) ?? "time",
+    sort: (params.get("sort") as FilterState["sort"]) ?? "distance",
     q: params.get("q") ?? "",
     near: params.get("near") ?? "",
     radius: params.get("radius") ? Number(params.get("radius")) : null,
     county: params.get("county") ?? "",
     starred: params.get("starred") === "1",
-    view: (params.get("view") as FilterState["view"]) ?? "time",
+    // Grouped by course by default: most people are choosing where to
+    // play before they're choosing when.
+    view: (params.get("view") as FilterState["view"]) ?? "course",
   };
 }
 
@@ -214,14 +216,14 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
 
   const set = (next: FilterState["view"]) => {
     const p = new URLSearchParams(params.toString());
-    if (next === "time") p.delete("view");
+    if (next === "course") p.delete("view");
     else p.set("view", next);
     router.replace(`/?${p}`, { scroll: false });
   };
 
   return (
     <div className="flex shrink-0 rounded-full bg-surface-2 p-0.5">
-      {(["time", "course"] as const).map((option) => (
+      {(["course", "time"] as const).map((option) => (
         <button
           key={option}
           onClick={() => set(option)}
@@ -285,11 +287,14 @@ export function FilterChips({
   filters,
   hasOrigin,
   onLocate,
+  view,
 }: {
   filters: FilterState;
   /** Whether a distance origin exists (device location or searched city). */
   hasOrigin: boolean;
   onLocate: () => void;
+  /** Sorting is hidden in the time list, which is chronological by definition. */
+  view: FilterState["view"];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -306,7 +311,7 @@ export function FilterChips({
 
   // Everything except the day and the view, which aren't narrowing —
   // clearing filters shouldn't jump you back to today or change layout.
-  const NARROWING = ["players", "holes", "after", "before", "maxPrice", "radius", "county", "starred", "q", "near", "sort"];
+  const NARROWING = ["players", "holes", "when", "maxPrice", "radius", "county", "starred", "q", "near", "sort"];
   const activeCount = NARROWING.filter((k) => params.get(k)).length;
 
   const clearAll = useCallback(() => {
@@ -349,29 +354,17 @@ export function FilterChips({
           ["18", "18 holes"],
         ]}
       />
+      {/* One control instead of a from/until pair — nobody thinks in
+          boundary times, they think "I want to play in the morning". */}
       <Chip
-        value={filters.after}
-        active={filters.after !== ""}
-        onChange={(v) => update("after", v)}
+        value={filters.when}
+        active={filters.when !== "any"}
+        onChange={(v) => update("when", v === "any" ? "" : v)}
         options={[
-          ["", "From any time"],
-          ["06:00", "From 6 AM"],
-          ["08:00", "From 8 AM"],
-          ["10:00", "From 10 AM"],
-          ["12:00", "From noon"],
-          ["15:00", "From 3 PM"],
-        ]}
-      />
-      <Chip
-        value={filters.before}
-        active={filters.before !== ""}
-        onChange={(v) => update("before", v)}
-        options={[
-          ["", "Until any time"],
-          ["10:00", "Until 10 AM"],
-          ["12:00", "Until noon"],
-          ["15:00", "Until 3 PM"],
-          ["18:00", "Until 6 PM"],
+          ["any", "Any time"],
+          ["morning", "Morning"],
+          ["midday", "Midday"],
+          ["evening", "Evening"],
         ]}
       />
       <Chip
@@ -405,19 +398,20 @@ export function FilterChips({
           ["50", "Within 50 miles"],
         ]}
       />
-      <Chip
-        value={filters.sort}
-        active={filters.sort !== "time"}
-        onChange={(v) => {
-          if (v === "distance" && !hasOrigin) onLocate();
-          update("sort", v === "time" ? "" : v);
-        }}
-        options={[
-          ["time", "By time"],
-          ["price", "By price"],
-          ["distance", "By distance"],
-        ]}
-      />
+      {view === "course" && (
+        <Chip
+          value={filters.sort}
+          active={filters.sort !== "distance"}
+          onChange={(v) => {
+            if (v === "distance" && !hasOrigin) onLocate();
+            update("sort", v === "distance" ? "" : v);
+          }}
+          options={[
+            ["distance", "By distance"],
+            ["price", "By price"],
+          ]}
+        />
+      )}
       {activeCount > 0 && (
         <button
           onClick={clearAll}

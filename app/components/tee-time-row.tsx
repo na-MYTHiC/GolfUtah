@@ -111,10 +111,12 @@ export function TeeTimeRow({
                 <Dot />
                 <span title={`${booking.weather.temperatureF}°F, ${booking.weather.windMph} mph`}>
                   {booking.weather.icon} {booking.weather.temperatureF}°
-                  {/* Above ~12mph wind genuinely changes club selection,
-                      so it earns space; below that it's noise. */}
-                  {booking.weather.windMph >= 12 && (
+                  {/* Around 10mph is where a mid-iron starts moving, so
+                      that's where wind earns space. Below it, showing a
+                      number on every row would be noise. */}
+                  {booking.weather.windMph >= 10 && (
                     <span className="ml-0.5 text-crimson-bright">
+                      {" "}
                       {booking.weather.windMph}mph
                     </span>
                   )}
@@ -132,11 +134,6 @@ export function TeeTimeRow({
           >
             {formatPrice(booking.price)}
           </div>
-          {booking.bestPrice && (
-            <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-crimson-bright">
-              Best price
-            </div>
-          )}
           {/* The course view names the course above the group, so the
               city on every row is just repetition. */}
           {booking.courseCity && !hideCourse && (

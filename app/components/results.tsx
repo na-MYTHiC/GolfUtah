@@ -101,8 +101,7 @@ export function Results({
       for (const slot of course.slots) {
         if (slot.playersOpen < filters.players) continue;
         if (filters.holes !== "all" && slot.holes !== Number(filters.holes)) continue;
-        if (filters.after && slot.time < filters.after) continue;
-        if (filters.before && slot.time > filters.before) continue;
+        if (!inWindow(slot.time, filters.when)) continue;
         if (filters.maxPrice != null) {
           // Unpriced slots are dropped by a price filter rather than
           // assumed cheap — better omitted than misleading.
@@ -127,16 +126,17 @@ export function Results({
       }
     }
 
+    const chronological = filters.view === "time";
     flat.sort((a, b) => {
+      if (chronological) {
+        return a.time.localeCompare(b.time) || a.courseName.localeCompare(b.courseName);
+      }
       if (filters.sort === "price") {
         return (a.price ?? Infinity) - (b.price ?? Infinity) || a.time.localeCompare(b.time);
       }
-      if (filters.sort === "distance") {
-        const da = a.distanceMiles ?? Infinity;
-        const db = b.distanceMiles ?? Infinity;
-        return da - db || a.time.localeCompare(b.time);
-      }
-      return a.time.localeCompare(b.time) || a.courseName.localeCompare(b.courseName);
+      const da = a.distanceMiles ?? Infinity;
+      const db = b.distanceMiles ?? Infinity;
+      return da - db || a.time.localeCompare(b.time);
     });
 
     // Mark the cheapest slots on offer. Worth calling out explicitly:
@@ -184,7 +184,12 @@ export function Results({
         <div className="pt-2">
           <SearchBar value={filters.q} courses={courseNames} />
         </div>
-        <FilterChips filters={filters} hasOrigin={hasOrigin} onLocate={locate} />
+        <FilterChips
+          filters={filters}
+          hasOrigin={hasOrigin}
+          onLocate={locate}
+          view={filters.view}
+        />
       </div>
 
       <div className="flex items-center justify-between gap-3 pb-3 pt-3">
@@ -205,7 +210,7 @@ export function Results({
         <TimeSections
           bookings={bookings}
           players={filters.players}
-          byTime={filters.sort === "time"}
+          byTime={filters.view === "time"}
           byCourse={filters.view === "course"}
           date={date}
           favorites={favorites}
@@ -215,6 +220,24 @@ export function Results({
       {quiet.length > 0 && <QuietCourses quiet={quiet} />}
     </>
   );
+}
+
+/**
+ * The parts of day the filter offers, as real boundaries. Chosen to
+ * match how rounds are actually planned rather than splitting the clock
+ * evenly: morning golf runs until lunch, evening starts when the heat
+ * breaks.
+ */
+const WINDOWS: Record<string, [string, string]> = {
+  morning: ["00:00", "11:59"],
+  midday: ["12:00", "16:59"],
+  evening: ["17:00", "23:59"],
+};
+
+function inWindow(time: string, when: FilterState["when"]): boolean {
+  const range = WINDOWS[when];
+  if (!range) return true;
+  return time >= range[0] && time <= range[1];
 }
 
 /** The windows golfers plan around, not even thirds of the clock. */
@@ -394,7 +417,7 @@ function EmptyState({ filters, total }: { filters: FilterState; total: number })
   if (filters.radius != null) reasons.push(`within ${filters.radius} miles`);
   if (filters.county) reasons.push(`${filters.county} County`);
   if (filters.holes !== "all") reasons.push(`${filters.holes} holes`);
-  if (filters.after || filters.before) reasons.push("that time range");
+  if (filters.when !== "any") reasons.push(filters.when);
 
   return (
     <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center">
