@@ -95,6 +95,16 @@ const store = {
     store.write([{ ...round, booked: false, savedAt: new Date().toISOString() }, ...current]);
   },
 
+  /**
+   * Corrects the recorded time. The usual case is booking 8:30 after
+   * tapping 8:00 — the course and day are right, the slot moved. The id
+   * is left alone so the entry keeps its identity rather than
+   * duplicating.
+   */
+  setTime(id: string, time: string) {
+    store.write(store.getSnapshot().map((r) => (r.id === id ? { ...r, time } : r)));
+  },
+
   setBooked(id: string, booked: boolean) {
     store.write(store.getSnapshot().map((r) => (r.id === id ? { ...r, booked } : r)));
   },

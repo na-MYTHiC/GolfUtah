@@ -24,7 +24,6 @@
     "discover:refresh": "tsx scripts/discover-ids.ts --refresh",
     "teerocket:probe": "tsx scripts/teerocket-probe.ts",
     "build:data": "tsx scripts/build-data.ts",
-    "photos": "tsx scripts/fetch-photos.ts",
     "osm": "tsx scripts/fetch-osm.ts",
     "icons": "node scripts/gen-icons.mjs"
   },

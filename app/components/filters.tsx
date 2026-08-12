@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { addDays } from "@/lib/format";
 import { CITIES, COUNTIES } from "@/lib/utah-places";
@@ -64,6 +64,7 @@ export function useFilters(date: string): FilterState {
  */
 export function SearchBar({ value, courses }: { value: string; courses: string[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const [draft, setDraft] = useState(value);
   const [open, setOpen] = useState(false);
@@ -97,9 +98,9 @@ export function SearchBar({ value, courses }: { value: string; courses: string[]
         if (kind === "city") p.set("near", next);
         else if (!next.trim()) p.delete("near");
       }
-      router.replace(`/?${p}`, { scroll: false });
+      router.replace(`${pathname}?${p}`, { scroll: false });
     },
-    [params, router]
+    [params, router, pathname]
   );
 
   const suggestions = useMemo(() => {
@@ -212,13 +213,14 @@ export function SearchBar({ value, courses }: { value: string; courses: string[]
 /** Time list vs. grouped by course. */
 export function ViewToggle({ view }: { view: FilterState["view"] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
 
   const set = (next: FilterState["view"]) => {
     const p = new URLSearchParams(params.toString());
     if (next === "course") p.delete("view");
     else p.set("view", next);
-    router.replace(`/?${p}`, { scroll: false });
+    router.replace(`${pathname}?${p}`, { scroll: false });
   };
 
   return (
@@ -242,6 +244,7 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
 
 export function DateStrip({ today, active }: { today: string; active: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
 
   const dates = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i));
@@ -249,7 +252,7 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
   const pick = (date: string) => {
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
-    router.replace(`/?${next}`, { scroll: false });
+    router.replace(`${pathname}?${next}`, { scroll: false });
   };
 
   return (
@@ -297,6 +300,7 @@ export function FilterChips({
   view: FilterState["view"];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
 
   const update = useCallback(
@@ -304,9 +308,9 @@ export function FilterChips({
       const next = new URLSearchParams(params.toString());
       if (!value || value === "all") next.delete(key);
       else next.set(key, value);
-      router.replace(`/?${next}`, { scroll: false });
+      router.replace(`${pathname}?${next}`, { scroll: false });
     },
-    [params, router]
+    [params, router, pathname]
   );
 
   // Everything except the day and the view, which aren't narrowing —
@@ -317,9 +321,9 @@ export function FilterChips({
   const clearAll = useCallback(() => {
     const next = new URLSearchParams(params.toString());
     for (const key of NARROWING) next.delete(key);
-    router.replace(`/?${next}`, { scroll: false });
+    router.replace(`${pathname}?${next}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, router]);
+  }, [params, router, pathname]);
 
   return (
     <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

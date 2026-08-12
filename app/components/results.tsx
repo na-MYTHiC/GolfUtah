@@ -6,6 +6,7 @@ import { TeeTimeRow, type Booking } from "./tee-time-row";
 import {
   DateStrip,
   FilterChips,
+  SearchBar,
   ViewToggle,
   useFilters,
   useGeolocation,
@@ -50,6 +51,10 @@ export function Results({
   const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
   const favorites = useFavorites();
+
+  // Course names for the search suggestions, drawn from what's actually
+  // loaded so a suggestion can never return nothing.
+  const courseNames = useMemo(() => courses.map((c) => c.name).sort(), [courses]);
 
   // A distance origin is the device's location, or any Utah city that
   // was searched for — including ones with no course of their own.
@@ -179,6 +184,9 @@ export function Results({
     <>
       <div className="sticky top-0 z-10 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-1 pt-2 backdrop-blur-lg">
         <DateStrip today={today} active={date} />
+        <div className="pt-2">
+          <SearchBar value={filters.q} courses={courseNames} />
+        </div>
         <FilterChips
           filters={filters}
           hasOrigin={hasOrigin}

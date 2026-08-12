@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
 import { getProfile, profileSummary } from "@/lib/course-profiles";
+import { FilterChips, useFilters } from "@/app/components/filters";
+
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
 import { todayInUtah, formatDateLabel, formatPrice, formatTime, addDays } from "@/lib/format";
 
@@ -38,10 +40,7 @@ export function CourseDetail({
   const [course, setCourse] = useState<StaticCourse | null | undefined>(undefined);
   const [weather, setWeather] = useState<DayWeather | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
-  const [lastChecked, setLastChecked] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  /** Bumped to re-run the load; how a manual refresh is triggered. */
-  const [reloads, setReloads] = useState(0);
+  const filters = useFilters(date);
   const [info, setInfo] = useState<CourseInfo | null>(null);
 
   // Ratings and reviews are the same every day, so they load once and
@@ -59,11 +58,7 @@ export function CourseDetail({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Only blank the list on a first load. A manual refresh keeps the
-      // old times on screen until the new ones arrive, so the page
-      // doesn't flash empty while someone is reading it.
-      if (reloads === 0) setCourse(undefined);
-      else setRefreshing(true);
+      setCourse(undefined);
 
       // Always bypass caches here. This is the page someone is looking at
       // with their thumb over the booking button, so it should reflect
@@ -75,14 +70,6 @@ export function CourseDetail({
       const match = day?.courses.find((c) => c.slug === slug) ?? null;
       setCourse(match);
       setCheckedAt(day?.generatedAt ?? null);
-      setLastChecked(
-        new Date().toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          timeZone: "America/Denver",
-        })
-      );
-      setRefreshing(false);
 
       if (match) {
         const forecast = await getDayWeather(match.lat, match.lon, date);
@@ -92,9 +79,21 @@ export function CourseDetail({
     return () => {
       cancelled = true;
     };
-  }, [slug, date, reloads]);
+  }, [slug, date]);
 
   const back = `${basePath}/?${new URLSearchParams({ date, view: "course" })}`;
+
+  // The same narrowing the list applies, so arriving here from a
+  // filtered list doesn't silently widen it again.
+  const visible = (course?.slots ?? []).filter((slot) => {
+    if (slot.spots < filters.players) return false;
+    if (filters.holes !== "all" && slot.holes !== Number(filters.holes)) return false;
+    if (!inWindow(slot.time, filters.when)) return false;
+    if (filters.maxPrice != null) {
+      if (slot.price == null || slot.price > filters.maxPrice * 100) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-surface-0">
@@ -132,16 +131,18 @@ export function CourseDetail({
           </p>
         </header>
 
+        <FilterChips
+          filters={filters}
+          hasOrigin={false}
+          onLocate={() => {}}
+          view="time"
+        />
+
         <About slug={slug} name={name} city={city} info={info} />
 
         {weather && <Conditions weather={weather} date={date} today={today} />}
 
-        <Freshness
-          generatedAt={checkedAt}
-          lastChecked={lastChecked}
-          refreshing={refreshing}
-          onRefresh={() => setReloads((n) => n + 1)}
-        />
+        <Freshness generatedAt={checkedAt} />
 
         <div className="mt-6">
           {course === undefined ? (
@@ -152,13 +153,15 @@ export function CourseDetail({
             <Empty message={`Couldn't load times — ${course.error}`} />
           ) : course.slots.length === 0 ? (
             <Empty message="No openings published for this day." />
+          ) : visible.length === 0 ? (
+            <Empty message={`None of this course's ${course.slots.length} times match your filters.`} />
           ) : (
             <>
               <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-text-3">
-                {course.slots.length} tee times
+                {visible.length} of {course.slots.length} tee times
               </h2>
               <ul className="flex flex-col gap-2">
-                {course.slots.map((slot, i) => {
+                {visible.map((slot, i) => {
                   const hour = weatherAt(weather, slot.time);
                   return (
                     <li key={`${slot.time}-${slot.holes}-${i}`}>
@@ -258,6 +261,19 @@ function Conditions({
       </div>
     </section>
   );
+}
+
+/** Mirrors the list's part-of-day windows so the two agree. */
+const WINDOWS: Record<string, [string, string]> = {
+  morning: ["00:00", "11:59"],
+  midday: ["12:00", "16:59"],
+  evening: ["17:00", "23:59"],
+};
+
+function inWindow(time: string, when: string): boolean {
+  const range = WINDOWS[when];
+  if (!range) return true;
+  return time >= range[0] && time <= range[1];
 }
 
 /**
@@ -413,28 +429,15 @@ function About({
 }
 
 /**
- * How current the times are, and a way to ask again.
+ * How current the times are.
  *
- * Worth being blunt about the ceiling: the site is static, so this
- * re-reads the most recently published data rather than calling the
- * course's booking system. The booking systems don't allow cross-origin
- * requests from a browser, so a page like this one physically cannot ask
- * them directly — the data is as new as the last scheduled build, which
- * runs every few minutes. The link out to the course is the only truly
- * live source, which is why it's the thing every row points at.
+ * There was a Refresh button here and it's gone. Opening this page
+ * already bypasses every cache, so the button re-fetched a file that
+ * hadn't changed and appeared to do nothing — which is worse than not
+ * offering it. The data is only ever as new as the last scheduled
+ * build, so the honest thing is to say when that was.
  */
-function Freshness({
-  generatedAt,
-  lastChecked,
-  refreshing,
-  onRefresh,
-}: {
-  generatedAt: string | null;
-  /** When this page last asked, as opposed to when the times were gathered. */
-  lastChecked: string | null;
-  refreshing: boolean;
-  onRefresh: () => void;
-}) {
+function Freshness({ generatedAt }: { generatedAt: string | null }) {
   const clock = generatedAt
     ? new Date(generatedAt).toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -444,25 +447,10 @@ function Freshness({
     : null;
 
   return (
-    <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface-1 px-3.5 py-2.5 ring-1 ring-line">
-      {/* Two different times, and conflating them was confusing: one is
-          when the courses were last polled, the other is when this page
-          last asked for that data. Tapping Refresh moves the second and
-          only moves the first if a new build has landed. */}
-      <p className="min-w-0 text-[12px] leading-snug text-text-2">
-        {clock ? `Times gathered ${clock}` : "Checking…"}
-        <span className="block text-text-3">
-          {lastChecked ? `Checked ${lastChecked} · ` : ""}confirm on the course&apos;s page
-        </span>
-      </p>
-      <button
-        onClick={onRefresh}
-        disabled={refreshing}
-        className="shrink-0 rounded-full bg-surface-2 px-3.5 py-1.5 text-[13px] font-medium text-text-1 transition active:bg-surface-3 disabled:opacity-50"
-      >
-        {refreshing ? "Checking…" : "Refresh"}
-      </button>
-    </div>
+    <p className="mt-3 text-[12px] leading-snug text-text-3">
+      {clock ? `Last updated ${clock}` : "Loading…"} · confirm on the course&apos;s page
+      before paying
+    </p>
   );
 }
 

@@ -49,7 +49,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Well under the 5-minute cadence. A run that somehow exceeds this
+    # should die rather than sit in the way of the next one — with
+    # cancel-in-progress, a job that overruns its window is a job that
+    # stops anything from ever deploying.
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +62,13 @@ jobs:
           node-version: '20'
           cache: npm
 
+      # Playwright is a dependency for the local discovery scripts and is
+      # never run in CI. Without this, npm ci downloads ~300MB of browsers
+      # on every one of the ~288 runs a day — which is most of what stood
+      # between a run and finishing inside its 5-minute window.
       - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       # Prisma's client is imported for its types even though the static
       # build never touches a database.
