@@ -31,6 +31,14 @@ export interface DayWeather {
   lowF: number;
   /** Chance of precipitation at any point during golfing hours. */
   maxPrecipChance: number;
+  /**
+   * Course-local "HH:mm". Sunset is the constraint no other filter
+   * captures: a 6pm eighteen in October is four hours of golf and two
+   * hours of daylight, and no amount of price or distance filtering
+   * tells you that.
+   */
+  sunrise?: string;
+  sunset?: string;
 }
 
 const cache = new Map<string, { at: number; value: DayWeather | null }>();
@@ -42,6 +50,10 @@ interface OpenMeteoResponse {
     wind_speed_10m: number[];
     precipitation_probability: (number | null)[];
     weather_code: number[];
+  };
+  daily?: {
+    sunrise?: string[];
+    sunset?: string[];
   };
 }
 
@@ -76,6 +88,7 @@ export async function getDayWeather(
     latitude: String(latitude),
     longitude: String(longitude),
     hourly: "temperature_2m,precipitation_probability,weather_code,wind_speed_10m",
+    daily: "sunrise,sunset",
     temperature_unit: "fahrenheit",
     wind_speed_unit: "mph",
     timezone: "America/Denver",
@@ -111,6 +124,9 @@ export async function getDayWeather(
       highF: Math.max(...sample.map((h) => h.temperatureF)),
       lowF: Math.min(...sample.map((h) => h.temperatureF)),
       maxPrecipChance: Math.max(...sample.map((h) => h.precipChance)),
+      // Already course-local: the request pins timezone to America/Denver.
+      sunrise: data.daily?.sunrise?.[0]?.slice(11, 16),
+      sunset: data.daily?.sunset?.[0]?.slice(11, 16),
     };
 
     cache.set(key, { at: Date.now(), value });
@@ -128,4 +144,46 @@ export function weatherAt(day: DayWeather | null, time: string): HourWeather | u
   if (!day) return undefined;
   const target = Number(time.slice(0, 2));
   return day.hours.find((h) => Number(h.time.slice(0, 2)) === target);
+}
+
+/**
+ * Roughly how long a round takes, in minutes. Deliberately optimistic
+ * rather than average: the point is to flag rounds that clearly won't
+ * finish, not to nag about ones that might just make it.
+ */
+const ROUND_MINUTES: Record<number, number> = { 9: 135, 18: 255 };
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Whether a round teeing off at this time finishes before dark, and by
+ * how much.
+ *
+ * This is the check a golfer does in their head and an aggregator never
+ * does for them — twilight rates look like a bargain right up until you
+ * are putting out by phone light on fourteen.
+ */
+export function daylight(
+  sunset: string | undefined,
+  time: string,
+  holes: number
+): { finishesAt: string; minutesSpare: number; short: boolean } | null {
+  if (!sunset) return null;
+  const round = ROUND_MINUTES[holes];
+  if (!round) return null;
+
+  const end = toMinutes(time) + round;
+  const minutesSpare = toMinutes(sunset) - end;
+
+  const finishesAt = `${String(Math.floor((end % 1440) / 60)).padStart(2, "0")}:${String(
+    end % 60
+  ).padStart(2, "0")}`;
+
+  // Play continues a while after sunset in usable light, so only a real
+  // shortfall counts — otherwise every twilight tee time carries a
+  // warning and the warning stops meaning anything.
+  return { finishesAt, minutesSpare, short: minutesSpare < -20 };
 }

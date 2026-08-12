@@ -26,6 +26,8 @@ export interface FilterState {
   radius: number | null;
   /** Restrict to one Utah county. Mutually exclusive with radius. */
   county: string;
+  /** Only courses the golfer has starred. */
+  starred: boolean;
   view: "time" | "course";
 }
 
@@ -46,6 +48,7 @@ export function useFilters(date: string): FilterState {
     near: params.get("near") ?? "",
     radius: params.get("radius") ? Number(params.get("radius")) : null,
     county: params.get("county") ?? "",
+    starred: params.get("starred") === "1",
     view: (params.get("view") as FilterState["view"]) ?? "time",
   };
 }
@@ -301,8 +304,30 @@ export function FilterChips({
     [params, router]
   );
 
+  // Everything except the day and the view, which aren't narrowing —
+  // clearing filters shouldn't jump you back to today or change layout.
+  const NARROWING = ["players", "holes", "after", "before", "maxPrice", "radius", "county", "starred", "q", "near", "sort"];
+  const activeCount = NARROWING.filter((k) => params.get(k)).length;
+
+  const clearAll = useCallback(() => {
+    const next = new URLSearchParams(params.toString());
+    for (const key of NARROWING) next.delete(key);
+    router.replace(`/?${next}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, router]);
+
   return (
     <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <button
+        onClick={() => update("starred", filters.starred ? "" : "1")}
+        aria-pressed={filters.starred}
+        className={`flex shrink-0 items-center gap-1 rounded-full py-1.5 pl-3 pr-3.5 text-sm font-medium transition ${
+          filters.starred ? "bg-crimson text-white" : "bg-surface-2 text-text-2"
+        }`}
+      >
+        <span aria-hidden>{filters.starred ? "★" : "☆"}</span>
+        Starred
+      </button>
       <Chip
         value={String(filters.players)}
         active={filters.players > 1}
@@ -393,6 +418,14 @@ export function FilterChips({
           ["distance", "By distance"],
         ]}
       />
+      {activeCount > 0 && (
+        <button
+          onClick={clearAll}
+          className="shrink-0 rounded-full bg-surface-2 px-3.5 py-1.5 text-sm font-medium text-text-2 active:bg-surface-3"
+        >
+          Clear {activeCount}
+        </button>
+      )}
     </div>
   );
 }

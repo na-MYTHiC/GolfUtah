@@ -29,6 +29,8 @@ export interface CourseView {
     maxPrecipChance: number;
     icon: string;
     label: string;
+    /** Course-local "HH:mm", for the daylight check on late tee times. */
+    sunset?: string;
   };
   slotWeather?: Record<string, { temperatureF: number; windMph: number; icon: string }>;
   rating?: { rating: number; reviewCount: number; mapsUrl?: string };

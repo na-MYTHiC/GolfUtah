@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPrice } from "@/lib/format";
+import { daylight } from "@/lib/weather";
 
 export interface Booking {
   id: string;
@@ -15,6 +16,10 @@ export interface Booking {
   courseCity: string | null;
   distanceMiles?: number;
   weather?: { temperatureF: number; windMph: number; icon: string };
+  /** Course-local sunset, for the daylight check. */
+  sunset?: string;
+  /** Cheapest slot matching the current filters. */
+  bestPrice?: boolean;
 }
 
 /**
@@ -38,6 +43,11 @@ export function TeeTimeRow({
   const [hour, minute] = booking.time.split(":").map(Number);
   const period = hour >= 12 ? "PM" : "AM";
   const display = `${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, "0")}`;
+
+  // The thing a golfer works out in their head and no aggregator does
+  // for them. A twilight rate is a bargain right up until you're putting
+  // out by phone light on fourteen.
+  const light = daylight(booking.sunset, booking.time, booking.holes);
 
   return (
     <li>
@@ -67,9 +77,8 @@ export function TeeTimeRow({
               hideCourse ? "text-[13px]" : "mt-1 text-xs"
             }`}
           >
-            <span className="font-medium text-text-2">
-              {booking.holes}
-            </span>
+            {/* "9 · 1 open" reads as two counts; "9 holes" doesn't. */}
+            <span className="font-medium text-text-2">{booking.holes} holes</span>
             {booking.side && (
               <>
                 <Dot />
@@ -84,6 +93,17 @@ export function TeeTimeRow({
               <>
                 <Dot />
                 <span>{booking.distanceMiles.toFixed(0)} mi</span>
+              </>
+            )}
+            {light?.short && (
+              <>
+                <Dot />
+                <span
+                  className="font-medium text-amber-400/90"
+                  title={`Sunset ${to12h(booking.sunset!)} · ${booking.holes} holes finishes about ${to12h(light.finishesAt)}`}
+                >
+                  ends after dark
+                </span>
               </>
             )}
             {booking.weather && (
@@ -105,10 +125,21 @@ export function TeeTimeRow({
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="text-[15px] font-semibold text-text-1 tabular-nums">
+          <div
+            className={`text-[15px] font-semibold tabular-nums ${
+              booking.bestPrice ? "text-crimson-bright" : "text-text-1"
+            }`}
+          >
             {formatPrice(booking.price)}
           </div>
-          {booking.courseCity && (
+          {booking.bestPrice && (
+            <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-crimson-bright">
+              Best price
+            </div>
+          )}
+          {/* The course view names the course above the group, so the
+              city on every row is just repetition. */}
+          {booking.courseCity && !hideCourse && (
             <div className="mt-0.5 max-w-[5.5rem] truncate text-[11px] text-text-3">
               {booking.courseCity}
             </div>
@@ -117,6 +148,12 @@ export function TeeTimeRow({
       </a>
     </li>
   );
+}
+
+/** "19:40" -> "7:40 PM", for the tooltips. */
+function to12h(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
 
 function Dot() {

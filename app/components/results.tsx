@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { CourseView } from "./types";
 import { TeeTimeRow, type Booking } from "./tee-time-row";
 import {
@@ -10,11 +10,22 @@ import {
   ViewToggle,
   useFilters,
   useGeolocation,
+  type FilterState,
 } from "./filters";
 import { distanceMiles } from "@/lib/format";
 import { findCity } from "@/lib/utah-places";
+import { favoritesStore } from "@/lib/favorites";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+/** Starred course slugs, live across tabs. */
+function useFavorites(): string[] {
+  return useSyncExternalStore(
+    favoritesStore.subscribe,
+    favoritesStore.getSnapshot,
+    favoritesStore.getServerSnapshot
+  );
+}
 
 /**
  * The day's tee times as one chronological list across every course.
@@ -39,6 +50,7 @@ export function Results({
 }) {
   const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
+  const favorites = useFavorites();
 
   // Course names for suggestions, drawn from what's actually loaded.
   const courseNames = useMemo(() => courses.map((c) => c.name).sort(), [courses]);
@@ -66,6 +78,8 @@ export function Results({
         origin && course.latitude != null && course.longitude != null
           ? distanceMiles(origin.lat, origin.lon, course.latitude, course.longitude)
           : undefined;
+
+      if (filters.starred && !favorites.includes(course.slug)) continue;
 
       // A county is a boundary, so it filters directly and the text
       // search steps aside — "Salt Lake" the county shouldn't also have
@@ -108,6 +122,7 @@ export function Results({
           courseCity: course.city,
           distanceMiles: distance,
           weather: course.slotWeather?.[slot.time],
+          sunset: course.weather?.sunset,
         });
       }
     }
@@ -124,6 +139,19 @@ export function Results({
       return a.time.localeCompare(b.time) || a.courseName.localeCompare(b.courseName);
     });
 
+    // Mark the cheapest slots on offer. Worth calling out explicitly:
+    // scanning a right-hand column of prices for the smallest number is
+    // work the app can just do. Ties all get the badge — there's often a
+    // row of identical twilight rates and picking one arbitrarily would
+    // be misleading.
+    const cheapest = flat.reduce(
+      (min, b) => (b.price != null && b.price < min ? b.price : min),
+      Infinity
+    );
+    if (cheapest !== Infinity) {
+      for (const b of flat) if (b.price === cheapest) b.bestPrice = true;
+    }
+
     const shown = new Set(flat.map((b) => b.courseName));
 
     // Every tracked course should be accounted for. Dropping the empty
@@ -132,6 +160,7 @@ export function Results({
     const quietCourses = courses
       .filter((c) => {
         if (shown.has(c.name)) return false;
+        if (filters.starred && !favorites.includes(c.slug)) return false;
         if (filters.county) return c.county === filters.county;
         if (!needle) return true;
         return `${c.name} ${c.city ?? ""}`.toLowerCase().includes(needle);
@@ -146,7 +175,7 @@ export function Results({
       }));
 
     return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
-  }, [courses, filters, coords]);
+  }, [courses, filters, coords, favorites]);
 
   return (
     <>
@@ -159,16 +188,19 @@ export function Results({
       </div>
 
       <div className="flex items-center justify-between gap-3 pb-3 pt-3">
-        <p className="px-0.5 text-[13px] text-text-2">
+        {/* Kept short on purpose: the long form wrapped to two lines on a
+            phone and shoved the view toggle around. */}
+        <p className="min-w-0 px-0.5 text-[13px] text-text-2">
           {bookings.length === 0
             ? "No tee times match"
-            : `${bookings.length} tee time${bookings.length === 1 ? "" : "s"} · ${coursesWithTimes} of ${courses.length} courses`}
+            : `${bookings.length} time${bookings.length === 1 ? "" : "s"} · ` +
+              `${coursesWithTimes} course${coursesWithTimes === 1 ? "" : "s"}`}
         </p>
         <ViewToggle view={filters.view} />
       </div>
 
       {bookings.length === 0 ? (
-        <EmptyState />
+        <EmptyState filters={filters} total={courses.length} />
       ) : (
         <TimeSections
           bookings={bookings}
@@ -176,6 +208,7 @@ export function Results({
           byTime={filters.sort === "time"}
           byCourse={filters.view === "course"}
           date={date}
+          favorites={favorites}
         />
       )}
 
@@ -201,6 +234,7 @@ function TimeSections({
   byTime,
   byCourse,
   date,
+  favorites,
 }: {
   bookings: Booking[];
   players: number;
@@ -208,6 +242,7 @@ function TimeSections({
   byTime: boolean;
   byCourse: boolean;
   date: string;
+  favorites: string[];
 }) {
   // Grouped by course for when you're deciding *where* rather than
   // *when* — the two questions want different shapes.
@@ -221,6 +256,15 @@ function TimeSections({
       }
       groups.get(b.courseName)!.push(b);
     }
+
+    // Starred courses first. Most people play the same handful over and
+    // over, and making them scroll past forty others every time is the
+    // difference between a directory and something you'd actually check.
+    order.sort((a, b) => {
+      const fa = favorites.includes(groups.get(a)![0].courseSlug) ? 0 : 1;
+      const fb = favorites.includes(groups.get(b)![0].courseSlug) ? 0 : 1;
+      return fa - fb;
+    });
 
     return (
       <div className="flex flex-col gap-5">
@@ -236,13 +280,14 @@ function TimeSections({
 
           return (
             <section key={name}>
-              <h2 className="mb-2 flex items-baseline justify-between px-0.5">
-                <span className="text-[13px] font-semibold text-text-1">
-                  {name}
-                  <span className="ml-1.5 font-normal text-text-3">{items.length}</span>
+              <h2 className="mb-2 flex items-center justify-between gap-2 px-0.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-text-1">
+                  <FavoriteStar slug={slug} />
+                  <span className="truncate">{name}</span>
+                  <span className="font-normal text-text-3">{items.length}</span>
                 </span>
                 {cheapest !== Infinity && (
-                  <span className="text-[11px] font-medium text-crimson-bright">
+                  <span className="shrink-0 text-[11px] font-medium text-crimson-bright">
                     from ${(cheapest / 100).toFixed(0)}
                   </span>
                 )}
@@ -310,14 +355,65 @@ function TimeSections({
   );
 }
 
-function EmptyState() {
+/**
+ * Star toggle. Deliberately a wide tap target with a small glyph — it
+ * sits next to a course name and gets pressed with a thumb.
+ */
+function FavoriteStar({ slug }: { slug: string }) {
+  const favorites = useFavorites();
+  const on = favorites.includes(slug);
+
+  return (
+    <button
+      type="button"
+      onClick={() => favoritesStore.toggle(slug)}
+      aria-label={on ? "Remove from starred courses" : "Star this course"}
+      aria-pressed={on}
+      className={`-m-1 shrink-0 p-1 text-sm leading-none transition ${
+        on ? "text-crimson-bright" : "text-text-3"
+      }`}
+    >
+      {on ? "★" : "☆"}
+    </button>
+  );
+}
+
+/**
+ * Nothing matched — so say which filter is most likely responsible.
+ *
+ * With eight filters it's easy to narrow into an empty result and not
+ * remember which one did it. Generic advice ("try another day") is worse
+ * than useless here: the app knows exactly what's applied and can name
+ * the narrowest thing first.
+ */
+function EmptyState({ filters, total }: { filters: FilterState; total: number }) {
+  const reasons: string[] = [];
+  if (filters.starred) reasons.push("only starred courses");
+  if (filters.maxPrice != null) reasons.push(`under $${filters.maxPrice}`);
+  if (filters.players > 1) reasons.push(`room for ${filters.players}`);
+  if (filters.radius != null) reasons.push(`within ${filters.radius} miles`);
+  if (filters.county) reasons.push(`${filters.county} County`);
+  if (filters.holes !== "all") reasons.push(`${filters.holes} holes`);
+  if (filters.after || filters.before) reasons.push("that time range");
+
   return (
     <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center">
       <p className="text-2xl">⛳</p>
       <p className="mt-2 font-medium text-text-1">Nothing open</p>
-      <p className="mt-1 text-sm text-text-2">
-        Try another day, a smaller group, or a wider time range.
-      </p>
+      {reasons.length > 0 ? (
+        <p className="mt-1 text-sm text-text-2">
+          No tee times across {total} courses match {reasons.join(" · ")}.
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-text-2">
+          Nothing is published for this day yet. Try another date.
+        </p>
+      )}
+      {reasons.length > 0 && (
+        <p className="mt-2 text-xs text-text-3">
+          Widen a filter above, or tap Clear to start over.
+        </p>
+      )}
     </div>
   );
 }

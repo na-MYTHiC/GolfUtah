@@ -4,17 +4,31 @@ name: Build and deploy GolfUtah
 # into the site. That makes the schedule the app's refresh rate: whatever
 # cadence this runs at is how stale the data can be.
 #
-# Every 30 minutes, fetching 10 days. That's ~190 requests per run spread
-# across 19 different booking systems — roughly one request per course
-# every 30 minutes, comparable to a couple of people browsing. Widening
-# the window or tightening the schedule multiplies both numbers, so change
-# them together and deliberately.
+# The schedule is tiered, because the days aren't worth the same.
+#
+#   every 15 minutes  the next 3 days fetched fresh; days 4-10 carried
+#                     over from what's already published
+#   every 3 hours     all 10 days fetched fresh
+#
+# Today's sheet moves by the minute and is what almost everyone opens the
+# app for; next Tuesday's barely moves. Refetching all ten days every time
+# meant ~430 requests per run across 40-odd courses, and it capped how
+# often today could refresh because the tail rode along. Tiering makes the
+# frequent run about a third the size, which buys twice the refresh rate
+# for fewer requests overall.
+#
+# Requests are also capped at 3 at a time per booking platform (see
+# build-data.ts), so a run looks like a few people browsing rather than a
+# stampede.
 #
 # Free on public repositories: GitHub doesn't bill Actions minutes for
 # them, and Pages is only free for public repos too.
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    # Near days only — the frequent, cheap run.
+    - cron: '*/15 * * * *'
+    # Everything, including the tail.
+    - cron: '0 */3 * * *'
   push:
     branches: [main]
   workflow_dispatch:
@@ -47,11 +61,30 @@ jobs:
       # build never touches a database.
       - run: npx prisma generate
 
+      # A push or a manual run should produce a complete site, so those
+      # fetch everything; only the 15-minute tick is partial.
+      - name: Decide freshness tier
+        id: tier
+        run: |
+          if [ "${{ github.event.schedule }}" = "*/15 * * * *" ]; then
+            echo "near=3" >> "$GITHUB_OUTPUT"
+          else
+            echo "near=10" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Fetch tee times
         env:
           # Optional — ratings are omitted when this isn't set.
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-        run: npx tsx scripts/build-data.ts --days 10
+        # --reuse points at the live site so days this run isn't
+        # refetching are carried over rather than lost. Each deploy
+        # replaces the whole site, so without it a partial run would
+        # publish a site missing seven days of data.
+        run: >
+          npx tsx scripts/build-data.ts
+          --days 10
+          --near ${{ steps.tier.outputs.near }}
+          --reuse https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
       - name: Build static site
         env:

@@ -112,6 +112,7 @@ export function AppShell() {
               highF: day.highF,
               lowF: day.lowF,
               maxPrecipChance: day.maxPrecipChance,
+              sunset: day.sunset,
               ...describeWeather(day.hours[12]?.weatherCode ?? 0),
             },
             slotWeather,
@@ -126,7 +127,7 @@ export function AppShell() {
   }, [date]);
 
   if (courses === null) {
-    return <p className="py-10 text-center text-sm text-text-2">Loading tee times…</p>;
+    return <ResultsSkeleton />;
   }
 
   if (courses.length === 0) {
@@ -149,6 +150,29 @@ export function AppShell() {
       <Results courses={courses} today={today} date={date} />
       {generatedAt && <Freshness generatedAt={generatedAt} />}
     </>
+  );
+}
+
+/**
+ * Placeholder rows at the shape of the real ones. A spinner or a line of
+ * text makes the page jump when data arrives; this keeps the layout
+ * still and makes the wait feel shorter than it is.
+ */
+function ResultsSkeleton() {
+  return (
+    <div className="animate-pulse pt-4" aria-hidden>
+      <div className="mb-4 flex gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-14 w-[3.25rem] shrink-0 rounded-xl bg-surface-2" />
+        ))}
+      </div>
+      <div className="mb-3 h-9 rounded-full bg-surface-2" />
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="h-[68px] rounded-2xl bg-surface-1 ring-1 ring-line" />
+        ))}
+      </div>
+    </div>
   );
 }
 
