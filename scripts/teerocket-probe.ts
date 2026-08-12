@@ -70,8 +70,14 @@ function redact(text: string): string {
 interface Probe {
   target: string;
   widgetUrl?: string;
-  /** Present if the widget signs in anonymously, and how. */
-  auth?: { endpoint: string; apiKey?: string; status: number };
+  /**
+   * Every identitytoolkit call, in order. Keeping only the last one hid
+   * the interesting half: the first run reported `accounts:lookup`,
+   * which reads an existing account, when what matters is whether an
+   * `accounts:signUp` preceded it — that's the anonymous sign-in an
+   * adapter would have to reproduce.
+   */
+  auth: { endpoint: string; apiKey?: string; status: number }[];
   /** Firestore channel calls, with their request bodies. */
   firestore: { url: string; method: string; body?: string }[];
   /** Anything that looked like a plain JSON API, which would be simplest. */
@@ -84,17 +90,17 @@ interface Probe {
 }
 
 async function probe(page: Page, target: string): Promise<Probe> {
-  const found: Probe = { target, firestore: [], otherJson: [] };
+  const found: Probe = { target, auth: [], firestore: [], otherJson: [] };
 
   page.on("request", (req) => {
     const url = req.url();
 
     if (/identitytoolkit\.googleapis\.com/.test(url)) {
-      found.auth = {
+      found.auth.push({
         endpoint: url.split("?")[0],
         apiKey: new URL(url).searchParams.get("key") ?? undefined,
         status: 0,
-      };
+      });
     }
 
     if (/firestore\.googleapis\.com/.test(url)) {
@@ -118,10 +124,9 @@ async function probe(page: Page, target: string): Promise<Probe> {
     }
   });
 
-  page.on("response", async (resp) => {
-    if (found.auth && resp.url().startsWith(found.auth.endpoint)) {
-      found.auth.status = resp.status();
-    }
+  page.on("response", (resp) => {
+    const entry = found.auth.find((a) => resp.url().startsWith(a.endpoint) && !a.status);
+    if (entry) entry.status = resp.status();
   });
 
   try {
@@ -159,11 +164,11 @@ async function probe(page: Page, target: string): Promise<Probe> {
       while (node && out.length < 12) {
         const text = (node.textContent ?? "").trim();
         if (
-          /^\d{1,2}:\d{2}\s*(am|pm)?$/i.test(text) &&
-          node.children.length === 0 &&
-          node.parentElement
+          /\b\d{1,2}:\d{2}\s*(am|pm)?\b/i.test(text) &&
+          text.length < 200 &&
+          node.children.length <= 6
         ) {
-          out.push(node.parentElement.outerHTML.slice(0, 800));
+          out.push(node.outerHTML.slice(0, 800));
         }
         node = walker.nextNode() as HTMLElement | null;
       }
@@ -199,7 +204,7 @@ async function main() {
         result.note
           ? `error: ${result.note}`
           : `widget=${result.widgetUrl ? "yes" : "no"} ` +
-              `auth=${result.auth ? `${result.auth.status}` : "none"} ` +
+              `auth=${result.auth.length ? result.auth.map((a) => a.status).join("/") : "none"} ` +
               `firestore=${result.firestore.length} ` +
               `times=${result.timeishHtml?.length ?? 0}`
       );
@@ -213,11 +218,12 @@ async function main() {
   console.log(`\nWrote teerocket-probe.json — send that back.`);
 
   for (const r of results) {
-    if (r.auth?.apiKey) {
-      console.log(`\n${r.target}`);
-      console.log(`  signs in at ${r.auth.endpoint} (HTTP ${r.auth.status})`);
-      console.log(`  firebase api key: ${r.auth.apiKey}`);
-    }
+    if (!r.auth.length && !r.widgetUrl) continue;
+    console.log(`\n${r.target}`);
+    if (r.widgetUrl) console.log(`  widget: ${r.widgetUrl}`);
+    for (const a of r.auth) console.log(`  auth: ${a.endpoint} (HTTP ${a.status})`);
+    const key = r.auth.find((a) => a.apiKey)?.apiKey;
+    if (key) console.log(`  firebase api key: ${key}`);
   }
 }
 
