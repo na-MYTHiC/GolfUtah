@@ -12,6 +12,21 @@ import { __test, chronogolfAdapter, chronogolfBookingUrl } from "../lib/adapters
 
 const { toNormalized, padTime, parseExternalId, sideOf } = __test;
 
+/**
+ * Real slot uuids from the capture, for the rows where the paste showed
+ * one. The 8:20 slot's uuid is the one that matters most: it also turned
+ * up in a later capture's referer as `?step=options&teetime=<that uuid>`,
+ * which is what proved the per-slot link format.
+ */
+const SLOT_UUIDS: Record<number, string> = {
+  515670424: "82391ed2-6f10-490a-a26d-d81f5ac5b0af",
+  515670427: "3308713a-a886-438a-9e1b-bf70e8d06d4a",
+  515647573: "be63e987-83f2-4831-ba03-df01c7940792",
+  515670434: "2092315e-f342-450c-9c57-a757c4b40253",
+  515647593: "cae566bc-1253-43be-919e-6bd27ae0d6f3",
+  515647610: "6451dd27-548c-4fa4-90f9-5f61c95c960e",
+};
+
 /** Verbatim from the capture, trimmed to the fields the adapter reads. */
 const CAPTURE = {
   status: "open",
@@ -41,7 +56,7 @@ function row(
 ) {
   return {
     id,
-    uuid: `slot-${id}`,
+    uuid: SLOT_UUIDS[id] ?? `uuid-${id}`,
     course: {
       id: courseId,
       uuid: courseId === 22961 ? "8ceb87d6-…" : "a10735ef-…",
@@ -82,8 +97,9 @@ function check(label: string, actual: unknown, expected: unknown) {
   }
 }
 
-const url = chronogolfBookingUrl("riverbend-slco", "2026-08-12");
-const slots = CAPTURE.teetimes.flatMap((t) => toNormalized(t as never, url));
+const SLUG = "riverbend-slco";
+const url = chronogolfBookingUrl(SLUG, "2026-08-12");
+const slots = CAPTURE.teetimes.flatMap((t) => toNormalized(t as never, SLUG, url));
 
 console.log("padTime");
 check("unpadded hour", padTime("8:20"), "08:20");
@@ -118,7 +134,12 @@ check("first slot", first, {
   playersOpen: 1,
   price: 2100,
   side: "Back",
-  bookingUrl: url,
+  // Byte-for-byte the address a real browser sat on after picking this
+  // exact slot, minus the ordering (URLSearchParams sorts nothing, so
+  // insertion order is what's compared).
+  bookingUrl:
+    "https://www.chronogolf.com/club/riverbend-slco?date=2026-08-12&step=options" +
+    "&teetime=82391ed2-6f10-490a-a26d-d81f5ac5b0af",
 });
 
 // The 10:10 slot is the only one on the sheet with two spots open.
@@ -138,16 +159,29 @@ check("9-hole rows all $21", new Set(slots.filter((s) => s.holes === 9).map((s) 
 check("last slot is evening, not next morning", slots[slots.length - 1].time, "17:10");
 
 console.log("\nfilters");
-check("frozen dropped", toNormalized({ ...CAPTURE.teetimes[0], frozen: true } as never, url).length, 0);
-check("full slot dropped", toNormalized({ ...CAPTURE.teetimes[0], max_player_size: 0 } as never, url).length, 0);
-check("unparseable time dropped", toNormalized({ ...CAPTURE.teetimes[0], start_time: "" } as never, url).length, 0);
+const drop = (patch: object) => toNormalized({ ...CAPTURE.teetimes[0], ...patch } as never, SLUG, url).length;
+check("frozen dropped", drop({ frozen: true }), 0);
+check("full slot dropped", drop({ max_player_size: 0 }), 0);
+check("unparseable time dropped", drop({ start_time: "" }), 0);
 
 console.log("\nbooking url");
 check(
-  "carries the date",
+  "day sheet carries the date",
   url,
   "https://www.chronogolf.com/club/riverbend-slco?date=2026-08-12&step=teetimes&holes=&coursesIds=&deals=false&groupSize=0"
 );
+// Both rows of a 9-or-18 slot point at the same tee time — the holes
+// choice happens on Chronogolf's options step, which is where this lands.
+const nineAndEighteen = slots.filter((s) => s.time === "09:10");
+check("9 and 18 rows share one slot link", new Set(nineAndEighteen.map((s) => s.bookingUrl)).size, 1);
+check(
+  "slot link uses the uuid, not the numeric id",
+  nineAndEighteen[0].bookingUrl.includes("teetime=be63e987-83f2-4831-ba03-df01c7940792"),
+  true
+);
+// A slot with no uuid still has to go somewhere useful.
+const noUuid = toNormalized({ ...CAPTURE.teetimes[0], uuid: "" } as never, SLUG, url);
+check("uuid-less slot falls back to the day sheet", noUuid[0].bookingUrl, url);
 
 /**
  * The request and pagination loop, against a stubbed fetch. Riverbend's

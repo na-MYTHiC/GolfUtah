@@ -115,6 +115,10 @@ Chronogolf 13, MemberSports 5):
   `externalId` holds a *list* of uuids. `npx tsx
   scripts/test-chronogolf.ts` checks the parser against that capture.
 
+  It's also the only platform here that links to a *slot* rather than a
+  day: a tap lands on Chronogolf's options step for that exact tee time
+  (`?step=options&teetime=<slot uuid>`).
+
   Adding the remaining twelve Chronogolf clubs takes one DevTools capture
   each, since the uuids appear nowhere in a course's public address.
   `npx tsx scripts/chronogolf-add.ts` lists which clubs are outstanding

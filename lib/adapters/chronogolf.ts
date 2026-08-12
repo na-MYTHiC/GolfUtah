@@ -25,7 +25,17 @@ import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
  * Response: { status: "open", teetimes: [...] } plus pagination in the
  * response headers — `total` (10) and `per-page` (24).
  *
- * Auth: none. No Authorization header, no cookie, no api key.
+ * Auth: none. No Authorization header, no cookie, no api key. A capture
+ * taken while signed in carries a `_chronogolf_session` cookie, but the
+ * tee-times request succeeds without it — nothing here sends one, and
+ * nothing here should.
+ *
+ * Also seen but not used: GET /marketplace/v2/teesheet_notes
+ * ?date=YYYY-MM-DD&course_ids=<uuid> — presumably the pro shop's notes
+ * for the day (cart-path-only, aerification, frost delay), which would be
+ * worth showing on a course page. Note it takes `date`, where tee times
+ * take `start_date`. Unimplemented because only the request has been
+ * seen, never a response, and there's no guessing the shape of one.
  */
 
 const API = "https://www.chronogolf.com/marketplace/v2/teetimes";
@@ -159,7 +169,7 @@ async function fetchPage(
   };
 }
 
-function toNormalized(raw: RawTeeTime, bookingUrl: string): NormalizedTeeTime[] {
+function toNormalized(raw: RawTeeTime, slug: string, dayUrl: string): NormalizedTeeTime[] {
   // starts_at is UTC ("2026-08-12T14:20:00Z") for a slot the course calls
   // 8:20am. Reading the wrong one of these two fields is exactly the bug
   // that made Sun Hills show times that didn't exist — take the local one
@@ -175,6 +185,13 @@ function toNormalized(raw: RawTeeTime, bookingUrl: string): NormalizedTeeTime[] 
   if (spots <= 0) return [];
 
   const side = sideOf(raw.course.name);
+
+  // Straight to this slot when its uuid is there, falling back to the
+  // day's sheet — a handoff that lands on the right day is still useful,
+  // and is what every other platform here manages.
+  const bookingUrl = raw.uuid
+    ? chronogolfTeeTimeUrl(slug, raw.date, raw.uuid)
+    : dayUrl;
 
   // bookable_holes is per-slot: the 18-hole course sells both 9 and 18 at
   // the same time, which is two different rounds, so it's two rows.
@@ -221,6 +238,35 @@ export function chronogolfBookingUrl(slug: string, date?: string): string {
 }
 
 /**
+ * A link to one specific slot rather than to the day's sheet — the tap
+ * lands on Chronogolf's "choose your options" step for that exact tee
+ * time, skipping the hunt for it on a sheet that may have moved on.
+ *
+ * Verified, not inferred: a capture's referer showed the browser sitting
+ * on
+ *   /club/riverbend-slco?date=2026-08-12&step=options
+ *     &teetime=82391ed2-6f10-490a-a26d-d81f5ac5b0af
+ * and that uuid is byte-for-byte the `uuid` of the 8:20 back-nine slot in
+ * the tee-times response for the same day. `teetime` takes the slot's
+ * uuid, not its numeric `id`, matching how courses are addressed.
+ *
+ * Note this drops the sheet-level parameters — a slot is already a
+ * course, a date, and a time, so there's nothing left to narrow.
+ */
+export function chronogolfTeeTimeUrl(
+  slug: string,
+  date: string,
+  teeTimeUuid: string
+): string {
+  const params = new URLSearchParams({
+    date,
+    step: "options",
+    teetime: teeTimeUuid,
+  });
+  return `${BOOKING_BASE}/${slug}?${params}`;
+}
+
+/**
  * Utah Chronogolf clubs still waiting on a capture — the Salt Lake City
  * and Salt Lake County municipals. Each needs the same two-second step
  * the user did for Riverbend: open the club page, DevTools -> Network ->
@@ -263,8 +309,9 @@ export const chronogolfAdapter: TeeTimeAdapter = {
     const results: NormalizedTeeTime[] = [];
 
     for (const date of dates) {
-      // Built per date so each slot links to the day it belongs to.
-      const bookingUrl = chronogolfBookingUrl(slug, date);
+      // Fallback for a slot with no uuid; the usual case links to the
+      // slot itself.
+      const dayUrl = chronogolfBookingUrl(slug, date);
 
       // The parameter is `start_date`, which hints a range might be
       // accepted, but only a single-day request has been observed — so
@@ -277,7 +324,7 @@ export const chronogolfAdapter: TeeTimeAdapter = {
         if (body.status !== "open" || !Array.isArray(body.teetimes)) break;
 
         for (const raw of body.teetimes) {
-          results.push(...toNormalized(raw, bookingUrl));
+          results.push(...toNormalized(raw, slug, dayUrl));
         }
 
         seen += body.teetimes.length;
