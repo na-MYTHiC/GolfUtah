@@ -60,6 +60,12 @@ interface Ids {
   externalId: string;
   /** Where it came from, so a surprising result can be traced. */
   source: string;
+  /**
+   * The platform's own name for the course, when it says. Saves having
+   * to know which course a bare booking link belongs to — ids alone
+   * don't identify a course, and guessing puts wrong data in the app.
+   */
+  courseName?: string;
 }
 
 interface Target {
@@ -122,11 +128,17 @@ function fromForeUpResponse(rows: unknown): Ids | undefined {
     course_id?: number;
     schedule_id?: number;
     booking_class_id?: number;
+    course_name?: string;
   };
   if (!r.course_id || !r.schedule_id) return undefined;
   const parts = [r.course_id, r.schedule_id];
   if (r.booking_class_id) parts.push(r.booking_class_id);
-  return { platform: "FOREUP", externalId: parts.join(":"), source: "times response" };
+  return {
+    platform: "FOREUP",
+    externalId: parts.join(":"),
+    source: "times response",
+    courseName: r.course_name,
+  };
 }
 
 function fromMemberSports(body: unknown): Ids | undefined {
@@ -521,8 +533,8 @@ function slugify(name: string): string {
 
 function printSeed(f: Finding): void {
   console.log(`  {
-    name: ${JSON.stringify(f.name)},
-    slug: ${JSON.stringify(slugify(f.name))},
+    name: ${JSON.stringify(f.ids!.courseName ?? f.name)},
+    slug: ${JSON.stringify(slugify(f.ids!.courseName ?? f.name))},
     county: "", // TODO
     city: ${JSON.stringify(f.city ?? "")},
     platform: ${JSON.stringify(f.ids!.platform)},
@@ -592,7 +604,10 @@ async function main() {
       process.stdout.write(`${target.name} ... `);
       const finding = await inspect(browser, target);
       if (finding.ids) {
-        console.log(`${finding.ids.platform}  ${finding.ids.externalId}  (${finding.ids.source})`);
+        console.log(
+          `${finding.ids.platform}  ${finding.ids.externalId}  (${finding.ids.source})` +
+            (finding.ids.courseName ? `  "${finding.ids.courseName}"` : "")
+        );
       } else {
         console.log(finding.note);
       }
