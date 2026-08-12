@@ -10,12 +10,13 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 12 of 15 have one, captured by
- *                 `npm run discover:refresh`. The three without are
- *                 Murray Parkway, Davis Park and The Ridge, whose
- *                 booking pages never showed a tee sheet to the script —
- *                 The Ridge is known to sit behind a login. Those three
- *                 may be showing incomplete times, and the UI says so.
+ *                 sheet. 17 of 21 have one, captured by
+ *                 `npm run discover:refresh`. The four without are
+ *                 Murray Parkway, Davis Park, Valley View and The Ridge,
+ *                 whose booking pages never reach a tee sheet for the
+ *                 script — The Ridge is known to sit behind a login.
+ *                 Those four may be showing incomplete times, and the
+ *                 UI says so.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -561,7 +562,7 @@ export const COURSES: CourseSeed[] = [
     county: "Utah",
     city: "Payson",
     platform: "FOREUP",
-    externalId: "18922:636",
+    externalId: "18922:636:6220",
     bookingUrl: "https://gladstan.com/",
     latitude: 40.028,
     longitude: -111.735,
@@ -572,7 +573,7 @@ export const COURSES: CourseSeed[] = [
     county: "Davis",
     city: "West Bountiful",
     platform: "FOREUP",
-    externalId: "20040:3325",
+    externalId: "20040:3325:8453",
     bookingUrl: "https://lakesidegolfcourse.com/",
     latitude: 40.897,
     longitude: -111.907,

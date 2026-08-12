@@ -83,6 +83,13 @@ interface Target {
 interface Finding extends Target {
   ids?: Ids;
   note?: string;
+  /**
+   * What the page actually said when nothing was found. Four ForeUp
+   * courses stall before their tee sheet loads and no amount of guessing
+   * at button labels has fixed it — this puts the screen in the output
+   * file so the blocker can be read rather than described.
+   */
+  pageText?: string;
 }
 
 /**
@@ -622,11 +629,18 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
 
     const ids = found.result;
     if (ids) return { ...target, ids };
+
+    const pageText = await page
+      .evaluate(() => document.body.innerText)
+      .then((t) => t.replace(/\n{3,}/g, "\n\n").trim().slice(0, 2_000))
+      .catch(() => undefined);
+
     return {
       ...target,
       note: bookingHosts.size
         ? `no ids found; booking links point at ${[...bookingHosts].join(", ")}`
         : "no booking link or traffic found",
+      pageText,
     };
   } catch (err) {
     // A timeout after a sighting still counts — the ids are real.
@@ -772,6 +786,11 @@ async function main() {
   if (misses.length) {
     console.log(`\nNothing seen for:`);
     for (const f of misses) console.log(`  ${f.name} — ${f.note}`);
+    if (misses.some((f) => f.pageText)) {
+      console.log(
+        `  What those pages showed is in the output file, under pageText.`
+      );
+    }
   }
 
   writeFileSync(outFile, JSON.stringify(findings, null, 2));
