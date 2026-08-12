@@ -53,7 +53,13 @@ const UA =
  * once one exists; a seed entry naming it won't typecheck against
  * PlatformName until then, which is the intended nudge.
  */
-type Platform = "FOREUP" | "MEMBERSPORTS" | "CHRONOGOLF" | "TEEITUP" | "TEEROCKET";
+type Platform =
+  | "FOREUP"
+  | "MEMBERSPORTS"
+  | "CHRONOGOLF"
+  | "TEEITUP"
+  | "TEEROCKET"
+  | "GOLFPAY";
 
 interface Ids {
   platform: Platform;
@@ -231,6 +237,15 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
     platform: "TEEROCKET",
     re: /trwidget\.web\.app\/?(\S*)/i,
     ids: (m) => m[1] || "widget",
+  },
+  {
+    // GolfPay addresses a course by a descriptive slug that already
+    // encodes city and ZIP, e.g. the-barn-golf-club-ogden-ut-84414.
+    // Its pages also carry ?date=YYYY-MM-DD, so deep links are cheap.
+    // Detection only — no availability capture yet.
+    platform: "GOLFPAY",
+    re: /golfpay\.co\/course\/([a-z0-9-]+)/i,
+    ids: (m) => m[1],
   },
 ];
 
