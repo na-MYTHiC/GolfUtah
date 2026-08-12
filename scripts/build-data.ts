@@ -39,7 +39,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { COURSES } from "../lib/courses.data";
 import { getAdapter } from "../lib/adapters";
-import { getPlaceInfo, placesEnabled } from "../lib/places";
+import { getPlaceInfo, placesEnabled, type PlaceInfo } from "../lib/places";
 import { todayInUtah, addDays } from "../lib/format";
 import type { Course } from "@prisma/client";
 
@@ -78,7 +78,7 @@ interface StaticCourse {
   bookingUrl: string;
   lat: number;
   lon: number;
-  rating?: { rating: number; reviewCount: number; mapsUrl?: string };
+  rating?: PlaceInfo;
   slots: StaticSlot[];
   error?: string;
   /**
@@ -342,6 +342,17 @@ async function main() {
     if (undated.length) {
       console.log(`  undated: ${undated.map((c) => c.name).join(", ")}`);
     }
+  }
+
+  // Ratings and reviews go in their own file rather than into every day.
+  // They're identical across all ten, and review text is long enough that
+  // duplicating it would dominate each day's download.
+  if (ratings.size > 0) {
+    const courseInfo = Object.fromEntries(
+      COURSES.map((seed) => [seed.slug, ratings.get(seed.name)]).filter(([, v]) => v)
+    );
+    writeFileSync(`${outDir}/courses.json`, JSON.stringify(courseInfo));
+    console.log(`Wrote course info for ${Object.keys(courseInfo).length} course(s)`);
   }
 
   writeFileSync(`${outDir}/index.json`, JSON.stringify(index));

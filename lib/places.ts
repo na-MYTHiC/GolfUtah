@@ -8,6 +8,14 @@
  *
  * Set GOOGLE_PLACES_API_KEY in .env to enable. Uses the Places API (New)
  * Text Search, matching on course name + city.
+ *
+ * On why this is Google rather than GolfPass or 18Birdies, which would
+ * be the better reading: neither publishes an API, and both put their
+ * review content behind terms that forbid scraping it. Google's Places
+ * API is the one source of golfer reviews that can be used as intended
+ * — so its reviews are shown with the attribution its terms require,
+ * and the things reviews are bad at (difficulty, layout, conditioning)
+ * come from lib/course-profiles.ts instead.
  */
 
 const API = "https://places.googleapis.com/v1/places:searchText";
@@ -15,10 +23,22 @@ const API = "https://places.googleapis.com/v1/places:searchText";
 /** Ratings barely move; cache hard to stay well inside free-tier quota. */
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+export interface PlaceReview {
+  rating: number;
+  text: string;
+  author: string;
+  /** Google requires reviews be shown with their relative time. */
+  when: string;
+}
+
 export interface PlaceInfo {
   rating: number; // 1-5
   reviewCount: number;
   mapsUrl?: string;
+  /** Google's own one-line description of the place, when it has one. */
+  summary?: string;
+  /** Up to five, newest-and-most-relevant as Google orders them. */
+  reviews?: PlaceReview[];
 }
 
 const cache = new Map<string, { at: number; value: PlaceInfo | null }>();
@@ -28,6 +48,13 @@ interface PlacesResponse {
     rating?: number;
     userRatingCount?: number;
     googleMapsUri?: string;
+    editorialSummary?: { text?: string };
+    reviews?: {
+      rating?: number;
+      text?: { text?: string };
+      authorAttribution?: { displayName?: string };
+      relativePublishTimeDescription?: string;
+    }[];
   }[];
 }
 
@@ -50,7 +77,16 @@ export async function getPlaceInfo(name: string, city?: string | null): Promise<
         "content-type": "application/json",
         "X-Goog-Api-Key": apiKey,
         // Field mask is required, and keeps this on the cheaper SKU.
-        "X-Goog-FieldMask": "places.rating,places.userRatingCount,places.googleMapsUri",
+        // Reviews and editorial summary move this to the Enterprise SKU,
+        // which is still inside the free monthly credit at this volume
+        // (43 courses, once per build, cached 24h).
+        "X-Goog-FieldMask": [
+          "places.rating",
+          "places.userRatingCount",
+          "places.googleMapsUri",
+          "places.editorialSummary",
+          "places.reviews",
+        ].join(","),
       },
       body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
       signal: AbortSignal.timeout(8000),
@@ -66,6 +102,16 @@ export async function getPlaceInfo(name: string, city?: string | null): Promise<
             rating: place.rating,
             reviewCount: place.userRatingCount ?? 0,
             mapsUrl: place.googleMapsUri,
+            summary: place.editorialSummary?.text,
+            reviews: (place.reviews ?? [])
+              .map((r) => ({
+                rating: r.rating ?? 0,
+                text: (r.text?.text ?? "").trim(),
+                author: r.authorAttribution?.displayName ?? "A golfer",
+                when: r.relativePublishTimeDescription ?? "",
+              }))
+              .filter((r) => r.text.length > 0)
+              .slice(0, 3),
           }
         : null;
 

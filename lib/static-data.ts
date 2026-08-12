@@ -61,6 +61,29 @@ export async function loadDay(date: string, bust = false): Promise<DayFile | nul
   }
 }
 
+/**
+ * Ratings and reviews, keyed by course slug. Separate from the day files
+ * because they're the same for every day and review text is bulky.
+ * Absent entirely when no Places key was configured at build time.
+ */
+export interface CourseInfo {
+  rating: number;
+  reviewCount: number;
+  mapsUrl?: string;
+  summary?: string;
+  reviews?: { rating: number; text: string; author: string; when: string }[];
+}
+
+export async function loadCourseInfo(): Promise<Record<string, CourseInfo>> {
+  try {
+    const resp = await fetch(assetPath("/data/courses.json"), { cache: "no-store" });
+    if (!resp.ok) return {};
+    return (await resp.json()) as Record<string, CourseInfo>;
+  } catch {
+    return {};
+  }
+}
+
 export interface DataIndex {
   dates: string[];
   generatedAt: string;

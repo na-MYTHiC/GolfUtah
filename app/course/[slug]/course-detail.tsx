@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { loadDay, type StaticCourse } from "@/lib/static-data";
+import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
+import { getProfile, profileSummary } from "@/lib/course-profiles";
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
 import { todayInUtah, formatDateLabel, formatPrice, formatTime } from "@/lib/format";
 
@@ -39,6 +40,19 @@ export function CourseDetail({
   const [refreshing, setRefreshing] = useState(false);
   /** Bumped to re-run the load; how a manual refresh is triggered. */
   const [reloads, setReloads] = useState(0);
+  const [info, setInfo] = useState<CourseInfo | null>(null);
+
+  // Ratings and reviews are the same every day, so they load once and
+  // independently of the tee times — no reason to hold up the list.
+  useEffect(() => {
+    let cancelled = false;
+    loadCourseInfo().then((all) => {
+      if (!cancelled) setInfo(all[slug] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,15 +103,17 @@ export function CourseDetail({
           </h1>
           <p className="mt-1 text-sm text-text-2">
             {city} · {county} County
-            {course?.rating && (
+            {info && (
               <>
                 {" · "}
-                <span className="text-crimson-bright">★ {course.rating.rating.toFixed(1)}</span>
-                <span className="text-text-3"> ({course.rating.reviewCount})</span>
+                <span className="text-crimson-bright">★ {info.rating.toFixed(1)}</span>
+                <span className="text-text-3"> ({info.reviewCount})</span>
               </>
             )}
           </p>
         </header>
+
+        <About slug={slug} info={info} />
 
         {weather && <Conditions weather={weather} date={date} today={today} />}
 
@@ -220,6 +236,84 @@ function Conditions({
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+/**
+ * What the course is like, and what golfers said about it.
+ *
+ * The facts come first and the opinions second, deliberately. Choosing
+ * between two open tee times is mostly a question of "is this course
+ * long / hilly / hard", which a star rating doesn't answer and a
+ * scorecard does.
+ */
+function About({ slug, info }: { slug: string; info: CourseInfo | null }) {
+  const profile = getProfile(slug);
+  const facts = profile ? profileSummary(profile) : [];
+  const blurb = profile?.notes ?? info?.summary;
+
+  if (facts.length === 0 && !blurb && !info?.reviews?.length) return null;
+
+  return (
+    <section className="mt-4 rounded-2xl bg-surface-1 px-4 py-3.5 ring-1 ring-line">
+      {facts.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-text-2">
+          {facts.map((f, i) => (
+            <span key={f}>
+              {i > 0 && <span className="mr-2 text-text-3">·</span>}
+              {f}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {profile?.walkable && (
+        <p className="mt-1.5 text-[12px] text-text-2">
+          Walking: <span className="text-text-1">{profile.walkable}</span>
+        </p>
+      )}
+
+      {blurb && <p className="mt-2 text-[13px] leading-relaxed text-text-2">{blurb}</p>}
+
+      {info?.reviews?.length ? (
+        <div className="mt-3 border-t border-line pt-3">
+          <ul className="flex flex-col gap-3">
+            {info.reviews.map((r, i) => (
+              <li key={i} className="text-[13px] leading-relaxed">
+                <p className="text-text-2">
+                  <span className="text-crimson-bright">
+                    {"★".repeat(Math.round(r.rating))}
+                  </span>{" "}
+                  <span className="text-text-3">
+                    {r.author} · {r.when}
+                  </span>
+                </p>
+                {/* Clamped rather than truncated in JS so the full text
+                    stays selectable and readable to a screen reader. */}
+                <p className="mt-0.5 line-clamp-4 text-text-2">{r.text}</p>
+              </li>
+            ))}
+          </ul>
+          {/* Google's terms require reviews be attributed and link back. */}
+          <p className="mt-3 text-[11px] text-text-3">
+            Reviews from Google
+            {info.mapsUrl && (
+              <>
+                {" · "}
+                <a
+                  href={info.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  See all on Google Maps
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
