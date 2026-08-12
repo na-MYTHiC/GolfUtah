@@ -35,16 +35,31 @@ export function CourseDetail({
 
   const [course, setCourse] = useState<StaticCourse | null | undefined>(undefined);
   const [weather, setWeather] = useState<DayWeather | null>(null);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  /** Bumped to re-run the load; how a manual refresh is triggered. */
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setCourse(undefined);
-      const day = await loadDay(date);
+      // Only blank the list on a first load. A manual refresh keeps the
+      // old times on screen until the new ones arrive, so the page
+      // doesn't flash empty while someone is reading it.
+      if (reloads === 0) setCourse(undefined);
+      else setRefreshing(true);
+
+      // Always bypass caches here. This is the page someone is looking at
+      // with their thumb over the booking button, so it should reflect
+      // the latest published data rather than whatever the service worker
+      // happens to be holding.
+      const day = await loadDay(date, true);
       if (cancelled) return;
 
       const match = day?.courses.find((c) => c.slug === slug) ?? null;
       setCourse(match);
+      setCheckedAt(day?.generatedAt ?? null);
+      setRefreshing(false);
 
       if (match) {
         const forecast = await getDayWeather(match.lat, match.lon, date);
@@ -54,7 +69,7 @@ export function CourseDetail({
     return () => {
       cancelled = true;
     };
-  }, [slug, date]);
+  }, [slug, date, reloads]);
 
   const back = `${basePath}/?${new URLSearchParams({ date, view: "course" })}`;
 
@@ -85,6 +100,12 @@ export function CourseDetail({
         </header>
 
         {weather && <Conditions weather={weather} date={date} today={today} />}
+
+        <Freshness
+          generatedAt={checkedAt}
+          refreshing={refreshing}
+          onRefresh={() => setReloads((n) => n + 1)}
+        />
 
         <div className="mt-6">
           {course === undefined ? (
@@ -200,6 +221,51 @@ function Conditions({
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * How current the times are, and a way to ask again.
+ *
+ * Worth being blunt about the ceiling: the site is static, so this
+ * re-reads the most recently published data rather than calling the
+ * course's booking system. The booking systems don't allow cross-origin
+ * requests from a browser, so a page like this one physically cannot ask
+ * them directly — the data is as new as the last scheduled build, which
+ * runs every few minutes. The link out to the course is the only truly
+ * live source, which is why it's the thing every row points at.
+ */
+function Freshness({
+  generatedAt,
+  refreshing,
+  onRefresh,
+}: {
+  generatedAt: string | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const clock = generatedAt
+    ? new Date(generatedAt).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "America/Denver",
+      })
+    : null;
+
+  return (
+    <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface-1 px-3.5 py-2.5 ring-1 ring-line">
+      <p className="min-w-0 text-[12px] leading-snug text-text-2">
+        {clock ? `Times as of ${clock}` : "Checking…"}
+        <span className="block text-text-3">Confirm on the course&apos;s page before paying</span>
+      </p>
+      <button
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="shrink-0 rounded-full bg-surface-2 px-3.5 py-1.5 text-[13px] font-medium text-text-1 transition active:bg-surface-3 disabled:opacity-50"
+      >
+        {refreshing ? "Checking…" : "Refresh"}
+      </button>
+    </div>
   );
 }
 

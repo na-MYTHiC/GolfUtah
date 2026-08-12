@@ -6,29 +6,32 @@ name: Build and deploy GolfUtah
 #
 # The schedule is tiered, because the days aren't worth the same.
 #
-#   every 15 minutes  the next 3 days fetched fresh; days 4-10 carried
-#                     over from what's already published
-#   every 3 hours     all 10 days fetched fresh
+#   every 5 minutes   days 1-3   (today, tomorrow, the day after)
+#   every 10 minutes  days 4-7
+#   every 15 minutes  days 8-10
 #
-# Today's sheet moves by the minute and is what almost everyone opens the
-# app for; next Tuesday's barely moves. Refetching all ten days every time
-# meant ~430 requests per run across 40-odd courses, and it capped how
-# often today could refresh because the tail rode along. Tiering makes the
-# frequent run about a third the size, which buys twice the refresh rate
-# for fewer requests overall.
+# One cron fires every 5 minutes and works out from the clock which tiers
+# are due. Three separate crons would all land on :00 and, with
+# cancel-in-progress, spend the hour cancelling each other.
+#
+# Cost, at 43 courses: ~3,100 requests an hour, against ~660 before. That
+# is the trade being made deliberately — today refreshes 12 times an hour
+# instead of 4. If a booking platform starts rate-limiting, this schedule
+# is the first thing to look at.
 #
 # Requests are also capped at 3 at a time per booking platform (see
 # build-data.ts), so a run looks like a few people browsing rather than a
 # stampede.
 #
+# NOTE: GitHub's scheduled runs are best-effort and get delayed under
+# load, especially on free runners. A 5-minute cron does not reliably
+# deliver every 5 minutes; treat it as an upper bound.
+#
 # Free on public repositories: GitHub doesn't bill Actions minutes for
 # them, and Pages is only free for public repos too.
 on:
   schedule:
-    # Near days only — the frequent, cheap run.
-    - cron: '*/15 * * * *'
-    # Everything, including the tail.
-    - cron: '0 */3 * * *'
+    - cron: '*/5 * * * *'
   push:
     branches: [main]
   workflow_dispatch:
@@ -61,15 +64,29 @@ jobs:
       # build never touches a database.
       - run: npx prisma generate
 
-      # A push or a manual run should produce a complete site, so those
-      # fetch everything; only the 15-minute tick is partial.
+      # Which day ranges this tick owes a refresh. Days 1-3 every run;
+      # days 4-7 on the tens; days 8-10 on the quarter hours. A push or a
+      # manual run refreshes everything, so a deploy always starts from a
+      # complete site.
       - name: Decide freshness tier
         id: tier
         run: |
-          if [ "${{ github.event.schedule }}" = "*/15 * * * *" ]; then
-            echo "near=3" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "fresh=0-9" >> "$GITHUB_OUTPUT"
           else
-            echo "near=10" >> "$GITHUB_OUTPUT"
+            MINUTE=$(date -u +%-M)
+            FRESH="0-2"
+            # Written as ifs rather than `[ ... ] && ...` because the
+            # step runs under `bash -e`, where a false test in a && list
+            # is a trap worth not setting.
+            if [ $((MINUTE % 10)) -eq 0 ]; then
+              FRESH="$FRESH,3-6"
+            fi
+            if [ $((MINUTE % 15)) -eq 0 ]; then
+              FRESH="$FRESH,7-9"
+            fi
+            echo "tier: minute=$MINUTE fresh=$FRESH"
+            echo "fresh=$FRESH" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Fetch tee times
@@ -83,7 +100,7 @@ jobs:
         run: >
           npx tsx scripts/build-data.ts
           --days 10
-          --near ${{ steps.tier.outputs.near }}
+          --fresh ${{ steps.tier.outputs.fresh }}
           --reuse https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
       - name: Build static site

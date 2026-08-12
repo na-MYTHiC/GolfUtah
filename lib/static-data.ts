@@ -44,9 +44,16 @@ export function assetPath(path: string): string {
   return `${base}${path}`;
 }
 
-export async function loadDay(date: string): Promise<DayFile | null> {
+/**
+ * @param bust Adds a unique query so nothing between here and the origin
+ * can answer from a cache — the HTTP cache, the service worker, or a CDN
+ * edge. `cache: "no-store"` alone doesn't reliably get past a service
+ * worker, and this is used on the screen someone books from.
+ */
+export async function loadDay(date: string, bust = false): Promise<DayFile | null> {
   try {
-    const resp = await fetch(assetPath(`/data/${date}.json`), { cache: "no-store" });
+    const url = assetPath(`/data/${date}.json`) + (bust ? `?t=${Date.now()}` : "");
+    const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) return null;
     return (await resp.json()) as DayFile;
   } catch {

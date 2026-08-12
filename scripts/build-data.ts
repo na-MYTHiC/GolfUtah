@@ -18,13 +18,21 @@
  * is both wasteful and rude to the booking systems — and it caps how
  * often the near days can refresh, because the far ones ride along.
  *
- * So: the first --near days are always fetched fresh, and the rest are
- * carried over from what's already published (--reuse <site url>) unless
- * that copy is too old. A frequent run keeps today sharp for a third of
- * the requests; a slower full run refreshes the tail.
+ * So each run says which days it wants fresh; the rest are carried over
+ * from what's already published (--reuse <site url>) unless that copy is
+ * too old.
+ *
+ *   --fresh 0-2      just the next three days
+ *   --fresh 0-2,7-9  the near days and the tail, skipping the middle
+ *   --near 3         shorthand for --fresh 0-2
+ *
+ * The ranges matter more than they look. A run that only wants to
+ * refresh day 8 shouldn't have to refetch days 1-7 to do it — with
+ * --near alone it would, which is what made a finer-grained schedule
+ * cost more than it should.
  *
  * Usage:
- *   npx tsx scripts/build-data.ts [--days 10] [--near 10]
+ *   npx tsx scripts/build-data.ts [--days 10] [--fresh 0-2] [--near 10]
  *                                 [--reuse https://user.github.io/repo]
  *                                 [--out public/data]
  */
@@ -97,6 +105,24 @@ interface DayFile {
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+}
+
+/**
+ * "0-2,7-9" -> the day indexes to fetch fresh. Anything outside the set
+ * is carried over. A malformed spec yields an empty set, which would
+ * silently refresh nothing, so it throws instead.
+ */
+function parseFresh(spec: string, days: number): Set<number> {
+  const out = new Set<number>();
+  for (const part of spec.split(",").map((p) => p.trim()).filter(Boolean)) {
+    const m = /^(\d+)(?:-(\d+))?$/.exec(part);
+    if (!m) throw new Error(`Bad --fresh range "${part}" — expected "0-2" or "5"`);
+    const from = Number(m[1]);
+    const to = m[2] === undefined ? from : Number(m[2]);
+    for (let i = from; i <= to && i < days; i++) out.add(i);
+  }
+  if (out.size === 0) throw new Error(`--fresh "${spec}" selected no days`);
+  return out;
 }
 
 /**
@@ -239,9 +265,10 @@ async function reuseDay(baseUrl: string, date: string): Promise<DayFile | null> 
 
 async function main() {
   const days = Number(arg("days", "10"));
-  // Defaults to every day, so a plain run behaves exactly as before and
-  // the tiering only kicks in when the workflow asks for it.
+  // Defaults to every day, so a plain run refreshes everything and the
+  // tiering only applies when a schedule asks for it.
   const near = Number(arg("near", String(days)));
+  const fresh = parseFresh(arg("fresh", `0-${near - 1}`), days);
   const reuse = arg("reuse", "");
   const outDir = arg("out", "public/data");
   const today = todayInUtah();
@@ -265,6 +292,11 @@ async function main() {
     courseCount: COURSES.length,
   };
 
+  console.log(
+    `Fetching fresh: day(s) ${[...fresh].sort((a, b) => a - b).join(", ")} of ${days}` +
+      (reuse ? `; the rest carried over from ${reuse}` : "; no --reuse, so all days fetched")
+  );
+
   let reused = 0;
   let undatedLinks = 0;
 
@@ -272,7 +304,7 @@ async function main() {
     let file: DayFile | null = null;
     let carriedOver = false;
 
-    if (i >= near && reuse) {
+    if (!fresh.has(i) && reuse) {
       const carried = await reuseDay(reuse, date);
       if (carried) {
         file = carried;
