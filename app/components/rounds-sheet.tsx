@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { roundsStore, type Round } from "@/lib/rounds";
 import { formatPrice, formatTime, todayInUtah, formatDateLabel } from "@/lib/format";
 
@@ -41,9 +42,38 @@ export function RoundsButton() {
         )}
       </button>
 
-      {open && <Sheet rounds={rounds} today={today} onClose={() => setOpen(false)} />}
+      {open && <SheetPortal rounds={rounds} today={today} onClose={() => setOpen(false)} />}
     </>
   );
+}
+
+/**
+ * Renders the sheet at the end of <body> rather than where the button
+ * lives.
+ *
+ * The button sits in the sticky header, and that header has a
+ * backdrop-blur. A backdrop-filter establishes a containing block for
+ * fixed-position descendants — so `fixed inset-0` stopped meaning "the
+ * viewport" and started meaning "the header", which clipped the sheet to
+ * a strip at the top of the screen. A portal steps out of that
+ * ancestor's stacking context entirely, which is the only fix that
+ * doesn't involve giving up the blur.
+ *
+ * No mounted guard needed: this only renders once the button has been
+ * pressed, which cannot happen during a static prerender, so `document`
+ * is always there by the time it runs.
+ */
+function SheetPortal(props: { rounds: Round[]; today: string; onClose: () => void }) {
+  // Body scroll would otherwise run on underneath the open sheet.
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  return createPortal(<Sheet {...props} />, document.body);
 }
 
 function Sheet({
@@ -70,7 +100,10 @@ function Sheet({
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
       />
 
-      <div className="relative max-h-[85vh] overflow-y-auto rounded-t-3xl bg-surface-1 pb-8 ring-1 ring-line">
+      <div
+        className="relative max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-surface-1 ring-1 ring-line"
+        style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+      >
         <div className="sticky top-0 flex items-center justify-between border-b border-line bg-surface-1 px-4 py-3">
           <div>
             <h2 className="text-[17px] font-semibold text-text-1">Your rounds</h2>
