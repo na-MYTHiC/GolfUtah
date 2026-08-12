@@ -278,19 +278,30 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
  * channel, a length-prefixed protobuf-over-JSON protocol that isn't
  * meaningfully reproducible with fetch().
  *
- * The REST route is closed, and this has been tested rather than
- * assumed. Schneiter's Bluff resolves to a real document path, and
- *   GET firestore.googleapis.com/v1/projects/teerocket/databases/
- *     (default)/documents/group/YFlPUck58D81fB5Kqqa8/course/
- *     BH4MnB2co04ve5At3aQl
- * returns 403 PERMISSION_DENIED. So the rules want a credential the
- * Firebase SDK obtains, most likely via anonymous auth — reproducible
- * in principle (the web API key is public by design) but a gamble on
- * what else the rules require.
+ * More importantly, Schneiter's puts availability behind a user account.
+ * scripts/teerocket-probe.ts loaded the widget and got:
  *
- * That leaves browser automation, for two courses. Parked on those
- * grounds, not on technical ones — revisit if more Utah courses turn
- * out to run TeeRocket.
+ *   "Please login to reserve a tee time for Schneiter's Bluff Golf
+ *    Course. Login / Forgot Password / Don't have an account?"
+ *
+ * So this isn't an adapter problem. The tee sheet isn't public at all,
+ * which puts it in the same category as The Ridge: readable only with
+ * credentials, via the CourseCredential path in lib/crypto.ts.
+ *
+ * Note also that the widget's route says group/<id>/course/<id> while
+ * Firestore's collections are plural — groups/<id>/courses/<id>. An
+ * earlier REST test used the singular route form and got 403, which
+ * proved nothing: Firestore answers PERMISSION_DENIED rather than
+ * NOT_FOUND for paths that don't exist, so a wrong path and a forbidden
+ * one look identical.
+ *
+ * The subscriptions the widget makes, for whoever picks this up:
+ *   groups/YFlPUck58D81fB5Kqqa8
+ *   groups/YFlPUck58D81fB5Kqqa8/courses/BH4MnB2co04ve5At3aQl
+ *   a query over groups/YFlPUck58D81fB5Kqqa8/courses  <- lists every
+ *   course in the group, which is where Schneiter's Riverside's id
+ *   would come from; its own page only reaches the widget's generic
+ *   "select a group first" screen.
  */
 function fromFirestore(url: string): Ids | undefined {
   const project = /firestore\.googleapis\.com\/.*projects(?:%2F|\/)([a-z0-9-]+)/i.exec(url)?.[1];
