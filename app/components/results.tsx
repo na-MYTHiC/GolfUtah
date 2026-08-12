@@ -231,7 +231,7 @@ export function Results({
       <div className="flex items-center justify-between gap-3 pb-3 pt-3">
         {/* Kept short on purpose: the long form wrapped to two lines on a
             phone and shoved the view toggle around. */}
-        <p className="min-w-0 px-0.5 text-[13px] text-text-2">
+        <p className="min-w-0 truncate whitespace-nowrap px-0.5 text-[13px] text-text-2">
           {bookings.length === 0
             ? "No tee times match"
             : `${bookings.length} time${bookings.length === 1 ? "" : "s"} · ` +

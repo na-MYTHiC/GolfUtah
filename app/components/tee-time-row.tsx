@@ -103,7 +103,7 @@ export function TeeTimeRow({
             </div>
           )}
           <div
-            className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-text-2 ${
+            className={`flex items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-text-2 ${
               hideCourse ? "text-[13px]" : "mt-1 text-xs"
             }`}
           >
@@ -126,34 +126,21 @@ export function TeeTimeRow({
               </>
             )}
             <Dot />
-            <span>
-              {booking.playersOpen} open
-            </span>
+            <span>{booking.playersOpen} open</span>
             {booking.distanceMiles != null && (
               <>
                 <Dot />
                 <span>{booking.distanceMiles.toFixed(0)} mi</span>
               </>
             )}
-            {booking.undatedLink && (
-              <>
-                <Dot />
-                <span
-                  className="text-text-3"
-                  title="This booking system opens on today's sheet — pick the date once you're there."
-                >
-                  opens on today
-                </span>
-              </>
-            )}
             {light?.short && (
               <>
                 <Dot />
                 <span
-                  className="font-medium text-amber-400/90"
+                  aria-label="Finishes after dark"
                   title={`Sunset ${to12h(booking.sunset!)} · ${booking.holes} holes finishes about ${to12h(light.finishesAt)}`}
                 >
-                  ends after dark
+                  🌙
                 </span>
               </>
             )}

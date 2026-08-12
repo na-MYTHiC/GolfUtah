@@ -40,7 +40,12 @@ interface RawTeeTime {
   cart_fee: number;
   cart_fee_9: number;
   cart_fee_18: number;
-  teesheet_side_name: string; // "Front" | "Back"
+  /**
+   * Usually "Front" or "Back", but it's the *sheet's* name and courses
+   * are free to call it anything — "Teesheet 1" and similar show up.
+   * Normalized by sideOf() rather than passed through.
+   */
+  teesheet_side_name: string;
   booking_class_id: number;
   // Note: the response also carries `start_front`, which looks like a
   // YYYYMMDDHHMM stamp but disagrees with `time` on the month (e.g.
@@ -232,6 +237,20 @@ async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]>
  * different prices, so it's listed once per option rather than collapsed
  * into a single ambiguous row.
  */
+/**
+ * Only a real nine gets a label.
+ *
+ * This field is the tee sheet's name, not a side, so a course that calls
+ * its sheet "Teesheet 1" was putting that word in every row. Anything
+ * that isn't recognisably a front or back nine is dropped — an unlabelled
+ * slot reads fine, a mystery word doesn't.
+ */
+function sideOf(sheetName: string): string | undefined {
+  if (/\bback\b/i.test(sheetName)) return "Back";
+  if (/\bfront\b/i.test(sheetName)) return "Front";
+  return undefined;
+}
+
 export function toNormalized(
   raw: RawTeeTime,
   ids: { courseId: number; scheduleId: number; bookingClassId?: number }
@@ -274,7 +293,7 @@ export function toNormalized(
       // Mixing the two is how a cart-inclusive price ends up looking
       // cheaper than a walking one.
       cartFee: o.cartFee > 0 ? Math.round(o.cartFee * 100) : undefined,
-      side: raw.teesheet_side_name,
+      side: sideOf(raw.teesheet_side_name),
       // Each slot gets its own link so the golfer lands on the right day
       // with the right round preselected, rather than on today's sheet.
       bookingUrl: foreUpBookingUrl(ids.courseId, ids.scheduleId, {
