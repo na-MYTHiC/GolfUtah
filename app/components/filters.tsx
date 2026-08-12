@@ -32,9 +32,8 @@ export interface FilterState {
   /**
    * course — grouped by course, the default
    * time   — one chronological list for the chosen day
-   * week   — the same filters across every published day at once
    */
-  view: "time" | "course" | "week";
+  view: "time" | "course";
 }
 
 /** How far ahead data is published; matches build-data.ts --days. */
@@ -230,7 +229,7 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
 
   return (
     <div className="flex shrink-0 rounded-full bg-surface-2 p-0.5">
-      {(["course", "time", "week"] as const).map((option) => (
+      {(["course", "time"] as const).map((option) => (
         <button
           key={option}
           onClick={() => set(option)}
@@ -240,7 +239,7 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
               : "text-text-2"
           }`}
         >
-          {option === "course" ? "Course" : option === "time" ? "Time" : "Week"}
+          {option === "course" ? "Course" : "Time"}
         </button>
       ))}
     </div>

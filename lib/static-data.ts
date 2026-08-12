@@ -14,8 +14,6 @@ export interface StaticSlot {
   withCart?: boolean;
   /** Rate class the price belongs to. */
   rate?: string;
-  /** Only set in week mode, where slots from many days are merged. */
-  date?: string;
   /** "Front" / "Back" when the platform reports it. */
   side?: string;
   url: string;

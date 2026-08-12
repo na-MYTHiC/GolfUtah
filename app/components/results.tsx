@@ -17,7 +17,6 @@ import { AppHeader } from "./app-header";
 import { findCity } from "@/lib/utah-places";
 import { favoritesStore } from "@/lib/favorites";
 import { markSeen, slotKey } from "@/lib/seen";
-import { formatDateLabel } from "@/lib/format";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -63,12 +62,10 @@ export function Results({
   // course data rather than the filtered list, so changing a filter
   // doesn't make everything look new.
   const fresh = useMemo(() => {
-    if (filters.view === "week") return new Set<string>();
     const keys = courses.flatMap((c) =>
       c.slots.map((s) => slotKey(c.slug, s.time, s.holes, s.side))
     );
     return markSeen(date, keys);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courses, date]);
 
   // A distance origin is the device's location, or any Utah city that
@@ -149,22 +146,7 @@ export function Results({
     }
 
     const chronological = filters.view === "time";
-    const weekly = filters.view === "week";
     flat.sort((a, b) => {
-      if (weekly) {
-        // Cheapest first is the point of the week view — "when is this
-        // cheap" rather than "what's on Tuesday".
-        if (filters.sort === "price") {
-          return (
-            (a.price ?? Infinity) - (b.price ?? Infinity) ||
-            (a.date ?? "").localeCompare(b.date ?? "") ||
-            a.time.localeCompare(b.time)
-          );
-        }
-        return (
-          (a.date ?? "").localeCompare(b.date ?? "") || a.time.localeCompare(b.time)
-        );
-      }
       if (chronological) {
         return a.time.localeCompare(b.time) || a.courseName.localeCompare(b.courseName);
       }
@@ -223,8 +205,11 @@ export function Results({
       <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-2 pt-2 backdrop-blur-lg">
         <AppHeader />
         <DateStrip today={today} active={date} />
-        <div className="pt-2">
-          <SearchBar value={filters.q} courses={courseNames} />
+        <div className="flex items-center gap-2 pt-2">
+          <div className="min-w-0 flex-1">
+            <SearchBar value={filters.q} courses={courseNames} />
+          </div>
+          <ViewToggle view={filters.view} />
         </div>
         <FilterChips
           filters={filters}
@@ -232,13 +217,6 @@ export function Results({
           onLocate={locate}
           view={filters.view}
         />
-        {/* View on the left, share on the right: one changes what you're
-            looking at, the other sends it on, so they shouldn't sit
-            together as if they were a pair. */}
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <ViewToggle view={filters.view} />
-          <ShareButton />
-        </div>
       </div>
 
       <div className="pt-3" />
@@ -251,8 +229,6 @@ export function Results({
           players={filters.players}
           byTime={filters.view === "time"}
           byCourse={filters.view === "course"}
-          byWeek={filters.view === "week"}
-          today={today}
           date={date}
           favorites={favorites}
         />
@@ -288,49 +264,6 @@ function inWindow(time: string, when: FilterState["when"]): boolean {
   return time >= range[0] && time <= range[1];
 }
 
-/**
- * Shares the current view.
- *
- * Filters already live in the URL, so this is nearly free — the address
- * bar is a complete description of "Saturday morning, two players, under
- * $50 within 20 miles", which is exactly the thing you'd type out to
- * whoever you're playing with.
- */
-function ShareButton() {
-  const [copied, setCopied] = useState(false);
-
-  const share = async () => {
-    const url = window.location.href;
-    // The native sheet where there is one; a clipboard copy where there
-    // isn't, rather than nothing on desktop.
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "GolfUtah tee times", url });
-        return;
-      } catch {
-        // Dismissed, or not permitted — fall through to copying.
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // No clipboard permission; nothing useful left to try.
-    }
-  };
-
-  return (
-    <button
-      onClick={share}
-      aria-label="Share these results"
-      className="rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-text-2 active:bg-surface-3"
-    >
-      {copied ? "Copied" : "Share"}
-    </button>
-  );
-}
-
 /** The windows golfers plan around, not even thirds of the clock. */
 const PARTS = [
   { key: "early", label: "Early", until: "09:00" },
@@ -347,8 +280,6 @@ function TimeSections({
   players,
   byTime,
   byCourse,
-  byWeek,
-  today,
   date,
   favorites,
 }: {
@@ -357,46 +288,9 @@ function TimeSections({
   /** Part-of-day headers only make sense in time order. */
   byTime: boolean;
   byCourse: boolean;
-  byWeek: boolean;
-  today: string;
   date: string;
   favorites: string[];
 }) {
-  // Across the week, the day is the thing to group by — a flat list of
-  // four hundred times with no day headers is unreadable.
-  if (byWeek) {
-    const order: string[] = [];
-    const days = new Map<string, Booking[]>();
-    for (const b of bookings) {
-      const key = b.date ?? date;
-      if (!days.has(key)) {
-        days.set(key, []);
-        order.push(key);
-      }
-      days.get(key)!.push(b);
-    }
-
-    return (
-      <div className="flex flex-col gap-5">
-        {order.map((day) => (
-          <section key={day}>
-            <h2 className="mb-2 flex items-baseline gap-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-text-3">
-              {formatDateLabel(day, today)}
-              <span className="font-normal normal-case tracking-normal">
-                {days.get(day)!.length}
-              </span>
-            </h2>
-            <ul className="flex flex-col gap-2">
-              {days.get(day)!.map((b) => (
-                <TeeTimeRow key={b.id} booking={b} players={players} />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-    );
-  }
-
   // Grouped by course for when you're deciding *where* rather than
   // *when* — the two questions want different shapes.
   if (byCourse) {
