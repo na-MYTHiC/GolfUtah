@@ -10,8 +10,12 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. Only Sun Hills has one so far, so the other
- *                 ForeUp courses here may be showing incomplete times.
+ *                 sheet. 12 of 15 have one, captured by
+ *                 `npm run discover:refresh`. The three without are
+ *                 Murray Parkway, Davis Park and The Ridge, whose
+ *                 booking pages never showed a tee sheet to the script —
+ *                 The Ridge is known to sit behind a login. Those three
+ *                 may be showing incomplete times, and the UI says so.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -318,7 +322,7 @@ export const COURSES: CourseSeed[] = [
     county: "Utah",
     city: "Provo",
     platform: "FOREUP",
-    externalId: "6279:49",
+    externalId: "6279:49:14927",
     bookingUrl: "https://www.timpanogosgolf.com/",
     latitude: 40.234,
     longitude: -111.659,
@@ -329,7 +333,7 @@ export const COURSES: CourseSeed[] = [
     county: "Utah",
     city: "Orem",
     platform: "FOREUP",
-    externalId: "19396:1726",
+    externalId: "19396:1726:3412",
     bookingUrl: "https://www.sleepyridgegolf.com/",
     latitude: 40.281,
     longitude: -111.733,
@@ -340,7 +344,7 @@ export const COURSES: CourseSeed[] = [
     county: "Utah",
     city: "Lehi",
     platform: "FOREUP",
-    externalId: "19645:2034",
+    externalId: "19645:2034:2113",
     bookingUrl: "https://www.thanksgivingpointgolfclub.com/",
     latitude: 40.391,
     longitude: -111.851,
@@ -351,7 +355,7 @@ export const COURSES: CourseSeed[] = [
     county: "Utah",
     city: "Spanish Fork",
     platform: "FOREUP",
-    externalId: "21698:8633",
+    externalId: "21698:8633:10949",
     bookingUrl: "https://www.theoaksatsf.com/",
     latitude: 40.115,
     longitude: -111.655,
@@ -373,7 +377,7 @@ export const COURSES: CourseSeed[] = [
     county: "Davis",
     city: "Syracuse",
     platform: "FOREUP",
-    externalId: "20940:6276",
+    externalId: "20940:6276:8990",
     bookingUrl: "https://golfgleneagle.com/",
     latitude: 41.089,
     longitude: -112.065,
@@ -384,7 +388,7 @@ export const COURSES: CourseSeed[] = [
     county: "Weber",
     city: "Eden",
     platform: "FOREUP",
-    externalId: "18945:756",
+    externalId: "18945:756:421",
     bookingUrl: "https://wolfcreekresort.com/golf/",
     latitude: 41.3,
     longitude: -111.83,
@@ -395,7 +399,7 @@ export const COURSES: CourseSeed[] = [
     county: "Box Elder",
     city: "Brigham City",
     platform: "FOREUP",
-    externalId: "19943:3033",
+    externalId: "19943:3033:2750",
     bookingUrl: "https://eaglemountaingc.com/",
     latitude: 41.51,
     longitude: -112.015,
@@ -406,7 +410,7 @@ export const COURSES: CourseSeed[] = [
     county: "Carbon",
     city: "Helper",
     platform: "FOREUP",
-    externalId: "22113:9906",
+    externalId: "22113:9906:13324",
     bookingUrl: "https://www.carboncountryclub.com/",
     latitude: 39.684,
     longitude: -110.856,
@@ -417,7 +421,7 @@ export const COURSES: CourseSeed[] = [
     county: "Emery",
     city: "Ferron",
     platform: "FOREUP",
-    externalId: "21605:8326",
+    externalId: "21605:8326:11171",
     bookingUrl: "https://millsitegolfcourse.com/",
     latitude: 39.093,
     longitude: -111.132,
@@ -428,7 +432,7 @@ export const COURSES: CourseSeed[] = [
     county: "Salt Lake",
     city: "West Valley City",
     platform: "FOREUP",
-    externalId: "22130:9912",
+    externalId: "22130:9912:13900",
     bookingUrl: "https://www.golfstonebridgeutah.com/",
     latitude: 40.692,
     longitude: -112.001,
@@ -454,7 +458,7 @@ export const COURSES: CourseSeed[] = [
     county: "Davis",
     city: "Bountiful",
     platform: "FOREUP",
-    externalId: "18950:674",
+    externalId: "18950:674:4371",
     bookingUrl: "https://bountifulridgegolf.com/",
     latitude: 40.868,
     longitude: -111.845,
