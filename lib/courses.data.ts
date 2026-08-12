@@ -448,4 +448,15 @@ export const COURSES: CourseSeed[] = [
     latitude: 40.688,
     longitude: -112.03,
   },
+  {
+    name: "Bountiful Ridge Golf Course",
+    slug: "bountiful-ridge-golf-course",
+    county: "Davis",
+    city: "Bountiful",
+    platform: "FOREUP",
+    externalId: "18950:674",
+    bookingUrl: "https://bountifulridgegolf.com/",
+    latitude: 40.868,
+    longitude: -111.845,
+  },
 ];
