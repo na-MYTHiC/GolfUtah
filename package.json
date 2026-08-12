@@ -25,6 +25,7 @@
     "teerocket:probe": "tsx scripts/teerocket-probe.ts",
     "build:data": "tsx scripts/build-data.ts",
     "photos": "tsx scripts/fetch-photos.ts",
+    "osm": "tsx scripts/fetch-osm.ts",
     "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {

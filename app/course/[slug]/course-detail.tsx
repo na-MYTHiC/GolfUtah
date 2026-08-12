@@ -132,7 +132,7 @@ export function CourseDetail({
           </p>
         </header>
 
-        <About slug={slug} info={info} />
+        <About slug={slug} name={name} city={city} info={info} />
 
         {weather && <Conditions weather={weather} date={date} today={today} />}
 
@@ -314,12 +314,23 @@ function DateStrip({
  * long / hilly / hard", which a star rating doesn't answer and a
  * scorecard does.
  */
-function About({ slug, info }: { slug: string; info: CourseInfo | null }) {
+function About({
+  slug,
+  name,
+  city,
+  info,
+}: {
+  slug: string;
+  name: string;
+  city: string;
+  info: CourseInfo | null;
+}) {
   const profile = getProfile(slug);
   const facts = profile ? profileSummary(profile) : [];
   const blurb = profile?.notes ?? info?.summary;
 
-  if (facts.length === 0 && !blurb && !info?.reviews?.length) return null;
+  // The Maps link stands on its own, so this section is worth rendering
+  // even with no profile and no Places data at all.
 
   return (
     <section className="mt-4 rounded-2xl bg-surface-1 px-4 py-3.5 ring-1 ring-line">
@@ -341,6 +352,23 @@ function About({ slug, info }: { slug: string; info: CourseInfo | null }) {
       )}
 
       {blurb && <p className="mt-2 text-[13px] leading-relaxed text-text-2">{blurb}</p>}
+
+      {/* Reviews without an API key. Google Maps' URL scheme is public
+          and free to link to, so when Places isn't configured the app
+          still gets you to real reviews — one tap instead of inline. */}
+      {!info && (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            `${name} golf course ${city} Utah`
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-surface-2 py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
+        >
+          Reviews &amp; photos on Google Maps
+          <span aria-hidden className="text-text-3">↗</span>
+        </a>
+      )}
 
       {info?.reviews?.length ? (
         <div className="mt-3 border-t border-line pt-3">
