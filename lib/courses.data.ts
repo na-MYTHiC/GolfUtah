@@ -453,6 +453,19 @@ export const COURSES: CourseSeed[] = [
     longitude: -112.03,
   },
   {
+    name: "Valley View Golf Course",
+    slug: "valley-view-golf-course",
+    county: "Davis",
+    city: "Layton",
+    platform: "FOREUP",
+    // Adjacent ids to Davis Park (19500:1757) — the two Davis County
+    // municipals sit on one ForeUp install.
+    externalId: "19501:1759",
+    bookingUrl: "https://www.valleyviewutah.com/",
+    latitude: 41.073,
+    longitude: -111.93,
+  },
+  {
     name: "Bountiful Ridge Golf Course",
     slug: "bountiful-ridge-golf-course",
     county: "Davis",
