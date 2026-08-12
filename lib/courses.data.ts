@@ -337,6 +337,18 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.549,
   },
 
+  {
+    name: "Talons Cove Golf Course",
+    slug: "talons-cove-golf-course",
+    county: "Utah",
+    city: "Saratoga Springs",
+    platform: "MEMBERSPORTS",
+    externalId: "15455:18982",
+    bookingUrl: "https://www.talonscove.com/",
+    latitude: 40.318,
+    longitude: -111.921,
+  },
+
   // --- ForeUp ---
   {
     name: "Sun Hills Golf Course",
