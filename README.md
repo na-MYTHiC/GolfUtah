@@ -119,10 +119,13 @@ Chronogolf 13, MemberSports 5):
   day: a tap lands on Chronogolf's options step for that exact tee time
   (`?step=options&teetime=<slot uuid>`).
 
-  Adding the remaining twelve Chronogolf clubs takes one DevTools capture
-  each, since the uuids appear nowhere in a course's public address.
-  `npx tsx scripts/chronogolf-add.ts` lists which clubs are outstanding
-  and turns a pasted request URL into a seed entry.
+  All fourteen known Utah Chronogolf clubs are seeded. Their uuids were
+  resolved by `npm run chronogolf:discover`, which loads each club's tee
+  sheet in Chromium and reads `course_ids` out of the widget's own
+  request — the uuids appear nowhere in a club's public address, so
+  there's no way to derive them from the outside. Most clubs return
+  several: a back nine, an opposite nine, a par 3, or a genuinely
+  separate course like Mountain Dell's Lake and Canyon.
 
 ## Getting started
 
@@ -291,14 +294,17 @@ behave like a person clicking through a directory. Don't parallelize it.
 
 ## Status
 
-All three platforms are implemented, between them covering 43 of the 57
-Utah courses surveyed. Each was built against real captured traffic, and
-each response mapping is verified against that data.
+All three platforms are implemented. Each was built against real captured
+traffic, and each response mapping is verified against that data.
 
-Seeded so far: 20 courses — 14 ForeUp, 5 MemberSports, 1 Chronogolf. The
-remaining 37 are tracked in `scripts/courses.candidates.json`: the twelve
-other Chronogolf clubs, which need a per-club uuid capture, plus ForeUp
-courses whose ids fetch-based detection couldn't reach.
+Seeded: 33 courses — 14 ForeUp, 14 Chronogolf, 5 MemberSports. That's
+every Chronogolf club known in Utah, including all of the Salt Lake City
+and Salt Lake County municipals.
+
+The 25 still tracked in `scripts/courses.candidates.json` are stuck a
+step earlier: fetch-based detection couldn't reach their booking ids, so
+their platform is still unknown. Two of them (Glenwild, Promontory) are
+private clubs and may never be aggregable.
 
 Outstanding validation: the scheduled build hasn't run in GitHub Actions
 yet. `scripts/probe.ts` confirms both adapters return real tee times, and

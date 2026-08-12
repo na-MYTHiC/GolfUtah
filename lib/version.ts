@@ -8,4 +8,4 @@
  *
  * Bump this in the same commit as the change it describes.
  */
-export const APP_VERSION = "v9";
+export const APP_VERSION = "v10";

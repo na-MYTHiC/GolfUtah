@@ -267,33 +267,14 @@ export function chronogolfTeeTimeUrl(
 }
 
 /**
- * Utah Chronogolf clubs still waiting on a capture — the Salt Lake City
- * and Salt Lake County municipals. Each needs the same two-second step
- * the user did for Riverbend: open the club page, DevTools -> Network ->
- * Fetch/XHR, and copy the `marketplace/v2/teetimes` request URL. The
- * `course_ids=` in it is the whole missing piece; the response body isn't
- * needed. scripts/chronogolf-add.ts turns a pasted URL into a seed entry.
+ * Utah Chronogolf clubs still waiting on a capture. Empty: all fourteen
+ * known ones are seeded in lib/courses.data.ts, resolved by
+ * scripts/chronogolf-discover.ts rather than by hand.
  *
- * Slugs are only listed where one has actually been seen. The rest are
- * blank because Chronogolf slugs aren't derivable from a course name —
- * Riverbend is "riverbend-slco" and River Oaks is
- * "river-oaks-golf-course-utah".
+ * Add entries here if another Utah club turns up on Chronogolf, then run
+ * the discover script to resolve its uuids.
  */
-export const CHRONOGOLF_PENDING: { name: string; city: string; slug?: string }[] = [
-  { name: "River Oaks Golf", city: "Sandy", slug: "river-oaks-golf-course-utah" },
-  { name: "University of Utah Golf Club", city: "Salt Lake City", slug: "university-of-utah-golf-club" },
-  { name: "Bonneville Golf Course", city: "Salt Lake City" },
-  { name: "Forest Dale Golf Course", city: "Salt Lake City" },
-  { name: "Glendale Golf Course", city: "Salt Lake City" },
-  { name: "Mountain Dell Golf Course", city: "Salt Lake City" },
-  { name: "Nibley Park Golf Course", city: "Salt Lake City" },
-  { name: "Rose Park Golf Course", city: "Salt Lake City" },
-  { name: "Meadow Brook Golf Course", city: "Taylorsville" },
-  { name: "Mick Riley Golf Course", city: "Murray" },
-  { name: "Mountain View Golf Course", city: "West Jordan" },
-  { name: "Old Mill Golf Course", city: "Holladay" },
-  { name: "South Mountain Golf Course", city: "Draper" },
-];
+export const CHRONOGOLF_PENDING: { name: string; city: string; slug?: string }[] = [];
 
 export const chronogolfAdapter: TeeTimeAdapter = {
   platform: "CHRONOGOLF",

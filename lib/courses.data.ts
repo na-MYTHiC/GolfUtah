@@ -39,13 +39,20 @@ export interface CourseSeed {
 
 export const COURSES: CourseSeed[] = [
   // --- Chronogolf ---
-  // The uuids come from the club's own request. The numeric ids that also
-  // appear in Chronogolf's response are not what the API is addressed by.
-  // First uuid is "Riverbend back 9", second is the 18-hole "Riverbend".
+  // Every Utah Chronogolf club, resolved by scripts/chronogolf-discover.ts
+  // reading course_ids out of each club's own widget traffic. The uuids
+  // are what the API is addressed by; the numeric ids that also appear in
+  // Chronogolf's response are not.
   //
-  // The other twelve Utah Chronogolf clubs — the Salt Lake City and Salt
-  // Lake County municipals — are listed in CHRONOGOLF_PENDING in the
-  // adapter, and land here as each one's request URL is captured.
+  // Several clubs publish more than one course on a single sheet — a back
+  // nine, an opposite nine, a par 3, or a genuinely separate course like
+  // Mountain Dell's Lake and Canyon — so most of these carry several
+  // uuids. That's one GolfUtah course showing everything the club sells,
+  // which is how a golfer thinks about it.
+  //
+  // Slugs follow no pattern: the same city runs "mountain-dell-golf-club"
+  // and "glendale-golf-course", and the county uses a "-slco" suffix. All
+  // of these were resolved, not guessed.
   {
     name: "Riverbend Golf Course",
     slug: "riverbend-golf-course",
@@ -58,6 +65,169 @@ export const COURSES: CourseSeed[] = [
       "https://slco.org/parks-recreation/facilities-and-golf/golf/riverbend-golf-course/",
     latitude: 40.522,
     longitude: -111.924,
+  },
+  {
+    name: "Mountain Dell Golf Course",
+    slug: "mountain-dell-golf-course",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    // Lake and Canyon are two full 18s up Parleys Canyon; the third uuid
+    // had no times the day this was captured, so its name is unknown.
+    externalId:
+      "mountain-dell-golf-club:2c162b65-6803-4bad-9a21-4c1ca88bb242,77dca1a2-edae-47d2-a202-a1e9391cc305,bd6e3c42-7ae5-4d97-b6d0-60ebf9957a7e",
+    bookingUrl: "https://slc-golf.com/mountaindell/",
+    latitude: 40.755,
+    longitude: -111.665,
+  },
+  {
+    name: "Bonneville Golf Course",
+    slug: "bonneville-golf-course",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    externalId:
+      "bonneville-golf-course:bc27ab7a-6218-4b61-9aa8-0838f7c44ce3,caa8142a-4a42-482b-8d35-4239ce26f7b0",
+    bookingUrl: "https://slc-golf.com/bonneville/",
+    latitude: 40.75,
+    longitude: -111.834,
+  },
+  {
+    name: "Forest Dale Golf Course",
+    slug: "forest-dale-golf-course",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    externalId: "forest-dale-golf-course:41ea25ca-ffcb-4f14-a86d-de0ef84510e0",
+    bookingUrl: "https://slc-golf.com/forestdale/",
+    latitude: 40.72,
+    longitude: -111.867,
+  },
+  {
+    name: "Glendale Golf Course",
+    slug: "glendale-golf-course",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    externalId:
+      "glendale-golf-course:547936f8-0f45-4bea-b557-d15a4de485ad,4984e272-06a5-446a-8e24-8402e3591b7c",
+    bookingUrl: "https://slc-golf.com/glendale/",
+    latitude: 40.725,
+    longitude: -111.936,
+  },
+  {
+    name: "Nibley Park Golf Course",
+    slug: "nibley-park-golf-course",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    externalId: "nibley-park-golf-course:997cd01f-4ce8-4462-a459-594762efb606",
+    bookingUrl: "https://slc-golf.com/nibleypark/",
+    latitude: 40.712,
+    longitude: -111.873,
+  },
+  {
+    name: "Rose Park Golf Course",
+    slug: "rose-park-golf-course",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    externalId:
+      "rose-park-golf-course:19a5558e-3821-4935-b6bd-0cbc99693d91,f899015b-2109-4028-8640-d670ada581e4",
+    bookingUrl: "https://slc-golf.com/rosepark/",
+    latitude: 40.797,
+    longitude: -111.939,
+  },
+  {
+    name: "University of Utah Golf Club",
+    slug: "university-of-utah-golf-club",
+    county: "Salt Lake",
+    city: "Salt Lake City",
+    platform: "CHRONOGOLF",
+    externalId: "university-of-utah-golf-club:59546da1-0c26-419c-9621-c1974cf59d5b",
+    // The only one of these without a course website on file, so this
+    // points at its booking page rather than at a guessed address.
+    bookingUrl: "https://www.chronogolf.com/club/university-of-utah-golf-club",
+    latitude: 40.766,
+    longitude: -111.836,
+  },
+  {
+    name: "Meadow Brook Golf Course",
+    slug: "meadow-brook-golf-course",
+    county: "Salt Lake",
+    city: "Taylorsville",
+    platform: "CHRONOGOLF",
+    externalId: "meadow-brook-slco:c3155ad4-2f72-4b4d-80ec-a3b3c08a89db",
+    bookingUrl:
+      "https://slco.org/parks-recreation/facilities-and-golf/golf/meadow-brook-golf-course/",
+    latitude: 40.687,
+    longitude: -111.926,
+  },
+  {
+    name: "Mick Riley Golf Course",
+    slug: "mick-riley-golf-course",
+    county: "Salt Lake",
+    city: "Murray",
+    platform: "CHRONOGOLF",
+    // A regulation nine and a par 3, both bookable here.
+    externalId:
+      "mick-riley-slco:2c99f9f7-e373-47d5-8b16-dd15f332fe57,b6cf292e-8323-426d-828e-f3e55a112b8f",
+    bookingUrl:
+      "https://slco.org/parks-recreation/facilities-and-golf/golf/mick-riley-golf-course/",
+    latitude: 40.652,
+    longitude: -111.869,
+  },
+  {
+    name: "Mountain View Golf Course",
+    slug: "mountain-view-golf-course",
+    county: "Salt Lake",
+    city: "West Jordan",
+    platform: "CHRONOGOLF",
+    externalId:
+      "mountain-view-slco:bd12a75f-50ad-4ca8-8d18-520e40b22551,3b6d3bcf-4af4-4deb-a715-acce88244790",
+    bookingUrl:
+      "https://slco.org/parks-recreation/facilities-and-golf/golf/mountain-view-golf-course/",
+    latitude: 40.598,
+    longitude: -112.01,
+  },
+  {
+    name: "Old Mill Golf Course",
+    slug: "old-mill-golf-course",
+    county: "Salt Lake",
+    city: "Holladay",
+    platform: "CHRONOGOLF",
+    externalId:
+      "old-mill-slco:51eb43b1-d054-46e6-9dc6-dba30a6f9906,dd49962c-d6a9-4150-a701-9e547902e664",
+    bookingUrl:
+      "https://slco.org/parks-recreation/facilities-and-golf/golf/old-mill-golf-course/",
+    latitude: 40.632,
+    longitude: -111.797,
+  },
+  {
+    name: "South Mountain Golf Course",
+    slug: "south-mountain-golf-course",
+    county: "Salt Lake",
+    city: "Draper",
+    platform: "CHRONOGOLF",
+    externalId:
+      "south-mountain-slco:bc4c00f2-435a-4f4a-8d0a-c807d5f515f0,6b9948eb-a045-4692-9579-7c827c195edd,9bb16c41-88fe-4f36-a84c-39f74f8aa5f2",
+    bookingUrl: "https://slco.org/parks-recreation/facilities-and-golf/golf/south-mountain/",
+    latitude: 40.508,
+    longitude: -111.844,
+  },
+  {
+    name: "River Oaks Golf",
+    slug: "river-oaks-golf",
+    county: "Salt Lake",
+    city: "Sandy",
+    platform: "CHRONOGOLF",
+    // An 18 plus an "Opposite 9", which is the same ground played from
+    // the other set of tees.
+    externalId:
+      "river-oaks-golf-course-utah:79c03256-be52-4e3d-aba8-9c64df6e12b2,026599af-6569-4b0f-aaf9-aefedc607e3c",
+    bookingUrl: "https://sandy.utah.gov/1174/River-Oaks-Golf",
+    latitude: 40.585,
+    longitude: -111.887,
   },
 
   // --- MemberSports ---
