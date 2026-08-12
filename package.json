@@ -19,6 +19,8 @@
     "test:chronogolf": "tsx scripts/test-chronogolf.ts",
     "chronogolf:add": "tsx scripts/chronogolf-add.ts",
     "chronogolf:discover": "tsx scripts/chronogolf-discover.ts",
+    "discover": "tsx scripts/discover-ids.ts",
+    "discover:refresh": "tsx scripts/discover-ids.ts --refresh",
     "build:data": "tsx scripts/build-data.ts",
     "icons": "node scripts/gen-icons.mjs"
   },

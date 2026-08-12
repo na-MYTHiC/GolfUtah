@@ -60,3 +60,4 @@ Thumbs.db
 
 # Output of scripts/chronogolf-discover.ts — a local scratch file.
 chronogolf-found.json
+discovered-ids.json

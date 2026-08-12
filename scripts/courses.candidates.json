@@ -1,83 +1,13 @@
 [
   {
-    "name": "Forest Dale Golf Course",
-    "city": "Salt Lake City",
-    "url": "https://slc-golf.com/forestdale/"
-  },
-  {
-    "name": "Bonneville Golf Course",
-    "city": "Salt Lake City",
-    "url": "https://slc-golf.com/bonneville/"
-  },
-  {
-    "name": "Glendale Golf Course",
-    "city": "Salt Lake City",
-    "url": "https://slc-golf.com/glendale/"
-  },
-  {
-    "name": "Mountain Dell Golf Course",
-    "city": "Salt Lake City",
-    "url": "https://slc-golf.com/mountaindell/"
-  },
-  {
-    "name": "Nibley Park Golf Course",
-    "city": "Salt Lake City",
-    "url": "https://slc-golf.com/nibleypark/"
-  },
-  {
-    "name": "Rose Park Golf Course",
-    "city": "Salt Lake City",
-    "url": "https://slc-golf.com/rosepark/"
-  },
-  {
-    "name": "Old Mill Golf Course",
-    "city": "Holladay",
-    "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/old-mill-golf-course/"
-  },
-  {
-    "name": "Meadow Brook Golf Course",
-    "city": "Taylorsville",
-    "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/meadow-brook-golf-course/"
-  },
-  {
-    "name": "Mick Riley Golf Course",
-    "city": "Murray",
-    "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/mick-riley-golf-course/"
-  },
-  {
-    "name": "Mountain View Golf Course",
-    "city": "West Jordan",
-    "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/mountain-view-golf-course/"
-  },
-  {
-    "name": "Riverbend Golf Course",
-    "city": "Riverton",
-    "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/riverbend-golf-course/"
-  },
-  {
-    "name": "South Mountain Golf Course",
-    "city": "Draper",
-    "url": "https://slco.org/parks-recreation/facilities-and-golf/golf/south-mountain/"
-  },
-  {
     "name": "Golf the Round",
     "city": "South Salt Lake",
     "url": "https://www.golftheround.com/"
   },
   {
-    "name": "River Oaks Golf",
-    "city": "Sandy",
-    "url": "https://sandy.utah.gov/1174/River-Oaks-Golf"
-  },
-  {
     "name": "Gladstan Golf Course",
     "city": "Payson",
     "url": "https://gladstan.com/"
-  },
-  {
-    "name": "Bountiful Ridge Golf Club",
-    "city": "Bountiful",
-    "url": "https://bountifulridgegolf.com/"
   },
   {
     "name": "Lakeside Golf Course",
