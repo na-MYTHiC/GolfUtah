@@ -107,8 +107,18 @@ Chronogolf 13, MemberSports 5):
   not literal HH:MM digits). No auth needed — a fresh Incognito capture
   showed the working request sends literally `Authorization: Bearer
   null`; only the public `x-api-key` header matters.
-- **Chronogolf** — not started; see the comment at the top of
-  `lib/adapters/chronogolf.ts` for how to find and verify its real API.
+- **Chronogolf** — done, built against a real capture from Riverbend Golf
+  Course (Riverton). Two things about it are easy to get wrong: courses
+  are addressed by **uuid**, not by the numeric id that also appears in
+  the response, and one club can publish several courses on a single
+  sheet (Riverbend lists its back nine separately) — so a course's
+  `externalId` holds a *list* of uuids. `npx tsx
+  scripts/test-chronogolf.ts` checks the parser against that capture.
+
+  Adding the remaining twelve Chronogolf clubs takes one DevTools capture
+  each, since the uuids appear nowhere in a course's public address.
+  `npx tsx scripts/chronogolf-add.ts` lists which clubs are outstanding
+  and turns a pasted request URL into a seed entry.
 
 ## Getting started
 
@@ -277,14 +287,14 @@ behave like a person clicking through a directory. Don't parallelize it.
 
 ## Status
 
-Two of the three platforms are implemented, between them covering 30 of
-the 57 Utah courses surveyed. Both were built against real captured
-traffic, and their response mappings are verified against that data.
+All three platforms are implemented, between them covering 43 of the 57
+Utah courses surveyed. Each was built against real captured traffic, and
+each response mapping is verified against that data.
 
-Seeded so far: 19 courses — 5 MemberSports and 14 ForeUp. The remaining
-38 are tracked in `scripts/courses.candidates.json`, mostly the 13
-Chronogolf courses (no adapter yet) plus ForeUp courses whose ids
-fetch-based detection couldn't reach.
+Seeded so far: 20 courses — 14 ForeUp, 5 MemberSports, 1 Chronogolf. The
+remaining 37 are tracked in `scripts/courses.candidates.json`: the twelve
+other Chronogolf clubs, which need a per-club uuid capture, plus ForeUp
+courses whose ids fetch-based detection couldn't reach.
 
 Outstanding validation: the scheduled build hasn't run in GitHub Actions
 yet. `scripts/probe.ts` confirms both adapters return real tee times, and

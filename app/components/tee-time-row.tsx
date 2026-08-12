@@ -128,16 +128,24 @@ function Dot() {
 }
 
 /**
- * ForeUp's booking page accepts `players`, so the chosen party size rides
- * along into the handoff. Applied at click time because it depends on the
- * filter rather than the data.
+ * Carries the chosen party size into the handoff, using whichever
+ * parameter the destination speaks — ForeUp's `players`, Chronogolf's
+ * `groupSize`. Both names come from real links, and each is only set on a
+ * URL that already carries it, so nothing is invented for a platform that
+ * wouldn't understand it. Applied at click time because it depends on the
+ * filter rather than on the data.
  */
 function withPlayers(url: string, players: number): string {
   if (players <= 1) return url;
   try {
     const parsed = new URL(url);
-    if (!parsed.searchParams.has("schedule_id")) return url; // not a ForeUp link
-    parsed.searchParams.set("players", String(players));
+    const param = parsed.searchParams.has("schedule_id")
+      ? "players" // ForeUp
+      : parsed.searchParams.has("groupSize")
+        ? "groupSize" // Chronogolf
+        : null;
+    if (!param) return url;
+    parsed.searchParams.set(param, String(players));
     return parsed.toString();
   } catch {
     return url;

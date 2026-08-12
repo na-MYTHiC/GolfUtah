@@ -106,10 +106,9 @@ async function fetchLiveCourse(seed: CourseSeed, date: string): Promise<CourseWi
 }
 
 async function getLive(date: string): Promise<CourseWithTeeTimes[]> {
-  // Adapters with no implementation yet (Chronogolf) would only produce
-  // noise here.
-  const supported = COURSES.filter((c) => c.platform !== "CHRONOGOLF");
-  return Promise.all(supported.map((seed) => fetchLiveCourse(seed, date)));
+  // All three platforms have adapters now, and a course is only seeded
+  // once its ids have been captured, so every seeded course is askable.
+  return Promise.all(COURSES.map((seed) => fetchLiveCourse(seed, date)));
 }
 
 async function getCached(date: string): Promise<CourseWithTeeTimes[]> {

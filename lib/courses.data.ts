@@ -12,6 +12,10 @@
  *                 without it ForeUp can return only part of the tee
  *                 sheet. Only Sun Hills has one so far, so the other
  *                 ForeUp courses here may be showing incomplete times.
+ *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
+ *                 can publish several courses on one sheet (Riverbend
+ *                 lists its back nine separately) and its own widget asks
+ *                 for all of them at once, so this is a list.
  *
  * Coordinates are city-level approximations — accurate enough to sort
  * courses by distance and to pull a local forecast, not to navigate by.
@@ -34,6 +38,28 @@ export interface CourseSeed {
 }
 
 export const COURSES: CourseSeed[] = [
+  // --- Chronogolf ---
+  // The uuids come from the club's own request. The numeric ids that also
+  // appear in Chronogolf's response are not what the API is addressed by.
+  // First uuid is "Riverbend back 9", second is the 18-hole "Riverbend".
+  //
+  // The other twelve Utah Chronogolf clubs — the Salt Lake City and Salt
+  // Lake County municipals — are listed in CHRONOGOLF_PENDING in the
+  // adapter, and land here as each one's request URL is captured.
+  {
+    name: "Riverbend Golf Course",
+    slug: "riverbend-golf-course",
+    county: "Salt Lake",
+    city: "Riverton",
+    platform: "CHRONOGOLF",
+    externalId:
+      "riverbend-slco:8ceb87d6-0afb-4361-a633-1b1d3f6e5805,a10735ef-5ac1-4ad1-b5e8-8721c344a1ac",
+    bookingUrl:
+      "https://slco.org/parks-recreation/facilities-and-golf/golf/riverbend-golf-course/",
+    latitude: 40.522,
+    longitude: -111.924,
+  },
+
   // --- MemberSports ---
   {
     name: "Eaglewood Golf Course",

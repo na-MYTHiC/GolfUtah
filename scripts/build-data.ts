@@ -126,8 +126,10 @@ async function main() {
 
   mkdirSync(outDir, { recursive: true });
 
-  // Adapters that don't exist yet would only produce error rows.
-  const supported = COURSES.filter((c) => c.platform !== "CHRONOGOLF");
+  // Every platform has a working adapter now, so nothing is held back.
+  // A course is only added to lib/courses.data.ts once its ids have been
+  // captured, so anything seeded is something we can actually ask.
+  const supported = COURSES;
 
   // Ratings don't change day to day — fetch once and reuse across files.
   const ratings = new Map<string, StaticCourse["rating"]>();

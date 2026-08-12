@@ -5,7 +5,9 @@
  * as a fallback when no database is configured.
  *
  * Not yet covered, and tracked in scripts/courses.candidates.json:
- *  - 13 Chronogolf courses (adapter not written yet)
+ *  - 12 Chronogolf courses awaiting a course-uuid capture — the adapter
+ *    works, but Chronogolf's ids aren't derivable from a course's public
+ *    address (see CHRONOGOLF_PENDING in lib/adapters/chronogolf.ts)
  *  - ForeUp courses whose ids fetch-based detection couldn't reach
  *  - Crane Field, whose page yielded a placeholder "1:1" rather than real
  *    ids
