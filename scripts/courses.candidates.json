@@ -5,16 +5,6 @@
     "url": "https://www.golftheround.com/"
   },
   {
-    "name": "Gladstan Golf Course",
-    "city": "Payson",
-    "url": "https://gladstan.com/"
-  },
-  {
-    "name": "Lakeside Golf Course",
-    "city": "West Bountiful",
-    "url": "https://lakesidegolfcourse.com/"
-  },
-  {
     "name": "Crane Field Golf Course",
     "city": "Clinton",
     "url": "https://www.cranefieldgolf.com/"
@@ -45,11 +35,6 @@
     "url": "https://thebarngolfclub.com/"
   },
   {
-    "name": "Eagle Lake Golf Course",
-    "city": "Roy",
-    "url": "https://eaglelake-golf.com/"
-  },
-  {
     "name": "Park City Golf Club",
     "city": "Park City",
     "url": "https://www.parkcity.org/departments/park-city-golf-club"
@@ -75,39 +60,14 @@
     "url": "https://www.hideoutcanyon.com/the-outlaw-golf-course"
   },
   {
-    "name": "Wasatch Mountain Golf Course",
-    "city": "Midway",
-    "url": "https://stateparks.utah.gov/golf/wasatch/"
-  },
-  {
-    "name": "Soldier Hollow Golf Course",
-    "city": "Midway",
-    "url": "https://stateparks.utah.gov/golf/soldier-hollow/"
-  },
-  {
     "name": "Homestead Golf Club",
     "city": "Midway",
     "url": "https://playhomesteadgc.com/"
   },
   {
-    "name": "Logan River Golf Course",
-    "city": "Logan",
-    "url": "https://www.loganutah.org/government/departments/parks_and_recreation/logan_river_golf_course/"
-  },
-  {
     "name": "Birch Creek Golf Course",
     "city": "Smithfield",
     "url": "http://birchcreekgolf.com/"
-  },
-  {
-    "name": "Bear Lake Golf Course",
-    "city": "Garden City",
-    "url": "https://bearlakegolfcourse.com/"
-  },
-  {
-    "name": "Green River State Park",
-    "city": "Green River",
-    "url": "https://stateparks.utah.gov/golf/green-river/"
   },
   {
     "name": "The Moab Golf Course",

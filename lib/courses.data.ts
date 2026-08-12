@@ -263,6 +263,20 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.505,
   },
 
+  {
+    name: "Green River Golf Course",
+    slug: "green-river-golf-course",
+    county: "Emery",
+    city: "Green River",
+    platform: "TEEITUP",
+    // Its own alias rather than Aspira's, and a single facility — the
+    // other two state-park courses each have two 18s, this one has one.
+    externalId: "green-river-golf-course:18049",
+    bookingUrl: "https://stateparks.utah.gov/golf/green-river/",
+    latitude: 38.985,
+    longitude: -110.166,
+  },
+
   // --- MemberSports ---
   {
     name: "Eaglewood Golf Course",
@@ -517,5 +531,50 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://eaglelake-golf.com/",
     latitude: 41.16,
     longitude: -112.06,
+  },
+  {
+    name: "Logan River Golf Course",
+    slug: "logan-river-golf-course",
+    county: "Cache",
+    city: "Logan",
+    platform: "FOREUP",
+    externalId: "19035:799:6209",
+    bookingUrl:
+      "https://www.loganutah.org/government/departments/parks_and_recreation/logan_river_golf_course/",
+    latitude: 41.717,
+    longitude: -111.847,
+  },
+  {
+    name: "Bear Lake Golf Course",
+    slug: "bear-lake-golf-course",
+    county: "Rich",
+    city: "Garden City",
+    platform: "FOREUP",
+    externalId: "18905:609:14857",
+    bookingUrl: "https://bearlakegolfcourse.com/",
+    latitude: 41.946,
+    longitude: -111.398,
+  },
+  {
+    name: "Gladstan Golf Course",
+    slug: "gladstan-golf-course",
+    county: "Utah",
+    city: "Payson",
+    platform: "FOREUP",
+    externalId: "18922:636",
+    bookingUrl: "https://gladstan.com/",
+    latitude: 40.028,
+    longitude: -111.735,
+  },
+  {
+    name: "Lakeside Golf Course",
+    slug: "lakeside-golf-course",
+    county: "Davis",
+    city: "West Bountiful",
+    platform: "FOREUP",
+    externalId: "20040:3325",
+    bookingUrl: "https://lakesidegolfcourse.com/",
+    latitude: 40.897,
+    longitude: -111.907,
   },
 ];

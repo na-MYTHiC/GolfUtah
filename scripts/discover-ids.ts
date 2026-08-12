@@ -243,11 +243,13 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
     ids: (m) => m[1],
   },
   {
-    // TeeRocket — a Firebase app rather than an API. Detected so its
-    // courses can be counted; see fromFirestore.
+    // TeeRocket — a Firebase app rather than an API. Only a Firestore
+    // document path identifies a course: group/<groupId>/course/<courseId>.
+    // Matching anything after the host caught "page/TeeTimes" for
+    // Schneiter's Riverside, which is a route in the widget, not an id.
     platform: "TEEROCKET",
-    re: /trwidget\.web\.app\/?(\S*)/i,
-    ids: (m) => m[1] || "widget",
+    re: /trwidget\.web\.app\/(?:#\/)?(group\/[A-Za-z0-9_-]+\/course\/[A-Za-z0-9_-]+)/i,
+    ids: (m) => m[1],
   },
   {
     // GolfPay addresses a course by a descriptive slug that already
