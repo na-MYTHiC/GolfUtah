@@ -36,10 +36,10 @@
  *                                 [--reuse https://user.github.io/repo]
  *                                 [--out public/data]
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { COURSES } from "../lib/courses.data";
 import { getAdapter } from "../lib/adapters";
-import { getPlaceInfo, placesEnabled, type PlaceInfo } from "../lib/places";
+import { getPlaceInfo, placesEnabled, downloadPhoto, type PlaceInfo } from "../lib/places";
 import { todayInUtah, addDays } from "../lib/format";
 import type { Course } from "@prisma/client";
 
@@ -161,6 +161,15 @@ async function mapWithLimit<T, R>(
  * Platforms spell the date differently — ISO for most, MM-DD-YYYY for
  * ForeUp — so both forms count.
  */
+/**
+ * Platforms whose booking page genuinely cannot be deep-linked to a day.
+ * MemberSports keeps the selected date in its app state rather than the
+ * address — the same URL is served for every day, confirmed by comparing
+ * two. Warning about these every run would train the warning to be
+ * ignored, so they're excluded and surfaced in the UI instead.
+ */
+const PLATFORMS_WITHOUT_DATED_LINKS = new Set(["MEMBERSPORTS"]);
+
 function carriesDate(url: string, date: string): boolean {
   const [year, month, day] = date.split("-");
   return url.includes(date) || url.includes(`${month}-${day}-${year}`);
@@ -328,8 +337,10 @@ async function main() {
 
     // A link that doesn't carry its date sends the golfer to the wrong
     // day at the checkout, which is worse than showing no link at all.
-    const undated = file.courses.filter((c) =>
-      c.slots.some((s) => !carriesDate(s.url, date))
+    const undated = file.courses.filter(
+      (c) =>
+        !PLATFORMS_WITHOUT_DATED_LINKS.has(c.platform) &&
+        c.slots.some((s) => !carriesDate(s.url, date))
     );
     undatedLinks += undated.length;
 
@@ -347,6 +358,26 @@ async function main() {
   // Ratings and reviews go in their own file rather than into every day.
   // They're identical across all ten, and review text is long enough that
   // duplicating it would dominate each day's download.
+  // Photos are written once, not per run: they don't change, and
+  // re-downloading forty images every few minutes would be wasteful of
+  // both quota and everyone's time.
+  if (placesEnabled()) {
+    mkdirSync("public/photos", { recursive: true });
+    let saved = 0;
+    for (const seed of COURSES) {
+      const target = `public/photos/${seed.slug}.jpg`;
+      if (existsSync(target)) continue;
+      const photoName = ratings.get(seed.name)?.photoName;
+      if (!photoName) continue;
+      const bytes = await downloadPhoto(photoName);
+      if (bytes) {
+        writeFileSync(target, bytes);
+        saved++;
+      }
+    }
+    if (saved) console.log(`Downloaded ${saved} course photo(s)`);
+  }
+
   if (ratings.size > 0) {
     const courseInfo = Object.fromEntries(
       COURSES.map((seed) => [seed.slug, ratings.get(seed.name)]).filter(([, v]) => v)

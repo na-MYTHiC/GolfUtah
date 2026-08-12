@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorker } from "./components/service-worker";
+import { TabBar } from "./components/tab-bar";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -47,6 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-full flex flex-col">
         {children}
+        {/* Every screen sits above the tab bar, so the padding lives here
+            rather than being repeated (and forgotten) per page. */}
+        <div className="h-[4.5rem]" aria-hidden />
+        <TabBar />
         <ServiceWorker />
       </body>
     </html>

@@ -2,6 +2,7 @@
 
 import { formatPrice } from "@/lib/format";
 import { daylight } from "@/lib/weather";
+import { roundsStore, roundId } from "@/lib/rounds";
 
 export interface Booking {
   id: string;
@@ -20,6 +21,10 @@ export interface Booking {
   sunset?: string;
   /** Cheapest slot matching the current filters. */
   bestPrice?: boolean;
+  /** The day this slot is on, for saving it as a round. */
+  date?: string;
+  /** True when the booking page can't be opened on a specific day. */
+  undatedLink?: boolean;
 }
 
 /**
@@ -55,6 +60,23 @@ export function TeeTimeRow({
         href={withPlayers(booking.bookingUrl, players)}
         target="_blank"
         rel="noopener noreferrer"
+        // Opening a tee time is the only signal this app ever gets that
+        // someone is interested in one — the course's checkout never
+        // reports back. Recording it here is what makes the Rounds tab
+        // possible at all.
+        onClick={() => {
+          if (!booking.date) return;
+          roundsStore.remember({
+            id: roundId(booking.courseSlug, booking.date, booking.time, booking.holes),
+            courseSlug: booking.courseSlug,
+            courseName: booking.courseName,
+            date: booking.date,
+            time: booking.time,
+            holes: booking.holes,
+            price: booking.price,
+            bookingUrl: booking.bookingUrl,
+          });
+        }}
         className="flex items-center gap-3 rounded-2xl bg-surface-1 px-3.5 py-3 ring-1 ring-line transition active:scale-[0.99]"
       >
         <div className="w-14 shrink-0 text-center">
@@ -93,6 +115,17 @@ export function TeeTimeRow({
               <>
                 <Dot />
                 <span>{booking.distanceMiles.toFixed(0)} mi</span>
+              </>
+            )}
+            {booking.undatedLink && (
+              <>
+                <Dot />
+                <span
+                  className="text-text-3"
+                  title="This booking system opens on today's sheet — pick the date once you're there."
+                >
+                  opens on today
+                </span>
               </>
             )}
             {light?.short && (

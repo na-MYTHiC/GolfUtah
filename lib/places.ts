@@ -39,6 +39,12 @@ export interface PlaceInfo {
   summary?: string;
   /** Up to five, newest-and-most-relevant as Google orders them. */
   reviews?: PlaceReview[];
+  /**
+   * Google's opaque handle for the first photo. Not a URL — fetching the
+   * image needs the API key, which is why the download happens at build
+   * time (see downloadPhoto) rather than from the browser.
+   */
+  photoName?: string;
 }
 
 const cache = new Map<string, { at: number; value: PlaceInfo | null }>();
@@ -49,6 +55,7 @@ interface PlacesResponse {
     userRatingCount?: number;
     googleMapsUri?: string;
     editorialSummary?: { text?: string };
+    photos?: { name?: string }[];
     reviews?: {
       rating?: number;
       text?: { text?: string };
@@ -86,6 +93,7 @@ export async function getPlaceInfo(name: string, city?: string | null): Promise<
           "places.googleMapsUri",
           "places.editorialSummary",
           "places.reviews",
+          "places.photos",
         ].join(","),
       },
       body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
@@ -103,6 +111,7 @@ export async function getPlaceInfo(name: string, city?: string | null): Promise<
             reviewCount: place.userRatingCount ?? 0,
             mapsUrl: place.googleMapsUri,
             summary: place.editorialSummary?.text,
+            photoName: place.photos?.[0]?.name,
             reviews: (place.reviews ?? [])
               .map((r) => ({
                 rating: r.rating ?? 0,
@@ -120,6 +129,34 @@ export async function getPlaceInfo(name: string, city?: string | null): Promise<
   } catch {
     // Ratings are decoration; never let them break the page.
     cache.set(query, { at: Date.now(), value: null });
+    return null;
+  }
+}
+
+/**
+ * Downloads a place photo, resized, as raw bytes.
+ *
+ * Deliberately not a URL handed to the browser. Google's media endpoint
+ * takes the API key as a query parameter, so linking to it directly
+ * would publish the key in the page source of a public site — where
+ * anyone could spend the quota. Fetching here means the key stays in the
+ * build environment and the app ships plain JPEGs.
+ *
+ * 800px wide is enough for a retina thumbnail and small enough that
+ * forty of them don't punish a phone on mobile data.
+ */
+export async function downloadPhoto(photoName: string): Promise<Buffer | null> {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const url =
+      `https://places.googleapis.com/v1/${photoName}/media` +
+      `?maxWidthPx=800&skipHttpRedirect=false&key=${apiKey}`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!resp.ok) return null;
+    return Buffer.from(await resp.arrayBuffer());
+  } catch {
     return null;
   }
 }

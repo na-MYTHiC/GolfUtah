@@ -118,26 +118,25 @@ async function fetchOneDate(
  * MemberSports' own booking page for a club+course, e.g.
  * https://app.membersports.com/tee-times/15391/18901/0 for Eaglewood —
  * pattern confirmed by matching that public URL against the golfClubId /
- * golfCourseId from our own capture of the same course. The trailing 0 is
- * the configuration type, matching `types/0` in their API paths.
+ * golfCourseId from our own capture of the same course. The trailing 0
+ * is the configuration type, matching `types/0` in their API paths.
  *
- * The date is appended as a query parameter. UNVERIFIED: unlike ForeUp,
- * whose date parameter came from a real link, no MemberSports URL
- * carrying a date has been observed. It's added as a query rather than a
- * path segment deliberately — an unrecognised query parameter is ignored
- * and the page still lands on the tee sheet, whereas a wrong path segment
- * could 404. So this either works or changes nothing.
+ * IT CANNOT CARRY A DATE, and this is now established rather than
+ * assumed. An earlier version appended `?date=YYYY-MM-DD` on the theory
+ * that an unrecognised query would at worst be ignored. It is ignored —
+ * the same URL is served for every day, because MemberSports keeps the
+ * selected date in the app's own state rather than in the address.
+ * Confirmed by comparing the address bar on two different days: byte
+ * for byte identical.
  *
- * To confirm: open a MemberSports tee sheet, change the date, and see
- * whether the address bar picks up a parameter.
+ * So the parameter is gone. Carrying it made the link look dated to
+ * anything inspecting it — including build-data.ts's own check — while
+ * doing nothing, which is worse than plainly not supporting it. Courses
+ * on this platform are flagged so the UI can warn that the booking page
+ * opens on today and the date has to be picked there.
  */
-export function memberSportsBookingUrl(
-  golfClubId: number,
-  golfCourseId: number,
-  date?: string
-): string {
-  const base = `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
-  return date ? `${base}?date=${date}` : base;
+export function memberSportsBookingUrl(golfClubId: number, golfCourseId: number): string {
+  return `https://app.membersports.com/tee-times/${golfClubId}/${golfCourseId}/0`;
 }
 
 /**
@@ -214,9 +213,8 @@ export const memberSportsAdapter: TeeTimeAdapter = {
 
     const results: NormalizedTeeTime[] = [];
     for (const date of dates) {
-      // Built per date so each slot links to the day it belongs to,
-      // rather than dropping everyone on today's sheet.
-      const bookingUrl = memberSportsBookingUrl(golfClubId, golfCourseId, date);
+      // The same for every day — see memberSportsBookingUrl.
+      const bookingUrl = memberSportsBookingUrl(golfClubId, golfCourseId);
       const buckets = await fetchOneDate(golfClubId, golfCourseId, date);
       for (const bucket of buckets) {
         results.push(...toNormalized(bucket, date, bookingUrl));
