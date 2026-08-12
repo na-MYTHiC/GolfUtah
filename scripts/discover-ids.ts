@@ -269,12 +269,21 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
  * four platforms, TeeRocket has no JSON endpoint to call: the widget is
  * a Firebase client and its data arrives over Firestore's streaming
  * channel, a length-prefixed protobuf-over-JSON protocol that isn't
- * meaningfully reproducible with fetch(). Reading it would mean either
- * the Firestore REST API (needs the collection paths, and only works if
- * the security rules allow anonymous reads) or driving a real browser.
+ * meaningfully reproducible with fetch().
  *
- * So this exists to answer the question that decides whether either is
- * worth doing: how many Utah courses actually run TeeRocket?
+ * The REST route is closed, and this has been tested rather than
+ * assumed. Schneiter's Bluff resolves to a real document path, and
+ *   GET firestore.googleapis.com/v1/projects/teerocket/databases/
+ *     (default)/documents/group/YFlPUck58D81fB5Kqqa8/course/
+ *     BH4MnB2co04ve5At3aQl
+ * returns 403 PERMISSION_DENIED. So the rules want a credential the
+ * Firebase SDK obtains, most likely via anonymous auth — reproducible
+ * in principle (the web API key is public by design) but a gamble on
+ * what else the rules require.
+ *
+ * That leaves browser automation, for two courses. Parked on those
+ * grounds, not on technical ones — revisit if more Utah courses turn
+ * out to run TeeRocket.
  */
 function fromFirestore(url: string): Ids | undefined {
   const project = /firestore\.googleapis\.com\/.*projects(?:%2F|\/)([a-z0-9-]+)/i.exec(url)?.[1];
