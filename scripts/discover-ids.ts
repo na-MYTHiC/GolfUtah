@@ -796,11 +796,24 @@ async function main() {
   const misses = findings.filter((f) => !f.ids);
   if (misses.length) {
     console.log(`\nNothing seen for:`);
-    for (const f of misses) console.log(`  ${f.name} — ${f.note}`);
+    for (const f of misses) {
+      console.log(`  ${f.name} — ${f.note}`);
+      // Several candidates have a guessed address, and a course whose
+      // site simply moved looks identical to one with no booking link.
+      // A search link turns "not found" into something actionable
+      // without anyone having to retype the course name.
+      // Only useful for a named course. When the target was a bare URL
+      // the name *is* that URL, and searching for it is no help.
+      if (!/^https?:/i.test(f.name) && /no booking link|ERR_|net::/i.test(f.note ?? "")) {
+        console.log(
+          `      try: https://www.google.com/search?q=${encodeURIComponent(
+            `${f.name} ${f.city ?? ""} Utah tee times`
+          )}`
+        );
+      }
+    }
     if (misses.some((f) => f.pageText)) {
-      console.log(
-        `  What those pages showed is in the output file, under pageText.`
-      );
+      console.log(`\n  What those pages showed is in the output file, under pageText.`);
     }
   }
 

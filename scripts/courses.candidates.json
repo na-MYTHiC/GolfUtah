@@ -73,5 +73,35 @@
     "name": "The Moab Golf Course",
     "city": "Moab",
     "url": "https://moabgolfcourse.com/"
+  },
+  {
+    "name": "Palisade Golf Course",
+    "city": "Sterling",
+    "url": "https://stateparks.utah.gov/golf/palisade/",
+    "note": "Utah State Park \u2014 the other three are TeeItUp, so the adapter likely already works"
+  },
+  {
+    "name": "Round Valley Golf Course",
+    "city": "Morgan",
+    "url": "https://www.roundvalleygolfcourse.com/",
+    "note": "url unverified"
+  },
+  {
+    "name": "Canyon Hills Golf Course",
+    "city": "Nephi",
+    "url": "https://www.nephi.utah.gov/golf/",
+    "note": "url unverified"
+  },
+  {
+    "name": "Roosevelt Golf Course",
+    "city": "Roosevelt",
+    "url": "https://www.rooseveltcity.com/golf",
+    "note": "url unverified"
+  },
+  {
+    "name": "Dinaland Golf Course",
+    "city": "Vernal",
+    "url": "https://www.vernalcity.org/181/Golf-Course",
+    "note": "url unverified"
   }
 ]
