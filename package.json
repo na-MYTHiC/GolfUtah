@@ -22,6 +22,7 @@
     "chronogolf:discover": "tsx scripts/chronogolf-discover.ts",
     "discover": "tsx scripts/discover-ids.ts",
     "discover:refresh": "tsx scripts/discover-ids.ts --refresh",
+    "teerocket:probe": "tsx scripts/teerocket-probe.ts",
     "build:data": "tsx scripts/build-data.ts",
     "icons": "node scripts/gen-icons.mjs"
   },
