@@ -1,13 +1,10 @@
 import { Suspense } from "react";
 import { AppShell } from "./components/app-shell";
-import { AppHeader } from "./components/app-header";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-surface-0">
       <main className="mx-auto max-w-2xl px-4 pb-16 pt-4">
-        <AppHeader />
-
         <Suspense
           fallback={<p className="py-16 text-center text-sm text-text-3">Loading…</p>}
         >

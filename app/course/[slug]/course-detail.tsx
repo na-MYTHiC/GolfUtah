@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
 import { getProfile } from "@/lib/course-profiles";
 import { FilterChips, useFilters } from "@/app/components/filters";
-import { TeeTimeRow, type Booking } from "@/app/components/tee-time-row";
+import { TeeTimeRow, windClass, type Booking } from "@/app/components/tee-time-row";
 import { favoritesStore } from "@/lib/favorites";
 import { useSyncExternalStore } from "react";
 
@@ -273,9 +273,9 @@ function Conditions({
         </p>
       </div>
 
-      <div className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mt-3 flex justify-between gap-1">
         {hours.map((h) => (
-          <div key={h.time} className="shrink-0 text-center">
+          <div key={h.time} className="min-w-0 flex-1 text-center">
             <div className="text-[10px] text-text-3">{formatTime(h.time).replace(":00", "")}</div>
             <div className="mt-0.5 text-base">{describeWeather(h.weatherCode).icon}</div>
             <div className="mt-0.5 text-[13px] font-medium text-text-1 tabular-nums">
@@ -283,7 +283,10 @@ function Conditions({
             </div>
             <div
               className={`text-[10px] tabular-nums ${
-                h.windMph >= 12 ? "text-crimson-bright" : "text-text-3"
+                // The same three bands as the tee-time rows. Two rules
+                // for one number meant 11mph read grey here and amber
+                // three inches further down the same screen.
+                windClass(h.windMph)
               }`}
             >
               {h.windMph}mph
@@ -384,8 +387,15 @@ function Stats({ slug }: { slug: string }) {
 
   if (cells.length === 0) return null;
 
+  // Columns follow the number of cells rather than being fixed at three,
+  // which left an empty square whenever a course had two facts or four.
+  const columns = cells.length <= 3 ? cells.length : cells.length === 4 ? 2 : 3;
+
   return (
-    <dl className="mt-3 grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-line ring-1 ring-line">
+    <dl
+      className="mt-3 grid gap-px overflow-hidden rounded-2xl bg-line ring-1 ring-line"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
       {cells.map((cell) => (
         <div key={cell.label} className="bg-surface-1 px-3 py-2.5">
           <dt className="text-[10px] font-medium uppercase tracking-wide text-text-3">

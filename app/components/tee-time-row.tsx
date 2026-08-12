@@ -122,10 +122,14 @@ export function TeeTimeRow({
                 <Dot />
               </>
             )}
-            {/* "18h" rather than "18 holes": the line has to fit wind,
-                temperature and the rest on a 360px phone without any of
-                it being clipped, and "h" is unambiguous next to "4 open". */}
-            <span className="font-medium text-text-2">{booking.holes}h</span>
+            {/* Spelled out where it fits. Moving conditions into their
+                own column bought back the room for the word — but a row
+                that also carries "Back" runs out again at 360px inside a
+                card, and a clipped "4 ope" is worse than "18h". */}
+            <span className="font-medium text-text-2">
+              {booking.holes}
+              {booking.side === "Back" ? "h" : " holes"}
+            </span>
             {/* Only the back nine is worth a word. "Front" is the default
                 and says nothing, while costing the same space. */}
             {booking.side === "Back" && (
@@ -142,16 +146,17 @@ export function TeeTimeRow({
                 <span className="text-text-3">{booking.distanceMiles.toFixed(0)}mi</span>
               </>
             )}
+            {/* No separator dot and a size down: the glyph is distinct
+                enough to stand alone, and the pair of them was the last
+                thing pushing a nested row over its width. */}
             {light?.short && (
-              <>
-                <Dot />
-                <span
-                  aria-label="Finishes after dark"
-                  title={`Sunset ${to12h(booking.sunset!)} · ${booking.holes} holes finishes about ${to12h(light.finishesAt)}`}
-                >
-                  🌙
-                </span>
-              </>
+              <span
+                className="shrink-0 text-[10px] leading-none"
+                aria-label="Finishes after dark"
+                title={`Sunset ${to12h(booking.sunset!)} · ${booking.holes} holes finishes about ${to12h(light.finishesAt)}`}
+              >
+                🌙
+              </span>
             )}
           </div>
         </div>
@@ -209,7 +214,7 @@ export function TeeTimeRow({
  * Three steps rather than two because the middle band is most of Utah's
  * afternoons, and colouring all of it red would make red mean nothing.
  */
-function windClass(mph: number): string {
+export function windClass(mph: number): string {
   if (mph >= 15) return "font-medium text-crimson-bright";
   if (mph >= 8) return "font-medium text-amber-400/90";
   return "text-text-3";

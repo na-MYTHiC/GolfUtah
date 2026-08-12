@@ -13,6 +13,7 @@ import {
   type FilterState,
 } from "./filters";
 import { distanceMiles } from "@/lib/format";
+import { AppHeader } from "./app-header";
 import { findCity } from "@/lib/utah-places";
 import { favoritesStore } from "@/lib/favorites";
 import { markSeen, slotKey } from "@/lib/seen";
@@ -215,7 +216,12 @@ export function Results({
 
   return (
     <>
-      <div className="sticky top-0 z-10 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-1 pt-2 backdrop-blur-lg">
+      {/* The header rides with the controls rather than scrolling away
+          from them. The wordmark is also the clear-everything button,
+          which is exactly what you want within reach after scrolling
+          into a filtered dead end. */}
+      <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-2 pt-2 backdrop-blur-lg">
+        <AppHeader />
         <DateStrip today={today} active={date} />
         <div className="pt-2">
           <SearchBar value={filters.q} courses={courseNames} />
@@ -226,22 +232,16 @@ export function Results({
           onLocate={locate}
           view={filters.view}
         />
-      </div>
-
-      <div className="flex items-center justify-between gap-3 pb-3 pt-3">
-        {/* Kept short on purpose: the long form wrapped to two lines on a
-            phone and shoved the view toggle around. */}
-        <p className="min-w-0 truncate whitespace-nowrap px-0.5 text-[13px] text-text-2">
-          {bookings.length === 0
-            ? "No tee times match"
-            : `${bookings.length} time${bookings.length === 1 ? "" : "s"} · ` +
-              `${coursesWithTimes} course${coursesWithTimes === 1 ? "" : "s"}`}
-        </p>
-        <div className="flex shrink-0 items-center gap-2">
-          <ShareButton />
+        {/* View on the left, share on the right: one changes what you're
+            looking at, the other sends it on, so they shouldn't sit
+            together as if they were a pair. */}
+        <div className="flex items-center justify-between gap-3 pt-1">
           <ViewToggle view={filters.view} />
+          <ShareButton />
         </div>
       </div>
+
+      <div className="pt-3" />
 
       {bookings.length === 0 ? (
         <EmptyState filters={filters} total={courses.length} />
@@ -256,6 +256,13 @@ export function Results({
           date={date}
           favorites={favorites}
         />
+      )}
+
+      {bookings.length > 0 && (
+        <p className="mt-4 text-center text-[12px] text-text-3">
+          {bookings.length} tee time{bookings.length === 1 ? "" : "s"} ·{" "}
+          {coursesWithTimes} course{coursesWithTimes === 1 ? "" : "s"}
+        </p>
       )}
 
       {quiet.length > 0 && <QuietCourses quiet={quiet} />}
