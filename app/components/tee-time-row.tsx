@@ -47,11 +47,14 @@ export function TeeTimeRow({
   booking,
   players,
   hideCourse = false,
+  nested = false,
 }: {
   booking: Booking;
   players: number;
   /** Course view already names the course in its header. */
   hideCourse?: boolean;
+  /** Sitting inside a course card, which already provides the surface. */
+  nested?: boolean;
 }) {
   const [hour, minute] = booking.time.split(":").map(Number);
   const period = hour >= 12 ? "PM" : "AM";
@@ -85,7 +88,9 @@ export function TeeTimeRow({
             bookingUrl: booking.bookingUrl,
           });
         }}
-        className="flex items-center gap-3 rounded-2xl bg-surface-1 px-3.5 py-3 ring-1 ring-line transition active:scale-[0.99]"
+        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition active:scale-[0.99] ${
+          nested ? "bg-surface-2" : "rounded-2xl bg-surface-1 px-3.5 py-3 ring-1 ring-line"
+        }`}
       >
         <div className="w-14 shrink-0 text-center">
           <div className="text-lg font-semibold leading-tight tracking-tight text-text-1 tabular-nums">
@@ -117,12 +122,16 @@ export function TeeTimeRow({
                 <Dot />
               </>
             )}
-            {/* "9 · 1 open" reads as two counts; "9 holes" doesn't. */}
-            <span className="font-medium text-text-2">{booking.holes} holes</span>
-            {booking.side && (
+            {/* "18h" rather than "18 holes": the line has to fit wind,
+                temperature and the rest on a 360px phone without any of
+                it being clipped, and "h" is unambiguous next to "4 open". */}
+            <span className="font-medium text-text-2">{booking.holes}h</span>
+            {/* Only the back nine is worth a word. "Front" is the default
+                and says nothing, while costing the same space. */}
+            {booking.side === "Back" && (
               <>
                 <Dot />
-                <span>{booking.side}</span>
+                <span>Back</span>
               </>
             )}
             <Dot />
@@ -130,7 +139,7 @@ export function TeeTimeRow({
             {booking.distanceMiles != null && (
               <>
                 <Dot />
-                <span>{booking.distanceMiles.toFixed(0)} mi</span>
+                <span className="text-text-3">{booking.distanceMiles.toFixed(0)}mi</span>
               </>
             )}
             {light?.short && (
@@ -144,27 +153,10 @@ export function TeeTimeRow({
                 </span>
               </>
             )}
-            {booking.weather && (
-              <>
-                <Dot />
-                <span title={`${booking.weather.temperatureF}°F, ${booking.weather.windMph} mph`}>
-                  {booking.weather.icon} {booking.weather.temperatureF}°
-                  {/* Around 10mph is where a mid-iron starts moving, so
-                      that's where wind earns space. Below it, showing a
-                      number on every row would be noise. */}
-                  {booking.weather.windMph >= 10 && (
-                    <span className="ml-0.5 text-crimson-bright">
-                      {" "}
-                      {booking.weather.windMph}mph
-                    </span>
-                  )}
-                </span>
-              </>
-            )}
           </div>
         </div>
 
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 text-right leading-tight">
           <div
             className={`text-[15px] font-semibold tabular-nums ${
               booking.bestPrice ? "text-crimson-bright" : "text-text-1"
@@ -177,23 +169,50 @@ export function TeeTimeRow({
               cart apart, TeeItUp quotes one figure with the cart in it.
               Without this the app silently compares the two. */}
           {booking.cart != null ? (
-            <div className="mt-0.5 text-[10px] text-text-3 tabular-nums">
+            <div className="text-[10px] text-text-3 tabular-nums">
               +{formatPrice(booking.cart)} cart
             </div>
           ) : booking.withCart ? (
-            <div className="mt-0.5 text-[10px] text-text-3">with cart</div>
+            <div className="text-[10px] text-text-3">with cart</div>
           ) : null}
-          {/* The course view names the course above the group, so the
-              city on every row is just repetition. */}
-          {booking.courseCity && !hideCourse && (
-            <div className="mt-0.5 max-w-[5.5rem] truncate text-[11px] text-text-3">
-              {booking.courseCity}
+          {/* Conditions live here rather than in the meta line, which
+              couldn't hold them at 360px without clipping something —
+              and the thing being clipped was the wind. */}
+          {booking.weather && (
+            <div className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-[11px]">
+              <span className="text-text-3" title={`${booking.weather.temperatureF}°F`}>
+                {booking.weather.icon} {booking.weather.temperatureF}°
+              </span>
+              {/* Always shown; the colour carries how much it matters. */}
+              <span className={windClass(booking.weather.windMph)}>
+                {booking.weather.windMph}mph
+              </span>
             </div>
           )}
         </div>
       </a>
     </li>
   );
+}
+
+/**
+ * How much the wind is going to cost an amateur, as a colour.
+ *
+ *   under 8    barely felt; a long iron shapes a little. Grey — it's
+ *              context, not a warning.
+ *   8 to 15    about a club into it, and enough across to move a
+ *              mid-iron off line. Amber: worth noticing, not a reason to
+ *              pick another time.
+ *   15 and up  changes clubbing on most shots and puts holes out of
+ *              reach. Red, because it should change the decision.
+ *
+ * Three steps rather than two because the middle band is most of Utah's
+ * afternoons, and colouring all of it red would make red mean nothing.
+ */
+function windClass(mph: number): string {
+  if (mph >= 15) return "font-medium text-crimson-bright";
+  if (mph >= 8) return "font-medium text-amber-400/90";
+  return "text-text-3";
 }
 
 /** "19:40" -> "7:40 PM", for the tooltips. */

@@ -425,22 +425,43 @@ function TimeSections({
           const slug = items[0].courseSlug;
 
           return (
-            <section key={name}>
-              <h2 className="mb-2 flex items-center justify-between gap-2 px-0.5">
-                <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-text-1">
-                  <FavoriteStar slug={slug} />
-                  <span className="truncate">{name}</span>
-                  <span className="font-normal text-text-3">{items.length}</span>
-                </span>
+            // A card per course rather than a bare heading over loose
+            // rows: grouped by course, the course is the thing being
+            // chosen, and it should look like an object you can pick.
+            <section
+              key={name}
+              className="overflow-hidden rounded-2xl bg-surface-1 ring-1 ring-line"
+            >
+              <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
+                <FavoriteStar slug={slug} />
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-[14px] font-semibold leading-tight text-text-1">
+                    {name}
+                  </h2>
+                  <p className="truncate text-[11px] text-text-3">
+                    {[
+                      items[0].courseCity,
+                      items[0].distanceMiles != null &&
+                        `${items[0].distanceMiles.toFixed(0)} mi`,
+                      `${items.length} time${items.length === 1 ? "" : "s"}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
                 {cheapest !== Infinity && (
-                  <span className="shrink-0 text-[11px] font-medium text-crimson-bright">
-                    from ${(cheapest / 100).toFixed(0)}
-                  </span>
+                  <div className="shrink-0 text-right">
+                    <div className="text-[11px] leading-none text-text-3">from</div>
+                    <div className="text-[15px] font-semibold leading-tight text-crimson-bright">
+                      ${(cheapest / 100).toFixed(0)}
+                    </div>
+                  </div>
                 )}
-              </h2>
-              <ul className="flex flex-col gap-2">
+              </div>
+
+              <ul className="flex flex-col gap-1.5 p-2">
                 {preview.map((b) => (
-                  <TeeTimeRow key={b.id} booking={b} players={players} hideCourse />
+                  <TeeTimeRow key={b.id} booking={b} players={players} hideCourse nested />
                 ))}
               </ul>
 
@@ -449,7 +470,7 @@ function TimeSections({
                   scanning, not for deciding. */}
               <a
                 href={`${basePath}/course/${slug}/?${new URLSearchParams({ date })}`}
-                className="mt-2 flex items-center justify-center gap-1 rounded-xl bg-surface-2 py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
+                className="flex items-center justify-center gap-1 border-t border-line py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-2"
               >
                 {rest > 0 ? `See all ${items.length} times` : "Course details"}
                 <span aria-hidden className="text-text-3">→</span>
