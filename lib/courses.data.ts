@@ -10,13 +10,15 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 17 of 21 have one, captured by
- *                 `npm run discover:refresh`. The four without are
- *                 Murray Parkway, Davis Park, Valley View and The Ridge,
- *                 whose booking pages never reach a tee sheet for the
- *                 script — The Ridge is known to sit behind a login.
- *                 Those four may be showing incomplete times, and the
- *                 UI says so.
+ *                 sheet. 17 of 22 have one, captured by
+ *                 `npm run discover:refresh`. The five without are
+ *                 Murray Parkway, Davis Park, Valley View, The Ridge and
+ *                 Overlake — the first four because their booking pages
+ *                 never reach a tee sheet for the script (The Ridge sits
+ *                 behind a login), Overlake because it was seeded from a
+ *                 link and hasn't been through a refresh run yet. All
+ *                 five may be showing incomplete times, and the UI says
+ *                 so.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -577,5 +579,16 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://lakesidegolfcourse.com/",
     latitude: 40.897,
     longitude: -111.907,
+  },
+  {
+    name: "Overlake Golf Course",
+    slug: "overlake-golf-course",
+    county: "Tooele",
+    city: "Tooele",
+    platform: "FOREUP",
+    externalId: "23169:12888",
+    bookingUrl: "https://www.tooelecity.org/departments/golf-course/",
+    latitude: 40.56,
+    longitude: -112.32,
   },
 ];
