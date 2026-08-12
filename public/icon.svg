@@ -1,34 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!--
-    A ball on a tee — the same mark as the Rounds button, so the icon on
-    the home screen and the control inside the app read as one thing.
+    A ball on a tee — the exact geometry of the Rounds button in
+    app/components/rounds-sheet.tsx, drawn on a 24-unit grid and scaled
+    up, so the two can never drift apart.
 
-    Strokes rather than fills, matching the app's line icons, and heavy
-    enough that it still reads at 76px where a thinner outline would grey
-    out into mush.
+    SIZED FOR ANDROID'S MASK. Adaptive icons are cropped to whatever
+    shape the launcher wants — circle, squircle, teardrop — and only the
+    centre ~66% of the canvas is guaranteed to survive. At 512 that's a
+    circle of radius ~169 around the middle. The artwork is scaled to sit
+    inside it, so an earlier version that ran from y=82 to y=470 and lost
+    its tee to a circular mask can't happen again.
+
+    Furthest point from centre here is ~157 units, comfortably inside.
   -->
   <defs>
-    <radialGradient id="glow" cx="50%" cy="42%" r="55%">
-      <stop offset="0%" stop-color="#dc143c" stop-opacity="0.28"/>
+    <radialGradient id="glow" cx="50%" cy="50%" r="52%">
+      <stop offset="0%" stop-color="#dc143c" stop-opacity="0.26"/>
       <stop offset="100%" stop-color="#dc143c" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
   <rect width="512" height="512" rx="112" fill="#0b0809"/>
-  <circle cx="256" cy="215" r="200" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
 
-  <g fill="none" stroke="#dc143c" stroke-width="30" stroke-linejoin="round">
-    <circle cx="256" cy="186" r="104"/>
-    <!-- The tee: a shallow cup under the ball tapering to a point. -->
-    <path d="M 174 328 h 164 L 256 470 Z"/>
-  </g>
-
-  <!-- Dimples, hinted rather than drawn out. They disappear below about
-       120px, which is fine — the silhouette is what identifies it. -->
-  <g fill="#f0325a" opacity="0.55">
-    <circle cx="222" cy="160" r="13"/>
-    <circle cx="272" cy="146" r="13"/>
-    <circle cx="292" cy="196" r="13"/>
-    <circle cx="238" cy="212" r="13"/>
+  <!-- translate to centre, scale up, then shift the mark's own centre
+       (12, 12.25 on its grid) back to the origin. Stroke width is given
+       in grid units so it scales with everything else. -->
+  <g
+    transform="translate(256 256) scale(16) translate(-12 -12.25)"
+    fill="none"
+    stroke="#dc143c"
+    stroke-width="1.8"
+    stroke-linejoin="round"
+  >
+    <circle cx="12" cy="8" r="4.5"/>
+    <path d="M8.5 14.5h7L12 21z"/>
   </g>
 </svg>
