@@ -78,7 +78,8 @@ export async function loadCourseInfo(): Promise<Record<string, CourseInfo>> {
   try {
     const resp = await fetch(assetPath("/data/courses.json"), { cache: "no-store" });
     if (!resp.ok) return {};
-    return (await resp.json()) as Record<string, CourseInfo>;
+    const file = (await resp.json()) as { generatedAt?: string; courses?: Record<string, CourseInfo> };
+    return file.courses ?? {};
   } catch {
     return {};
   }

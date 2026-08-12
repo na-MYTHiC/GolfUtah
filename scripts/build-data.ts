@@ -36,10 +36,10 @@
  *                                 [--reuse https://user.github.io/repo]
  *                                 [--out public/data]
  */
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { COURSES } from "../lib/courses.data";
 import { getAdapter } from "../lib/adapters";
-import { getPlaceInfo, placesEnabled, downloadPhoto, type PlaceInfo } from "../lib/places";
+import { getPlaceInfo, placesEnabled, type PlaceInfo } from "../lib/places";
 import { todayInUtah, addDays } from "../lib/format";
 import type { Course } from "@prisma/client";
 
@@ -58,6 +58,18 @@ const PER_PLATFORM_CONCURRENCY = 3;
  * long as the site keeps deploying.
  */
 const MAX_REUSE_AGE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * How old the published ratings and reviews may be before Google is
+ * asked again.
+ *
+ * This one is a cost control, not a freshness one. Places is billed per
+ * call, and the build runs every five minutes: fetching 43 courses on
+ * every run would be ~370,000 calls a month, which on the SKU that
+ * includes reviews and photos runs to five figures. Ratings move by
+ * hundredths of a star in a year, so once a week is generous.
+ */
+const MAX_PLACES_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface StaticSlot {
   time: string;
@@ -272,6 +284,31 @@ async function reuseDay(baseUrl: string, date: string): Promise<DayFile | null> 
   }
 }
 
+interface CourseInfoFile {
+  generatedAt: string;
+  courses: Record<string, PlaceInfo>;
+}
+
+/** The published ratings and reviews, when they're recent enough to stand. */
+async function reuseCourseInfo(baseUrl: string): Promise<CourseInfoFile | null> {
+  try {
+    const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/data/courses.json`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) return null;
+
+    const file = (await resp.json()) as CourseInfoFile;
+    if (!file?.courses || Object.keys(file.courses).length === 0) return null;
+
+    const age = Date.now() - new Date(file.generatedAt).getTime();
+    if (!Number.isFinite(age) || age > MAX_PLACES_AGE_MS) return null;
+
+    return file;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   const days = Number(arg("days", "10"));
   // Defaults to every day, so a plain run refreshes everything and the
@@ -284,14 +321,24 @@ async function main() {
 
   mkdirSync(outDir, { recursive: true });
 
-  // Ratings don't change day to day — fetch once and reuse across files.
+  // Ratings and reviews, either carried over from the published site or
+  // fetched afresh when that copy has aged out. See MAX_PLACES_AGE_MS —
+  // this is about the bill, not about freshness.
+  const carriedInfo = reuse ? await reuseCourseInfo(reuse) : null;
   const ratings = new Map<string, StaticCourse["rating"]>();
-  if (placesEnabled()) {
+
+  if (carriedInfo) {
+    for (const seed of COURSES) {
+      const info = carriedInfo.courses[seed.slug];
+      if (info) ratings.set(seed.name, info);
+    }
+    console.log(`Ratings: ${ratings.size} carried over (published ${carriedInfo.generatedAt})`);
+  } else if (placesEnabled()) {
     for (const seed of COURSES) {
       const info = await getPlaceInfo(seed.name, seed.city);
       if (info) ratings.set(seed.name, info);
     }
-    console.log(`Ratings: ${ratings.size}/${COURSES.length} matched`);
+    console.log(`Ratings: ${ratings.size}/${COURSES.length} fetched from Google`);
   }
 
   const dates = Array.from({ length: days }, (_, i) => addDays(today, i));
@@ -358,32 +405,16 @@ async function main() {
   // Ratings and reviews go in their own file rather than into every day.
   // They're identical across all ten, and review text is long enough that
   // duplicating it would dominate each day's download.
-  // Photos are written once, not per run: they don't change, and
-  // re-downloading forty images every few minutes would be wasteful of
-  // both quota and everyone's time.
-  if (placesEnabled()) {
-    mkdirSync("public/photos", { recursive: true });
-    let saved = 0;
-    for (const seed of COURSES) {
-      const target = `public/photos/${seed.slug}.jpg`;
-      if (existsSync(target)) continue;
-      const photoName = ratings.get(seed.name)?.photoName;
-      if (!photoName) continue;
-      const bytes = await downloadPhoto(photoName);
-      if (bytes) {
-        writeFileSync(target, bytes);
-        saved++;
-      }
-    }
-    if (saved) console.log(`Downloaded ${saved} course photo(s)`);
-  }
-
   if (ratings.size > 0) {
-    const courseInfo = Object.fromEntries(
+    const courses = Object.fromEntries(
       COURSES.map((seed) => [seed.slug, ratings.get(seed.name)]).filter(([, v]) => v)
     );
-    writeFileSync(`${outDir}/courses.json`, JSON.stringify(courseInfo));
-    console.log(`Wrote course info for ${Object.keys(courseInfo).length} course(s)`);
+    // generatedAt is what lets the next run decide whether to carry this
+    // forward or pay for it again, so it's carried over unchanged rather
+    // than stamped fresh.
+    const generatedAt = carriedInfo?.generatedAt ?? new Date().toISOString();
+    writeFileSync(`${outDir}/courses.json`, JSON.stringify({ generatedAt, courses }));
+    console.log(`Wrote course info for ${Object.keys(courses).length} course(s)`);
   }
 
   writeFileSync(`${outDir}/index.json`, JSON.stringify(index));
