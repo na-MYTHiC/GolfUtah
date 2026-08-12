@@ -269,11 +269,12 @@ export function toNormalized(
       holes: o.holes,
       playersOpen: o.spots,
       price: Math.round(o.greenFee * 100), // dollars -> cents
+      // Quoted separately here and usually optional, so the headline
+      // price stays green-fee-only and the cart is shown beside it.
+      // Mixing the two is how a cart-inclusive price ends up looking
+      // cheaper than a walking one.
+      cartFee: o.cartFee > 0 ? Math.round(o.cartFee * 100) : undefined,
       side: raw.teesheet_side_name,
-      // Cart fees are quoted separately and are usually optional, so the
-      // headline price stays green-fee-only for comparability with other
-      // platforms. `cartFee` isn't in the normalized shape yet.
-      //
       // Each slot gets its own link so the golfer lands on the right day
       // with the right round preselected, rather than on today's sheet.
       bookingUrl: foreUpBookingUrl(ids.courseId, ids.scheduleId, {

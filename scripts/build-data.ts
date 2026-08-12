@@ -76,6 +76,12 @@ interface StaticSlot {
   holes: number;
   spots: number;
   price: number | null;
+  /** Cart per player in cents, when quoted separately from the green fee. */
+  cart?: number;
+  /** True when `price` already includes a cart and can't be split out. */
+  withCart?: boolean;
+  /** Rate class, e.g. "Non-Utah Resident". */
+  rate?: string;
   side?: string;
   url: string;
 }
@@ -226,6 +232,9 @@ async function fetchCourse(
       holes: t.holes,
       spots: t.playersOpen,
       price: t.price ?? null,
+      cart: t.cartFee,
+      withCart: t.priceIncludesCart,
+      rate: t.rateName,
       side: t.side,
       url: t.bookingUrl,
     }));

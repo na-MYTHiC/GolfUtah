@@ -47,7 +47,7 @@ async function pollOnce() {
             holes: t.holes,
             playersOpen: t.playersOpen,
             price: t.price,
-            cartIncluded: t.cartIncluded,
+            cartIncluded: t.priceIncludesCart,
             bookingUrl: t.bookingUrl,
           })),
         }),

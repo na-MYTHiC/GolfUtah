@@ -11,8 +11,27 @@ export interface NormalizedTeeTime {
   time: string; // course-local, "HH:mm" 24h
   holes: 9 | 18;
   playersOpen: number;
-  price?: number; // cents
-  cartIncluded?: boolean;
+  /**
+   * Green fee per player, in cents. Green fee ONLY unless
+   * priceIncludesCart says otherwise — the two must not be mixed, or the
+   * app ends up calling a cart-inclusive price cheaper than a walking
+   * one at the same course.
+   */
+  price?: number;
+  /** Cart per player, in cents, when the platform quotes it separately. */
+  cartFee?: number;
+  /**
+   * True when `price` already has a cart in it and there's no walking
+   * rate to separate out — TeeItUp quotes a single greenFeeCart.
+   */
+  priceIncludesCart?: boolean;
+  /**
+   * The rate class this price belongs to, when the platform names one.
+   * Utah's state-park courses quote "Non-Utah Resident", which is not
+   * what a resident pays — showing the label stops the app quietly
+   * quoting tourist prices.
+   */
+  rateName?: string;
   /**
    * Which nine the round starts on ("Front" / "Back"), when the platform
    * says. Two slots can share a time and hole count while starting on

@@ -213,6 +213,13 @@ function toNormalized(raw: RawTeeTime, slug: string, dayUrl: string): Normalized
       raw.default_price && raw.default_price.bookable_holes === holes
         ? Math.round(raw.default_price.green_fee * 100)
         : undefined,
+    // half_cart is a share of a cart between two players, which is what
+    // a single golfer actually pays when riding.
+    cartFee:
+      raw.default_price?.half_cart != null && raw.default_price.bookable_holes === holes
+        ? Math.round(raw.default_price.half_cart * 100)
+        : undefined,
+    rateName: raw.default_price?.affiliation_type,
     side,
     bookingUrl,
   }));

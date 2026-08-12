@@ -149,6 +149,10 @@ check("first slot", slots[0], {
   playersOpen: 1,
   // greenFeeCart is already cents: 8500 is $85, not $8,500.
   price: 8500,
+  // Named greenFeeCart and matching the riding rate, so it is not
+  // comparable to a green-fee-only price without saying so.
+  priceIncludesCart: true,
+  rateName: "Non-Utah Resident",
   side: "Front",
   bookingUrl: url,
 });
@@ -180,6 +184,9 @@ check(
   multi.map((s) => `${s.holes}h/${s.price}`),
   ["18h/4500", "9h/3000"]
 );
+// Utah's state parks quote a non-resident rate; a resident pays less, so
+// the label has to travel with the price.
+check("rate class carried", new Set(multi.map((s) => s.rateName)), new Set(["Non-Utah Resident"]));
 
 const back = toNormalized({ ...one, backNine: true } as never, url);
 check("back nine labelled", back[0].side, "Back");

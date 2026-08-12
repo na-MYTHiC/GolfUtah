@@ -36,7 +36,13 @@ export interface Slot {
   time: string; // HH:mm
   holes: number;
   playersOpen: number;
-  price: number | null; // cents
+  price: number | null; // cents, green fee unless withCart
+  /** Cart per player in cents, when quoted separately. */
+  cart?: number;
+  /** True when `price` already includes a cart. */
+  withCart?: boolean;
+  /** Rate class the price belongs to, e.g. "Non-Utah Resident". */
+  rate?: string;
   /** "Front" / "Back" when the platform reports it. */
   side?: string;
   bookingUrl: string;

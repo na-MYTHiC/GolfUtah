@@ -10,6 +10,12 @@ export interface Booking {
   holes: number;
   playersOpen: number;
   price: number | null;
+  /** Cart per player in cents, when quoted separately from the green fee. */
+  cart?: number;
+  /** True when `price` already includes a cart. */
+  withCart?: boolean;
+  /** Rate class the price belongs to. */
+  rate?: string;
   side?: string;
   bookingUrl: string;
   courseName: string;
@@ -25,6 +31,8 @@ export interface Booking {
   date?: string;
   /** True when the booking page can't be opened on a specific day. */
   undatedLink?: boolean;
+  /** Appeared since this day was last looked at. */
+  isNew?: boolean;
 }
 
 /**
@@ -99,6 +107,16 @@ export function TeeTimeRow({
               hideCourse ? "text-[13px]" : "mt-1 text-xs"
             }`}
           >
+            {/* Times go fast here, so what changed since the last look
+                is more useful than what exists. */}
+            {booking.isNew && (
+              <>
+                <span className="rounded bg-crimson/20 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-crimson-bright">
+                  New
+                </span>
+                <Dot />
+              </>
+            )}
             {/* "9 · 1 open" reads as two counts; "9 holes" doesn't. */}
             <span className="font-medium text-text-2">{booking.holes} holes</span>
             {booking.side && (
@@ -167,6 +185,17 @@ export function TeeTimeRow({
           >
             {formatPrice(booking.price)}
           </div>
+          {/* Whether a cart is in that number, which platforms disagree
+              about: ForeUp and Chronogolf quote the green fee and the
+              cart apart, TeeItUp quotes one figure with the cart in it.
+              Without this the app silently compares the two. */}
+          {booking.cart != null ? (
+            <div className="mt-0.5 text-[10px] text-text-3 tabular-nums">
+              +{formatPrice(booking.cart)} cart
+            </div>
+          ) : booking.withCart ? (
+            <div className="mt-0.5 text-[10px] text-text-3">with cart</div>
+          ) : null}
           {/* The course view names the course above the group, so the
               city on every row is just repetition. */}
           {booking.courseCity && !hideCourse && (

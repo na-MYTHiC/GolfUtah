@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
-import { getProfile, profileSummary } from "@/lib/course-profiles";
+import { getProfile } from "@/lib/course-profiles";
 import { FilterChips, useFilters } from "@/app/components/filters";
+import { TeeTimeRow, type Booking } from "@/app/components/tee-time-row";
+import { favoritesStore } from "@/lib/favorites";
+import { useSyncExternalStore } from "react";
 
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
-import { todayInUtah, formatDateLabel, formatPrice, formatTime, addDays } from "@/lib/format";
+import { todayInUtah, formatDateLabel, formatTime, addDays } from "@/lib/format";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -115,21 +118,26 @@ export function CourseDetail({
           }}
         />
 
-        <header className="mt-3">
-          <h1 className="text-[26px] font-bold leading-tight tracking-tight text-text-1">
-            {name}
-          </h1>
-          <p className="mt-1 text-sm text-text-2">
-            {city} · {county} County
-            {info && (
-              <>
-                {" · "}
-                <span className="text-crimson-bright">★ {info.rating.toFixed(1)}</span>
-                <span className="text-text-3"> ({info.reviewCount})</span>
-              </>
-            )}
-          </p>
+        <header className="mt-3 flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[26px] font-bold leading-tight tracking-tight text-text-1">
+              {name}
+            </h1>
+            <p className="mt-1 text-sm text-text-2">
+              {city} · {county} County
+              {info && (
+                <>
+                  {" · "}
+                  <span className="text-crimson-bright">★ {info.rating.toFixed(1)}</span>
+                  <span className="text-text-3"> ({info.reviewCount})</span>
+                </>
+              )}
+            </p>
+          </div>
+          <FavoriteStar slug={slug} />
         </header>
+
+        <Stats slug={slug} />
 
         <FilterChips
           filters={filters}
@@ -138,15 +146,15 @@ export function CourseDetail({
           view="time"
         />
 
-        <About slug={slug} name={name} city={city} info={info} />
-
         {weather && <Conditions weather={weather} date={date} today={today} />}
 
-        <Freshness generatedAt={checkedAt} />
-
-        <div className="mt-6">
+        <div className="mt-5">
           {course === undefined ? (
-            <p className="py-10 text-center text-sm text-text-3">Loading tee times…</p>
+            <ul className="flex animate-pulse flex-col gap-2" aria-hidden>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <li key={i} className="h-[68px] rounded-2xl bg-surface-1 ring-1 ring-line" />
+              ))}
+            </ul>
           ) : course === null ? (
             <Empty message="No data for this course on this day." />
           ) : course.error ? (
@@ -154,42 +162,66 @@ export function CourseDetail({
           ) : course.slots.length === 0 ? (
             <Empty message="No openings published for this day." />
           ) : visible.length === 0 ? (
-            <Empty message={`None of this course's ${course.slots.length} times match your filters.`} />
+            <Empty
+              message={`None of this course's ${course.slots.length} times match your filters.`}
+            />
           ) : (
             <>
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-text-3">
-                {visible.length} of {course.slots.length} tee times
-              </h2>
+              <div className="mb-2 flex items-baseline justify-between px-0.5">
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
+                  {visible.length === course.slots.length
+                    ? `${visible.length} tee times`
+                    : `${visible.length} of ${course.slots.length} tee times`}
+                </h2>
+                <Freshness generatedAt={checkedAt} />
+              </div>
+              {/* The same row as the list view, rather than a second
+                  layout that drifts from it. Reusing it also brings the
+                  things this page was missing: cart pricing, the
+                  after-dark warning, and saving to Rounds on tap. */}
               <ul className="flex flex-col gap-2">
                 {visible.map((slot, i) => {
                   const hour = weatherAt(weather, slot.time);
+                  const booking: Booking = {
+                    id: `${slug}:${date}:${slot.time}:${slot.holes}:${i}`,
+                    time: slot.time,
+                    holes: slot.holes,
+                    playersOpen: slot.spots,
+                    price: slot.price,
+                    cart: slot.cart,
+                    withCart: slot.withCart,
+                    rate: slot.rate,
+                    side: slot.side,
+                    bookingUrl: slot.url,
+                    courseName: name,
+                    courseSlug: slug,
+                    courseCity: null,
+                    date,
+                    undatedLink: course.platform === "MEMBERSPORTS",
+                    sunset: weather?.sunset,
+                    weather: hour
+                      ? {
+                          temperatureF: hour.temperatureF,
+                          windMph: hour.windMph,
+                          icon: describeWeather(hour.weatherCode).icon,
+                        }
+                      : undefined,
+                  };
                   return (
-                    <li key={`${slot.time}-${slot.holes}-${i}`}>
-                      <a
-                        href={slot.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 rounded-2xl bg-surface-1 px-3.5 py-3 ring-1 ring-line active:scale-[0.99]"
-                      >
-                        <span className="w-[4.75rem] shrink-0 text-[15px] font-semibold text-text-1 tabular-nums">
-                          {formatTime(slot.time)}
-                        </span>
-                        <span className="flex-1 text-xs text-text-2">
-                          {slot.holes} holes
-                          {slot.side && ` · ${slot.side}`} · {slot.spots} open
-                          {hour && ` · ${hour.temperatureF}° · ${hour.windMph} mph`}
-                        </span>
-                        <span className="shrink-0 text-[15px] font-semibold text-text-1 tabular-nums">
-                          {formatPrice(slot.price)}
-                        </span>
-                      </a>
-                    </li>
+                    <TeeTimeRow
+                      key={booking.id}
+                      booking={booking}
+                      players={filters.players}
+                      hideCourse
+                    />
                   );
                 })}
               </ul>
             </>
           )}
         </div>
+
+        <About slug={slug} name={name} city={city} info={info} />
 
         <a
           href={bookingUrl}
@@ -330,6 +362,65 @@ function DateStrip({
  * long / hilly / hard", which a star rating doesn't answer and a
  * scorecard does.
  */
+/**
+ * The facts strip: what the round is, at a glance, above the times.
+ *
+ * Style, length and walkability are what decide between two courses with
+ * openings at the same hour, so they belong at the top rather than
+ * buried under the tee sheet.
+ */
+function Stats({ slug }: { slug: string }) {
+  const profile = getProfile(slug);
+  if (!profile) return null;
+
+  const cells = [
+    profile.style && { label: "Style", value: profile.style },
+    profile.holes && { label: "Holes", value: String(profile.holes) },
+    profile.par && { label: "Par", value: String(profile.par) },
+    profile.yardage && { label: "Yards", value: profile.yardage.toLocaleString() },
+    profile.slope && { label: "Slope", value: String(profile.slope) },
+    profile.walkable && { label: "Walking", value: profile.walkable },
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  if (cells.length === 0) return null;
+
+  return (
+    <dl className="mt-3 grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-line ring-1 ring-line">
+      {cells.map((cell) => (
+        <div key={cell.label} className="bg-surface-1 px-3 py-2.5">
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-text-3">
+            {cell.label}
+          </dt>
+          <dd className="mt-0.5 truncate text-[14px] font-semibold text-text-1">{cell.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Star toggle, matching the one in the list view. */
+function FavoriteStar({ slug }: { slug: string }) {
+  const favorites = useSyncExternalStore(
+    favoritesStore.subscribe,
+    favoritesStore.getSnapshot,
+    favoritesStore.getServerSnapshot
+  );
+  const on = favorites.includes(slug);
+
+  return (
+    <button
+      onClick={() => favoritesStore.toggle(slug)}
+      aria-label={on ? "Remove from starred courses" : "Star this course"}
+      aria-pressed={on}
+      className={`shrink-0 rounded-full bg-surface-2 px-3 py-2 text-lg leading-none ${
+        on ? "text-crimson-bright" : "text-text-3"
+      }`}
+    >
+      {on ? "★" : "☆"}
+    </button>
+  );
+}
+
 function About({
   slug,
   name,
@@ -342,32 +433,26 @@ function About({
   info: CourseInfo | null;
 }) {
   const profile = getProfile(slug);
-  const facts = profile ? profileSummary(profile) : [];
   const blurb = profile?.notes ?? info?.summary;
+
+  // Style, holes and walkability moved to the stats strip at the top of
+  // the page, so this is the prose and the opinions only — repeating
+  // them here made the same three facts appear twice on one screen.
 
   // The Maps link stands on its own, so this section is worth rendering
   // even with no profile and no Places data at all.
 
   return (
-    <section className="mt-4 rounded-2xl bg-surface-1 px-4 py-3.5 ring-1 ring-line">
-      {facts.length > 0 && (
-        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-text-2">
-          {facts.map((f, i) => (
-            <span key={f}>
-              {i > 0 && <span className="mr-2 text-text-3">·</span>}
-              {f}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {profile?.walkable && (
-        <p className="mt-1.5 text-[12px] text-text-2">
-          Walking: <span className="text-text-1">{profile.walkable}</span>
+    <section className="mt-5 flex flex-col gap-2 rounded-2xl bg-surface-1 px-4 py-3.5 ring-1 ring-line">
+      {(profile?.designer || profile?.opened) && (
+        <p className="text-[12px] text-text-3">
+          {[profile.designer, profile.opened && `est. ${profile.opened}`]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       )}
 
-      {blurb && <p className="mt-2 text-[13px] leading-relaxed text-text-2">{blurb}</p>}
+      {blurb && <p className="text-[13px] leading-relaxed text-text-2">{blurb}</p>}
 
       {/* Reviews without an API key. Google Maps' URL scheme is public
           and free to link to, so when Places isn't configured the app
@@ -379,7 +464,7 @@ function About({
           )}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-surface-2 py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-2 py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
         >
           Reviews &amp; photos on Google Maps
           <span aria-hidden className="text-text-3">↗</span>
@@ -387,7 +472,7 @@ function About({
       )}
 
       {info?.reviews?.length ? (
-        <div className="mt-3 border-t border-line pt-3">
+        <div className="border-t border-line pt-3">
           <ul className="flex flex-col gap-3">
             {info.reviews.map((r, i) => (
               <li key={i} className="text-[13px] leading-relaxed">
@@ -447,9 +532,8 @@ function Freshness({ generatedAt }: { generatedAt: string | null }) {
     : null;
 
   return (
-    <p className="mt-3 text-[12px] leading-snug text-text-3">
-      {clock ? `Last updated ${clock}` : "Loading…"} · confirm on the course&apos;s page
-      before paying
+    <p className="text-[11px] text-text-3">
+      {clock ? `Updated ${clock}` : "Loading…"}
     </p>
   );
 }

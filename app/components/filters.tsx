@@ -29,7 +29,12 @@ export interface FilterState {
   county: string;
   /** Only courses the golfer has starred. */
   starred: boolean;
-  view: "time" | "course";
+  /**
+   * course — grouped by course, the default
+   * time   — one chronological list for the chosen day
+   * week   — the same filters across every published day at once
+   */
+  view: "time" | "course" | "week";
 }
 
 /** How far ahead data is published; matches build-data.ts --days. */
@@ -225,17 +230,17 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
 
   return (
     <div className="flex shrink-0 rounded-full bg-surface-2 p-0.5">
-      {(["course", "time"] as const).map((option) => (
+      {(["course", "time", "week"] as const).map((option) => (
         <button
           key={option}
           onClick={() => set(option)}
-          className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+          className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
             view === option
               ? "bg-surface-3 text-text-1"
               : "text-text-2"
           }`}
         >
-          {option === "time" ? "By time" : "By course"}
+          {option === "course" ? "Course" : option === "time" ? "Time" : "Week"}
         </button>
       ))}
     </div>

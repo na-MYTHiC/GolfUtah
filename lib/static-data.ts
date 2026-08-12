@@ -8,6 +8,14 @@ export interface StaticSlot {
   holes: number;
   spots: number;
   price: number | null;
+  /** Cart per player in cents, quoted separately from the green fee. */
+  cart?: number;
+  /** True when `price` already includes a cart. */
+  withCart?: boolean;
+  /** Rate class the price belongs to. */
+  rate?: string;
+  /** Only set in week mode, where slots from many days are merged. */
+  date?: string;
   /** "Front" / "Back" when the platform reports it. */
   side?: string;
   url: string;

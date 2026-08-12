@@ -133,6 +133,9 @@ check("first slot", first, {
   holes: 9,
   playersOpen: 1,
   price: 2100,
+  // half_cart: what one golfer pays to share a cart.
+  cartFee: 1000,
+  rateName: "Regular",
   side: "Back",
   // Byte-for-byte the address a real browser sat on after picking this
   // exact slot, minus the ordering (URLSearchParams sorts nothing, so
@@ -152,6 +155,10 @@ const eighteen = slots.filter((s) => s.holes === 18);
 check("18-hole rows", eighteen.length, 7);
 check("18-hole rows unpriced", new Set(eighteen.map((s) => s.price)), new Set([undefined]));
 check("9-hole rows all $21", new Set(slots.filter((s) => s.holes === 9).map((s) => s.price)), new Set([2100]));
+// The cart is quoted separately here, so the headline price stays
+// green-fee-only and stays comparable with other platforms.
+check("cart quoted separately", new Set(slots.filter((s) => s.holes === 9).map((s) => s.cartFee)), new Set([1000]));
+check("price is not cart-inclusive", slots[0].priceIncludesCart, undefined);
 
 // starts_at is 6 hours ahead of start_time (UTC vs MDT). If the adapter
 // ever starts reading the wrong field, every time shifts by 6 hours —

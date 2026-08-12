@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Results } from "./results";
 import type { CourseView } from "./types";
-import { loadDay, loadIndex, type DataIndex } from "@/lib/static-data";
+import { loadDay, loadIndex, type DataIndex, type DayFile } from "@/lib/static-data";
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
 import { todayInUtah } from "@/lib/format";
 
@@ -18,6 +18,7 @@ export function AppShell() {
   const params = useSearchParams();
   const today = todayInUtah();
   const date = params.get("date") ?? today;
+  const week = params.get("view") === "week";
 
   const [courses, setCourses] = useState<CourseView[] | null>(null);
   const [index, setIndex] = useState<DataIndex | null>(null);
@@ -34,7 +35,21 @@ export function AppShell() {
       // Clearing inside the async body rather than synchronously keeps
       // this from cascading an extra render pass on mount.
       setCourses(null);
-      const day = await loadDay(date);
+
+      // Week mode merges every published day into one list. Ten small
+      // files in parallel is a fraction of a second and saves the golfer
+      // tapping through ten days to answer "when can I play this week".
+      let day: DayFile | null;
+      if (week) {
+        const index = await loadIndex();
+        const dates = index?.dates ?? [date];
+        const files = (await Promise.all(dates.map((d) => loadDay(d)))).filter(
+          (f): f is DayFile => f != null
+        );
+        day = files.length ? mergeDays(files) : null;
+      } else {
+        day = await loadDay(date);
+      }
       if (cancelled) return;
 
       if (!day) {
@@ -61,12 +76,17 @@ export function AppShell() {
         partial: c.partial,
         returned: c.returned,
         slots: c.slots.map((s, i) => ({
-          id: `${c.id}:${i}`,
-          date,
+          id: `${c.id}:${s.date ?? date}:${i}`,
+          // In week mode each slot carries the day it belongs to; on a
+          // single day they're all the chosen one.
+          date: s.date ?? date,
           time: s.time,
           holes: s.holes,
           playersOpen: s.spots,
           price: s.price,
+          cart: s.cart,
+          withCart: s.withCart,
+          rate: s.rate,
           side: s.side,
           bookingUrl: s.url,
         })),
@@ -124,7 +144,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, week]);
 
   if (courses === null) {
     return <ResultsSkeleton />;
@@ -151,6 +171,36 @@ export function AppShell() {
       {generatedAt && <Freshness generatedAt={generatedAt} />}
     </>
   );
+}
+
+/**
+ * Every day's courses folded into one set, with each slot tagged with
+ * the day it came from.
+ *
+ * Courses are keyed by slug so a course appearing on all ten days
+ * becomes one entry with ten days of slots rather than ten entries.
+ */
+function mergeDays(files: DayFile[]): DayFile {
+  const byCourse = new Map<string, DayFile["courses"][number]>();
+
+  for (const file of files) {
+    for (const course of file.courses) {
+      const dated = course.slots.map((slot) => ({ ...slot, date: file.date }));
+      const existing = byCourse.get(course.slug);
+      if (existing) existing.slots.push(...dated);
+      else byCourse.set(course.slug, { ...course, slots: dated });
+    }
+  }
+
+  return {
+    date: files[0].date,
+    // The oldest of the merged days, so freshness isn't overstated: a
+    // week view is only as current as its stalest file.
+    generatedAt: files
+      .map((f) => f.generatedAt)
+      .sort()[0],
+    courses: [...byCourse.values()],
+  };
 }
 
 /**

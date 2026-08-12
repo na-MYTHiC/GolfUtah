@@ -164,21 +164,30 @@ function toNormalized(raw: RawTeeTime, bookingUrl: string): NormalizedTeeTime[] 
   const spots = Number.isFinite(raw.maxPlayers) ? raw.maxPlayers : 0;
   if (spots <= 0) return [];
 
-  const cheapestByHoles = new Map<9 | 18, number>();
+  const cheapestByHoles = new Map<9 | 18, { price: number; name: string }>();
   for (const rate of raw.rates ?? []) {
     if (rate.holes !== 9 && rate.holes !== 18) continue;
     const price = rate.greenFeeCart; // already cents
     if (!Number.isFinite(price)) continue;
     const current = cheapestByHoles.get(rate.holes);
-    if (current == null || price < current) cheapestByHoles.set(rate.holes, price);
+    if (current == null || price < current.price) {
+      cheapestByHoles.set(rate.holes, { price, name: rate.name });
+    }
   }
 
-  return [...cheapestByHoles].map(([holes, price]) => ({
+  return [...cheapestByHoles].map(([holes, rate]) => ({
     date: local.date,
     time: local.time,
     holes,
     playersOpen: spots,
-    price,
+    price: rate.price,
+    // The field is named greenFeeCart and the capture's $85 matches the
+    // riding rate, so this is not comparable to a green-fee-only price
+    // from another platform without saying so.
+    priceIncludesCart: true,
+    // "Non-Utah Resident" on the state-park courses — worth showing,
+    // since a resident pays less and would otherwise see only this.
+    rateName: rate.name,
     side: raw.backNine ? "Back" : "Front",
     bookingUrl,
   }));
