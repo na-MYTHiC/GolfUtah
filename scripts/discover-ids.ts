@@ -53,7 +53,7 @@ const UA =
  * once one exists; a seed entry naming it won't typecheck against
  * PlatformName until then, which is the intended nudge.
  */
-type Platform = "FOREUP" | "MEMBERSPORTS" | "CHRONOGOLF" | "TEEITUP";
+type Platform = "FOREUP" | "MEMBERSPORTS" | "CHRONOGOLF" | "TEEITUP" | "TEEROCKET";
 
 interface Ids {
   platform: Platform;
@@ -213,7 +213,34 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
     re: /([a-z0-9-]+)\.book-v2\.teeitup\.golf/i,
     ids: (m) => m[1],
   },
+  {
+    // TeeRocket — a Firebase app rather than an API. Detected so its
+    // courses can be counted; see fromFirestore.
+    platform: "TEEROCKET",
+    re: /trwidget\.web\.app\/?(\S*)/i,
+    ids: (m) => m[1] || "widget",
+  },
 ];
+
+/**
+ * TeeRocket, spotted by the Firebase project its widget talks to.
+ *
+ * Detection only — there's deliberately no adapter. Unlike the other
+ * four platforms, TeeRocket has no JSON endpoint to call: the widget is
+ * a Firebase client and its data arrives over Firestore's streaming
+ * channel, a length-prefixed protobuf-over-JSON protocol that isn't
+ * meaningfully reproducible with fetch(). Reading it would mean either
+ * the Firestore REST API (needs the collection paths, and only works if
+ * the security rules allow anonymous reads) or driving a real browser.
+ *
+ * So this exists to answer the question that decides whether either is
+ * worth doing: how many Utah courses actually run TeeRocket?
+ */
+function fromFirestore(url: string): Ids | undefined {
+  const project = /firestore\.googleapis\.com\/.*projects(?:%2F|\/)([a-z0-9-]+)/i.exec(url)?.[1];
+  if (project !== "teerocket") return undefined;
+  return { platform: "TEEROCKET", externalId: "teerocket", source: "firestore channel" };
+}
 
 /**
  * TeeItUp's availability call, e.g.
@@ -394,6 +421,7 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
     found.offer(fromForeUpUrl(url));
     found.offer(fromChronogolf(url));
     found.offer(fromTeeItUp(url, req.headers()));
+    found.offer(fromFirestore(url));
     if (url.includes("onlineBookingTeeTimes")) {
       found.offer(fromMemberSportsRequest(req.postData()));
     }
