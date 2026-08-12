@@ -394,8 +394,10 @@ async function nudge(page: Page): Promise<void> {
     /book.*now/i,
     /reserve/i,
     // ForeUp asks which rate class you're booking as before showing the
-    // sheet, and that choice *is* the booking_class we're after.
-    /^(public|guest|resident|regular)/i,
+    // sheet, and that choice *is* the booking_class we're after. The
+    // wording is per-course, so this lists what's actually been seen
+    // plus the obvious neighbours.
+    /^(public|guest|resident|regular|non.?resident|standard|open|daily.?fee|walk|ride)/i,
   ];
   for (const pattern of patterns) {
     for (const role of ["link", "button"] as const) {
@@ -410,6 +412,27 @@ async function nudge(page: Page): Promise<void> {
         // not present or not clickable — try the next pattern
       }
     }
+  }
+
+  // Last resort, and only on ForeUp itself: its rate-class step is a
+  // short list of buttons whose labels are course-specific, so no word
+  // list will ever cover them all. Murray Parkway, Davis Park and The
+  // Ridge all stalled here. Clicking the first one picks *a* class,
+  // which is enough — the response names whichever it was.
+  if (!/foreupsoftware\.com/i.test(page.url())) return;
+  try {
+    const buttons = page.locator("button:visible, a.btn:visible");
+    const count = await buttons.count();
+    for (let i = 0; i < Math.min(count, 5); i++) {
+      const label = (await buttons.nth(i).textContent())?.trim() ?? "";
+      // Skip the chrome: navigation, language pickers, dismissals.
+      if (!label || /login|sign.?in|close|cancel|back|espa|fran/i.test(label)) continue;
+      await buttons.nth(i).click({ timeout: 5_000 });
+      await page.waitForTimeout(SETTLE_MS);
+      return;
+    }
+  } catch {
+    // Nothing clickable — the caller reports the miss.
   }
 }
 
