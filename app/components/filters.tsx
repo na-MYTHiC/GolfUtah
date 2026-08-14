@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePriceSummary } from "@/lib/prices";
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { addDays } from "@/lib/format";
 import { CITIES, COUNTIES } from "@/lib/utah-places";
@@ -253,6 +254,15 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
 
   const dates = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i));
 
+  // The cheapest tee time on each day, so "when should I play?" is
+  // answerable by looking instead of by tapping through ten tabs and
+  // remembering. Absent until the summary loads, and absent for a day
+  // with nothing published — in both cases the chip renders as it
+  // always did, so this can only ever add information.
+  const prices = usePriceSummary();
+  const cheapestOn = (date: string) => prices?.days?.[date]?.cheapest || 0;
+  const best = Math.min(...dates.map((d) => cheapestOn(d) || Infinity));
+
   const pick = (date: string) => {
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
@@ -283,6 +293,23 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
             <span className="text-base font-semibold leading-tight tabular-nums">
               {d.getDate()}
             </span>
+            {/* Whole dollars: this is for comparing days at a glance, and
+                the cents would cost the width the chip doesn't have. The
+                cheapest day of the ten is picked out, because that's the
+                one the whole strip exists to help you find. */}
+            {cheapestOn(date) > 0 && (
+              <span
+                className={`text-[10px] font-medium leading-none tabular-nums ${
+                  isActive
+                    ? "text-white/80"
+                    : cheapestOn(date) === best
+                      ? "text-crimson-bright"
+                      : "text-text-3"
+                }`}
+              >
+                ${Math.floor(cheapestOn(date) / 100)}
+              </span>
+            )}
           </button>
         );
       })}

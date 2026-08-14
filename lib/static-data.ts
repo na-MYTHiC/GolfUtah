@@ -91,6 +91,37 @@ export async function loadCourseInfo(): Promise<Record<string, CourseInfo>> {
   }
 }
 
+export type PriceBand = "morning" | "midday" | "evening";
+
+/**
+ * What's cheap, and when, across every published day. Built by
+ * scripts/build-data.ts — see the note there for why the baseline is a
+ * forward-looking median rather than history.
+ */
+export interface PriceSummary {
+  generatedAt: string;
+  days: Record<string, { cheapest: number; slots: number }>;
+  typical: Record<string, Partial<Record<PriceBand, { median: number; n: number }>>>;
+}
+
+/** Must match bandOf() in scripts/build-data.ts. */
+export function priceBand(time: string): PriceBand {
+  const hour = Number(time.slice(0, 2));
+  if (hour < 11) return "morning";
+  if (hour < 16) return "midday";
+  return "evening";
+}
+
+export async function loadPriceSummary(): Promise<PriceSummary | null> {
+  try {
+    const resp = await fetch(assetPath("/data/prices.json"), { cache: "no-store" });
+    if (!resp.ok) return null;
+    return (await resp.json()) as PriceSummary;
+  } catch {
+    return null;
+  }
+}
+
 export interface DataIndex {
   dates: string[];
   generatedAt: string;

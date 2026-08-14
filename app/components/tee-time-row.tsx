@@ -27,6 +27,14 @@ export interface Booking {
   sunset?: string;
   /** Cheapest slot matching the current filters. */
   bestPrice?: boolean;
+  /**
+   * What this course usually charges at this time of day, in cents, and
+   * only when this slot is meaningfully under it. Set by
+   * dealAgainstTypical — absent means "nothing worth saying", which
+   * covers both an ordinary price and a course with too few published
+   * prices to have a trustworthy baseline.
+   */
+  typical?: number;
   /** The day this slot is on, for saving it as a round. */
   date?: string;
   /** True when the booking page can't be opened on a specific day. */
@@ -191,6 +199,15 @@ export function TeeTimeRow({
           ) : booking.withCart ? (
             <div className="text-[10px] text-text-3">with cart</div>
           ) : null}
+          {/* What this course usually charges at this time of day. The
+              one thing a course's own booking page structurally cannot
+              tell you, and the reason to look here first. Only appears on
+              a genuine discount — see dealAgainstTypical. */}
+          {booking.typical != null && (
+            <div className="text-[10px] text-text-3 tabular-nums">
+              usually {formatPrice(booking.typical)}
+            </div>
+          )}
           {/* Conditions live here rather than in the meta line, which
               couldn't hold them at 360px without clipping something —
               and the thing being clipped was the wind. */}

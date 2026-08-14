@@ -147,6 +147,111 @@ interface StaticCourse {
   partial?: boolean;
 }
 
+/**
+ * The cross-day summary: what's cheap, and when.
+ *
+ * TWO QUESTIONS THIS ANSWERS THAT A SINGLE DAY CAN'T.
+ *
+ * "When should I play?" The app shows one day at a time, so comparing
+ * Saturday against Thursday means tapping through the date strip and
+ * remembering. `days` puts the cheapest price for each published day in
+ * one small file, so the strip itself can show it.
+ *
+ * "Is $45 good?" A price means nothing without knowing the course. A
+ * municipal twilight nine and a resort eighteen are both "cheap" at
+ * wildly different numbers, and no course's own booking page will ever
+ * tell you its price is high today — that's the one thing an aggregator
+ * is structurally able to say. `typical` is the median for that course
+ * in that part of the day, across every published day.
+ *
+ * WHY MEDIAN, AND WHY FORWARD-LOOKING. The median because green fees are
+ * a handful of rate classes rather than a smooth distribution, and one
+ * $150 outing rate would drag a mean somewhere no golfer recognises.
+ * Forward-looking because there's no history to draw on — the site keeps
+ * ten days ahead and nothing behind — but "what this course charges at
+ * this time of day" is exactly the baseline the question needs, and ten
+ * days of it is a real sample rather than a guess.
+ *
+ * Separate file, like ratings, because it's identical for every day and
+ * would otherwise be duplicated ten times over.
+ */
+interface PriceSummary {
+  generatedAt: string;
+  /** date -> the cheapest slot published that day, in cents. */
+  days: Record<string, { cheapest: number; slots: number }>;
+  /** course slug -> band -> median price in cents, and the sample size. */
+  typical: Record<string, Partial<Record<PriceBand, { median: number; n: number }>>>;
+}
+
+/**
+ * Bands rather than raw hours: an 8am and a 9am tee time are the same
+ * product at nearly every course, while an 8am and a 6pm are not.
+ * These match the "when" filter the UI already offers, so a golfer
+ * filtering to Morning is being compared against mornings.
+ */
+type PriceBand = "morning" | "midday" | "evening";
+
+export function bandOf(time: string): PriceBand {
+  const hour = Number(time.slice(0, 2));
+  if (hour < 11) return "morning";
+  if (hour < 16) return "midday";
+  return "evening";
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+/**
+ * @param minSample Below this, a median is an anecdote. A course with
+ * two published prices shouldn't be the basis for telling someone a
+ * third one is a bargain, so it's left out and the UI shows nothing.
+ */
+export function summarize(files: DayFile[], minSample = 6): PriceSummary {
+  const days: PriceSummary["days"] = {};
+  const gathered = new Map<string, Map<PriceBand, number[]>>();
+
+  for (const file of files) {
+    let cheapest = Infinity;
+    let slots = 0;
+
+    for (const course of file.courses) {
+      for (const slot of course.slots) {
+        slots++;
+        if (slot.price == null) continue;
+        // Cart-inclusive prices aren't comparable with green-fee-only
+        // ones; mixing them would make a course look cheap or dear
+        // depending on how its platform happens to quote.
+        if (slot.withCart) continue;
+
+        if (slot.price < cheapest) cheapest = slot.price;
+
+        const byBand = gathered.get(course.slug) ?? new Map<PriceBand, number[]>();
+        const band = bandOf(slot.time);
+        byBand.set(band, [...(byBand.get(band) ?? []), slot.price]);
+        gathered.set(course.slug, byBand);
+      }
+    }
+
+    if (slots > 0) {
+      days[file.date] = { cheapest: cheapest === Infinity ? 0 : cheapest, slots };
+    }
+  }
+
+  const typical: PriceSummary["typical"] = {};
+  for (const [slug, byBand] of gathered) {
+    for (const [band, prices] of byBand) {
+      if (prices.length < minSample) continue;
+      typical[slug] ??= {};
+      typical[slug][band] = { median: median(prices), n: prices.length };
+    }
+  }
+
+  return { generatedAt: new Date().toISOString(), days, typical };
+}
+
 interface DayFile {
   date: string;
   generatedAt: string;
@@ -508,6 +613,10 @@ async function main() {
   const elapsed = ((Date.now() - started) / 1000).toFixed(1);
   console.log(`Fetched in ${elapsed}s`);
 
+  // Kept so the cross-day summary can be computed from exactly what was
+  // published, rather than re-reading the files back off disk.
+  const written: DayFile[] = [];
+
   for (const [i, date] of dates.entries()) {
     const carriedOver = carried.has(i) && !fresh.has(i);
 
@@ -543,6 +652,7 @@ async function main() {
         };
 
     writeFileSync(`${outDir}/${date}.json`, JSON.stringify(file));
+    written.push(file);
 
     const slots = file.courses.reduce((n, c) => n + c.slots.length, 0);
     const failed = file.courses.filter((c) => c.error).length;
@@ -582,6 +692,13 @@ async function main() {
     console.log(`Wrote course info for ${Object.keys(courses).length} course(s)`);
   }
 
+  const summary = summarize(written);
+  writeFileSync(`${outDir}/prices.json`, JSON.stringify(summary));
+  console.log(
+    `Price summary: ${Object.keys(summary.days).length} day(s) priced, ` +
+      `typical prices for ${Object.keys(summary.typical).length}/${COURSES.length} course(s)`
+  );
+
   writeFileSync(`${outDir}/index.json`, JSON.stringify(index));
   console.log(
     `Wrote ${dates.length} day file(s) to ${outDir}` +
@@ -597,7 +714,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("build-data failed:", err);
-  process.exitCode = 1;
-});
+// Only when run as a command. summarize() and bandOf() are exported so
+// they can be checked directly, and importing them shouldn't set 47
+// courses' worth of requests going.
+if (process.argv[1]?.includes("build-data")) {
+  main().catch((err) => {
+    console.error("build-data failed:", err);
+    process.exitCode = 1;
+  });
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePriceSummary, dealAgainstTypical } from "@/lib/prices";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
 import { getProfile } from "@/lib/course-profiles";
@@ -47,6 +48,7 @@ export function CourseDetail({
   const filters = useFilters(date);
   const [info, setInfo] = useState<CourseInfo | null>(null);
   const now = useUtahNow();
+  const priceSummary = usePriceSummary();
 
   // Ratings and reviews are the same every day, so they load once and
   // independently of the tee times — no reason to hold up the list.
@@ -211,6 +213,8 @@ export function CourseDetail({
                     withCart: slot.withCart,
                     rate: slot.rate,
                     side: slot.side,
+                    typical: dealAgainstTypical(priceSummary, slug, slot.time, slot.price)
+                      ?.median,
                     bookingUrl: slot.url,
                     courseName: name,
                     courseSlug: slug,
