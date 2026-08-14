@@ -12,11 +12,22 @@
  * Rebuilding the data more often wouldn't fix this: the fastest tier runs
  * every five minutes, and slots pass continuously. It has to be decided
  * in the browser, against the browser's clock.
+ *
+ * It does a second job now, for the same reason: the "New" badge expires
+ * on a timer too, and something has to re-render for a badge to
+ * disappear. Both are questions whose answer changes while the page sits
+ * open, and one minute tick answers both.
  */
 
 import { useMemo, useSyncExternalStore } from "react";
 
-/** "YYYY-MM-DD HH:mm" in Utah — one string so snapshots compare cheaply. */
+/**
+ * "YYYY-MM-DD HH:mm <epochMs>" in Utah — one string so snapshots compare
+ * cheaply, and so the clock is read here, in the store, rather than in a
+ * hook. Reading it during render would be impure: two renders in the
+ * same minute would disagree about the instant, and React is entitled to
+ * assume they wouldn't.
+ */
 function read(): string {
   const d = new Date();
   const date = d.toLocaleDateString("en-CA", { timeZone: "America/Denver" });
@@ -25,7 +36,7 @@ function read(): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `${date} ${time}`;
+  return `${date} ${time} ${d.getTime()}`;
 }
 
 const store = {
@@ -77,13 +88,24 @@ const store = {
    * client render.
    */
   getServerSnapshot(): string {
-    return "0000-00-00 00:00";
+    return "0000-00-00 00:00 0";
   },
 };
 
 export interface UtahNow {
   date: string;
   time: string;
+  /**
+   * The same instant as an epoch millisecond, for comparing against
+   * stored timestamps.
+   *
+   * Deliberately not derived from `date` and `time` by the caller:
+   * parsing "2026-08-14 14:30" would read it in the *device's* zone, and
+   * on a phone outside Utah that lands hours away from the real instant.
+   * Those two fields are Utah wall clock for display and for comparing
+   * against tee times; this is the actual moment.
+   */
+  epochMs: number;
 }
 
 export function useUtahNow(): UtahNow {
@@ -96,8 +118,8 @@ export function useUtahNow(): UtahNow {
   // a fresh object every render would defeat the pruning memo it exists
   // to feed.
   return useMemo(() => {
-    const [date, time] = snapshot.split(" ");
-    return { date, time };
+    const [date, time, epoch] = snapshot.split(" ");
+    return { date, time, epochMs: Number(epoch) };
   }, [snapshot]);
 }
 

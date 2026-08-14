@@ -1,14 +1,27 @@
 /**
- * Which tee times were already on screen last time you looked.
+ * Which tee times are new, and for how long they stay new.
  *
  * Times go fast here, so the useful question on reopening the app isn't
  * "what's available" — you saw that ten minutes ago — it's "what's
  * changed". A slot that wasn't there before is worth a badge; the other
  * two hundred are noise you've already scanned past.
  *
- * Stored per day as a set of slot keys. There's no server and no
- * timestamp on a slot, so the only way to know something is new is to
- * remember what was there and compare.
+ * WHY THIS STORES TIMESTAMPS AND NOT A SET OF KEYS.
+ *
+ * It used to keep "the keys that were on screen last time" and diff
+ * against them. That has a fatal flaw: reading the diff destroys it. The
+ * first render after data arrived found the new slot and immediately
+ * recorded it as seen — and this app re-renders the list a second later
+ * when the weather resolves, at which point the slot was already "seen"
+ * and the badge vanished. So a genuinely new tee time flashed "New" for
+ * about a second and then looked like all the others.
+ *
+ * Recording the moment a slot was *first* seen fixes that at the root.
+ * It's idempotent: seeing the same slot again doesn't move its
+ * timestamp, so re-rendering, refetching or reloading can't clear a
+ * badge. And "new" becomes a question about time rather than about read
+ * order — a slot is new for NEW_FOR_MS after it first appeared, however
+ * many times the list gets drawn in between.
  *
  * Two days are kept. Today and tomorrow are what anyone actually
  * re-checks, and holding all ten would put a few thousand keys in
@@ -18,9 +31,27 @@
 const KEY = "golfutah:seen";
 const MAX_DAYS = 2;
 
+/**
+ * How long a slot wears the badge.
+ *
+ * Long enough to still be there when you come back to a tab, and to
+ * survive several refreshes — the near days rebuild every five minutes,
+ * so this spans about three of them. Short enough that the badge still
+ * means "just appeared" rather than decorating half the list.
+ */
+export const NEW_FOR_MS = 15 * 60 * 1000;
+
+/**
+ * Timestamp meaning "already here before we started watching this day".
+ * Slots recorded on a first visit get this so they never badge — on a
+ * first visit everything is new, and badging all two hundred says
+ * nothing.
+ */
+const PREEXISTING = 0;
+
 interface SeenFile {
-  /** date -> slot keys that were on screen last time. */
-  days: Record<string, string[]>;
+  /** date -> slot key -> epoch ms first seen (or PREEXISTING). */
+  days: Record<string, Record<string, number>>;
 }
 
 /** Identifies a slot without depending on how the data was rebuilt. */
@@ -36,33 +67,68 @@ export function slotKey(
 function read(): SeenFile {
   try {
     const raw = localStorage.getItem(KEY);
-    const parsed = raw ? (JSON.parse(raw) as SeenFile) : null;
-    return parsed?.days ? parsed : { days: {} };
+    if (!raw) return { days: {} };
+
+    const parsed = JSON.parse(raw) as { days?: Record<string, unknown> };
+    if (!parsed?.days) return { days: {} };
+
+    const days: SeenFile["days"] = {};
+    for (const [date, entry] of Object.entries(parsed.days)) {
+      // Upgrade from the old format, which stored a plain array of keys.
+      // Everything in it predates the change, so it counts as
+      // pre-existing — the alternative is badging a whole day's list
+      // once on upgrade, which is exactly the noise avoided elsewhere.
+      if (Array.isArray(entry)) {
+        days[date] = Object.fromEntries((entry as string[]).map((k) => [k, PREEXISTING]));
+      } else if (entry && typeof entry === "object") {
+        days[date] = entry as Record<string, number>;
+      }
+    }
+    return { days };
   } catch {
     return { days: {} };
   }
 }
 
 /**
- * The slots on this day that weren't here last time, and records the
- * current set for next time.
+ * Records anything not seen before, and returns what still counts as new.
  *
- * Returns an empty set on a day never seen before — on a first visit
- * everything is new, and badging all two hundred would say nothing.
+ * Safe to call on every render: a slot's first-seen time is written once
+ * and never moved, so calling this again with the same slots is a no-op
+ * that returns the same answer.
+ *
+ * @param now Passed in rather than read here, so badges expire on the
+ * caller's minute tick — a re-render is what makes one disappear, which
+ * an unobservable clock read during render could never do.
  */
-export function markSeen(date: string, keys: string[]): Set<string> {
+export function markSeen(date: string, keys: string[], now = Date.now()): Set<string> {
   if (typeof localStorage === "undefined") return new Set();
 
   const file = read();
-  const before = file.days[date];
+  const known = file.days[date];
 
-  const fresh = new Set<string>();
-  if (before) {
-    const previous = new Set(before);
-    for (const key of keys) if (!previous.has(key)) fresh.add(key);
+  // A day never opened before: everything on it predates us.
+  const firstVisit = known === undefined;
+  const next: Record<string, number> = {};
+
+  for (const key of keys) {
+    next[key] = firstVisit ? PREEXISTING : (known[key] ?? now);
   }
 
-  file.days[date] = keys;
+  // Slots that have gone (booked, or the sheet moved) are kept until
+  // they're past the badge window. Without that, a slot that blinks out
+  // of one refresh and back into the next would return wearing a "New"
+  // badge it hasn't earned. Past the window there's nothing left worth
+  // remembering, so they're dropped and storage stays bounded.
+  if (!firstVisit) {
+    for (const [key, at] of Object.entries(known)) {
+      if (next[key] === undefined && at !== PREEXISTING && now - at < NEW_FOR_MS) {
+        next[key] = at;
+      }
+    }
+  }
+
+  file.days[date] = next;
 
   // Keep only the most recent days, by date, so this can't grow forever.
   const kept = Object.keys(file.days).sort().reverse().slice(0, MAX_DAYS);
@@ -74,5 +140,10 @@ export function markSeen(date: string, keys: string[]): Set<string> {
     // Storage full or blocked — the badge is a nicety, not worth throwing.
   }
 
+  const fresh = new Set<string>();
+  for (const key of keys) {
+    const at = next[key];
+    if (at !== PREEXISTING && now - at < NEW_FOR_MS) fresh.add(key);
+  }
   return fresh;
 }

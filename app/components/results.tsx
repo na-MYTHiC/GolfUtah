@@ -73,15 +73,19 @@ export function Results({
   // loaded so a suggestion can never return nothing.
   const courseNames = useMemo(() => courses.map((c) => c.name).sort(), [courses]);
 
-  // What's appeared since the last look. Deliberately keyed off the raw
-  // course data rather than the filtered list, so changing a filter
-  // doesn't make everything look new.
+  // What's appeared recently. Deliberately keyed off the raw course data
+  // rather than the filtered list, so changing a filter doesn't make
+  // everything look new.
+  //
+  // `now` is a dependency so badges actually expire: markSeen decides
+  // newness by comparing timestamps against it, and without a re-render
+  // on the minute a badge would sit there until the next refetch.
   const fresh = useMemo(() => {
-    const keys = courses.flatMap((c) =>
+    const keys = allCourses.flatMap((c) =>
       c.slots.map((s) => slotKey(c.slug, s.time, s.holes, s.side))
     );
-    return markSeen(date, keys);
-  }, [courses, date]);
+    return markSeen(date, keys, now.epochMs);
+  }, [allCourses, date, now]);
 
   // A distance origin is the device's location, or any Utah city that
   // was searched for — including ones with no course of their own.
