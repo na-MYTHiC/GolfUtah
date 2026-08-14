@@ -17,6 +17,7 @@ import { AppHeader } from "./app-header";
 import { findCity } from "@/lib/utah-places";
 import { favoritesStore } from "@/lib/favorites";
 import { markSeen, slotKey } from "@/lib/seen";
+import { useUtahNow, withoutPast } from "@/lib/now";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -42,7 +43,7 @@ function useFavorites(): string[] {
  * the network.
  */
 export function Results({
-  courses,
+  courses: allCourses,
   today,
   date,
 }: {
@@ -53,6 +54,20 @@ export function Results({
   const filters = useFilters(date);
   const { coords, locate } = useGeolocation();
   const favorites = useFavorites();
+  const now = useUtahNow();
+
+  // Slots that have already teed off are pruned here rather than inside
+  // the filter pass, so they're gone from the counts too — "12 of 40 tee
+  // times" shouldn't be counting this morning's 6am against a filter
+  // that had nothing to do with it. A course left with nothing then
+  // reports as booked out, which is what it is.
+  const courses = useMemo(
+    () =>
+      date > now.date
+        ? allCourses
+        : allCourses.map((c) => ({ ...c, slots: withoutPast(c.slots, date, now) })),
+    [allCourses, date, now]
+  );
 
   // Course names for the search suggestions, drawn from what's actually
   // loaded so a suggestion can never return nothing.
@@ -72,6 +87,18 @@ export function Results({
   // was searched for — including ones with no course of their own.
   const hasOrigin =
     coords != null || Boolean(findCity(filters.near || filters.q));
+
+  // Courses that published a sheet today and have simply run out of it.
+  const playedOut = useMemo(
+    () =>
+      new Set(
+        allCourses
+          .filter((c) => c.slots.length > 0)
+          .map((c) => c.slug)
+          .filter((slug) => !courses.some((c) => c.slug === slug && c.slots.length > 0))
+      ),
+    [allCourses, courses]
+  );
 
   const { bookings, coursesWithTimes, quiet } = useMemo(() => {
     const flat: Booking[] = [];
@@ -190,11 +217,17 @@ export function Results({
           ? ("error" as const)
           : c.slots.length > 0
             ? ("filtered" as const)
-            : ("none" as const),
+            : // A course whose whole sheet has already teed off isn't the
+              // same as one that published nothing, and saying so is the
+              // difference between "come back tomorrow" and "this course
+              // may not be covered".
+              playedOut.has(c.slug)
+              ? ("played" as const)
+              : ("none" as const),
       }));
 
     return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
-  }, [courses, filters, coords, favorites, date, fresh]);
+  }, [courses, filters, coords, favorites, date, fresh, playedOut]);
 
   return (
     <>
@@ -222,7 +255,11 @@ export function Results({
       <div className="pt-3" />
 
       {bookings.length === 0 ? (
-        <EmptyState filters={filters} total={courses.length} />
+        <EmptyState
+          filters={filters}
+          total={courses.length}
+          dayOver={allCourses.some((c) => c.slots.length > 0)}
+        />
       ) : (
         <TimeSections
           bookings={bookings}
@@ -454,7 +491,21 @@ function FavoriteStar({ slug }: { slug: string }) {
  * than useless here: the app knows exactly what's applied and can name
  * the narrowest thing first.
  */
-function EmptyState({ filters, total }: { filters: FilterState; total: number }) {
+/**
+ * @param dayOver The day's data did have tee times — they've simply all
+ * been played. Worth distinguishing from a day nobody has published yet,
+ * because "try another date" is useless advice at 8pm and "come back
+ * tomorrow" is the actual answer.
+ */
+function EmptyState({
+  filters,
+  total,
+  dayOver = false,
+}: {
+  filters: FilterState;
+  total: number;
+  dayOver?: boolean;
+}) {
   const reasons: string[] = [];
   if (filters.starred) reasons.push("only starred courses");
   if (filters.maxPrice != null) reasons.push(`under $${filters.maxPrice}`);
@@ -467,10 +518,16 @@ function EmptyState({ filters, total }: { filters: FilterState; total: number })
   return (
     <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center">
       <p className="text-2xl">⛳</p>
-      <p className="mt-2 font-medium text-text-1">Nothing open</p>
+      <p className="mt-2 font-medium text-text-1">
+        {dayOver && reasons.length === 0 ? "That's the day" : "Nothing open"}
+      </p>
       {reasons.length > 0 ? (
         <p className="mt-1 text-sm text-text-2">
           No tee times across {total} courses match {reasons.join(" · ")}.
+        </p>
+      ) : dayOver ? (
+        <p className="mt-1 text-sm text-text-2">
+          Every tee time today has already gone out. Tomorrow&apos;s are above.
         </p>
       ) : (
         <p className="mt-1 text-sm text-text-2">
@@ -489,10 +546,11 @@ function EmptyState({ filters, total }: { filters: FilterState; total: number })
 function QuietCourses({
   quiet,
 }: {
-  quiet: { name: string; reason: "filtered" | "none" | "error" }[];
+  quiet: { name: string; reason: "filtered" | "played" | "none" | "error" }[];
 }) {
   const [open, setOpen] = useState(false);
   const filtered = quiet.filter((q) => q.reason === "filtered");
+  const played = quiet.filter((q) => q.reason === "played");
   const none = quiet.filter((q) => q.reason === "none");
   const errored = quiet.filter((q) => q.reason === "error");
 
@@ -509,6 +567,7 @@ function QuietCourses({
       {open && (
         <div className="mt-3 flex flex-col gap-3 text-[13px]">
           <QuietGroup label="Have times, but not matching your filters" items={filtered} />
+          <QuietGroup label="Today's times have all gone out" items={played} />
           <QuietGroup label="Nothing published for this day" items={none} />
           <QuietGroup label="Couldn't be reached" items={errored} />
         </div>

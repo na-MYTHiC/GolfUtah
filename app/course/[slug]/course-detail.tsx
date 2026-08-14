@@ -11,6 +11,7 @@ import { useSyncExternalStore } from "react";
 
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
 import { todayInUtah, formatDateLabel, formatTime, addDays } from "@/lib/format";
+import { useUtahNow, withoutPast } from "@/lib/now";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -45,6 +46,7 @@ export function CourseDetail({
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const filters = useFilters(date);
   const [info, setInfo] = useState<CourseInfo | null>(null);
+  const now = useUtahNow();
 
   // Ratings and reviews are the same every day, so they load once and
   // independently of the tee times — no reason to hold up the list.
@@ -86,9 +88,15 @@ export function CourseDetail({
 
   const back = `${basePath}/?${new URLSearchParams({ date, view: "course" })}`;
 
+  // Times that have already teed off come out first and separately from
+  // the filters, so "3 of 12" never counts this morning against a filter
+  // that had nothing to do with it.
+  const published = course?.slots ?? [];
+  const remaining = withoutPast(published, date, now);
+
   // The same narrowing the list applies, so arriving here from a
   // filtered list doesn't silently widen it again.
-  const visible = (course?.slots ?? []).filter((slot) => {
+  const visible = remaining.filter((slot) => {
     if (slot.spots < filters.players) return false;
     if (filters.holes !== "all" && slot.holes !== Number(filters.holes)) return false;
     if (!inWindow(slot.time, filters.when)) return false;
@@ -159,19 +167,21 @@ export function CourseDetail({
             <Empty message="No data for this course on this day." />
           ) : course.error ? (
             <Empty message={`Couldn't load times — ${course.error}`} />
-          ) : course.slots.length === 0 ? (
+          ) : published.length === 0 ? (
             <Empty message="No openings published for this day." />
+          ) : remaining.length === 0 ? (
+            <Empty message="Every tee time here has already gone out today." />
           ) : visible.length === 0 ? (
             <Empty
-              message={`None of this course's ${course.slots.length} times match your filters.`}
+              message={`None of this course's ${remaining.length} remaining times match your filters.`}
             />
           ) : (
             <>
               <div className="mb-2 flex items-baseline justify-between px-0.5">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
-                  {visible.length === course.slots.length
+                  {visible.length === remaining.length
                     ? `${visible.length} tee times`
-                    : `${visible.length} of ${course.slots.length} tee times`}
+                    : `${visible.length} of ${remaining.length} tee times`}
                 </h2>
                 <Freshness generatedAt={checkedAt} />
               </div>

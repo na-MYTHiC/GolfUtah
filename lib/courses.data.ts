@@ -10,12 +10,14 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 17 of 22 have one, captured by
+ *                 sheet. 18 of 23 have one, captured by
  *                 `npm run discover:refresh`. The five without are
  *                 Murray Parkway, Davis Park, Valley View, The Ridge and
- *                 Overlake — the first four because their booking pages
+ *                 Roosevelt — the first four because their booking pages
  *                 never reach a tee sheet for the script (The Ridge sits
- *                 behind a login), Overlake because it was seeded from a
+ *                 behind a login; the other three surface only Stripe's
+ *                 hosts, so the sheet is inside an iframe the script
+ *                 doesn't follow), Roosevelt because it was seeded from a
  *                 link and hasn't been through a refresh run yet. All
  *                 five may be showing incomplete times, and the UI says
  *                 so.
@@ -598,9 +600,41 @@ export const COURSES: CourseSeed[] = [
     county: "Tooele",
     city: "Tooele",
     platform: "FOREUP",
-    externalId: "23169:12888",
+    externalId: "23169:12888:52597",
     bookingUrl: "https://www.tooelecity.org/departments/golf-course/",
     latitude: 40.56,
     longitude: -112.32,
+  },
+
+  // Roosevelt and Palisade close the two counties inside the seeded
+  // latitude band that had no course at all.
+  {
+    name: "Roosevelt Golf Course",
+    slug: "roosevelt-golf-course",
+    county: "Duchesne",
+    city: "Roosevelt",
+    platform: "FOREUP",
+    // From a booking link rather than a tee-sheet response, so no
+    // booking class yet — the next refresh run should capture one.
+    externalId: "6285:82",
+    bookingUrl: "https://www.rooseveltcity.com/golf",
+    latitude: 40.299,
+    longitude: -109.989,
+  },
+  {
+    name: "Palisade Golf Course",
+    slug: "palisade-golf-course",
+    county: "Sanpete",
+    city: "Sterling",
+    platform: "TEEITUP",
+    // The fourth Utah State Parks course, and the last one missing.
+    // Facility id 6847 sits an order of magnitude below Wasatch's and
+    // Soldier Hollow's under the same alias; worth noting only because
+    // it came from a real tee-times request rather than a guess, so it's
+    // an older facility record on the same operator account.
+    externalId: "aspira-management-company:6847",
+    bookingUrl: "https://stateparks.utah.gov/golf/palisade/",
+    latitude: 39.212,
+    longitude: -111.691,
   },
 ];

@@ -29,43 +29,65 @@ to either underlying command if you want to watch.
 
 ### Pass 1 — courses already in the app that may be showing short sheets
 
-Five ForeUp courses have no `booking_class` captured. Without one, ForeUp
-can return a *subset* of the tee sheet: Sun Hills listed from 11:06am
-when the course was actually selling from 6:45. So these five may be
-hiding their mornings from you right now.
+ForeUp courses with no `booking_class` captured. Without one, ForeUp can
+return a *subset* of the tee sheet: Sun Hills listed from 11:06am when
+the course was actually selling from 6:45. So these may be hiding their
+mornings from you right now.
 
-| Course | Why it failed before |
+| Course | Status |
 |---|---|
-| Murray Parkway | page never reached a tee sheet |
-| Davis Park | page never reached a tee sheet |
-| Valley View | page never reached a tee sheet |
+| Murray Parkway | was stalling — should be fixed, see below |
+| Davis Park | was stalling — should be fixed, see below |
+| Valley View | was stalling — should be fixed, see below |
 | The Ridge | booking page sits behind a login |
-| Overlake | never tried — seeded from a link |
+| Roosevelt | never tried — seeded from a link |
 
-Overlake is the likeliest win; it's the only one that hasn't already
-failed a run. If the other four fail again, `refresh.json` now records
-what their pages actually said under `pageText`, which is the thing that
-will finally explain the stall.
+**The three stalls were a bug in this script, now fixed.** All three
+reported "booking links point at js.stripe.com, m.stripe.network", which
+read like the page never reached a tee sheet. It had. ForeUp's booking
+page loads Stripe, and Stripe's iframe carries the embedding page inside
+its own fragment, percent-encoded:
+
+```
+https://m.stripe.network/inner.html#url=https%3A%2F%2Fforeupsoftware.com
+%2Findex.php%2Fbooking%2F19393%2F3564
+```
+
+The ids were on the page the whole time. Every slash between the host and
+the numbers was a `%2F`, so the id pattern didn't match while the host
+test — which only needs the literal string `foreupsoftware.com` — did.
+The script then reported the *outer* host and queued a Stripe address as
+the booking link to follow. It now decodes URLs nested inside other URLs,
+and matches booking hosts against the hostname rather than the whole
+string, so a third party can't masquerade as the booking link.
+
+The Ridge is the one genuine wall: no login, no tee sheet.
 
 ### Pass 2 — courses not in the app yet
 
-Twenty candidates, including five whole counties with no coverage at all
-that the original survey missed entirely.
+The last run resolved 7 of 20. Two are now seeded — **Palisade**
+(TeeItUp, the fourth and last Utah State Parks course) and **Roosevelt**
+(ForeUp), which between them close the two counties inside the covered
+latitude band that had no course at all.
 
-**Palisade (Sterling) is the one to care about.** It's a Utah State Parks
-course, and the other three — Wasatch Mountain, Soldier Hollow, Green
-River — all run on TeeItUp, which already has a working adapter. If it
-resolves, it's a paste-and-done addition.
+Still open:
 
-Five of the twenty have a guessed website, marked `url unverified` in
-`scripts/courses.candidates.json`. A wrong address costs one page load
-and reports as "no booking link found" — and the script now prints a
-search link for those, so a course whose site simply moved is one click
-from being found rather than a dead end.
+- **El Monte / Mount Ogden** and **Schneiter's Bluff / Riverside** each
+  came back with one id shared between two courses — the collision guard
+  doing its job. See below.
+- **The Barn** confirmed as GolfPay. That needs an adapter, not another
+  discovery run.
+- **Canyons** is on quick18, **Birch Creek** on golfrev, **Golf the
+  Round** on TeeItUp but as a driving range. No adapters for any.
+- Eight courses turned up no booking link at all. The script prints a
+  search link for each, so a course whose site simply moved is one click
+  from being found rather than a dead end.
+- **Homestead** fails TLS negotiation outright
+  (`ERR_SSL_VERSION_OR_CIPHER_MISMATCH`) — their server, not ours.
 
 ---
 
-## The two things a script can't get
+## The things a script can't get
 
 **El Monte and Mount Ogden.** Both resolve to the same ForeUp sheet,
 because Ogden City's Mt Ogden page links to El Monte's booking page.
@@ -74,6 +96,15 @@ two course names.
 
 Open each course's own "Book Tee Time" and send both URLs. They'll share
 course id `19197` and differ in schedule id.
+
+**Schneiter's Bluff and Schneiter's Riverside.** Same shape, same
+reason: both pages resolve to TeeRocket group `YFlPUck58D81fB5Kqqa8`,
+course `BH4MnB2co04ve5At3aQl`. Two courses cannot genuinely share one
+course id, so one of the two pages is linking at the other's sheet.
+
+This one is moot until TeeRocket has an adapter, and it can't have one:
+the widget renders "Please login to reserve a tee time", so availability
+isn't public at all.
 
 **Any course whose site the script can't crack.** A booking URL is
 enough — paste it and it gets seeded. If it's ForeUp and the page loads a
@@ -99,10 +130,10 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? |
 |---|---|---|
-| ForeUp | 22 | yes |
+| ForeUp | 23 | yes |
 | Chronogolf | 14 | yes — to the exact slot |
 | MemberSports | 6 | **no** |
-| TeeItUp | 3 | date in the query, unverified |
+| TeeItUp | 4 | date in the query, unverified |
 
 MemberSports keeps the selected date in its app state rather than the
 URL — two different days produce byte-for-byte identical addresses. Those

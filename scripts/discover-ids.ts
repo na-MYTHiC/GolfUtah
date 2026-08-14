@@ -357,6 +357,35 @@ const BOOKING_HOSTS =
   /foreupsoftware\.com|chronogolf\.com|app\.membersports\.com|teeitup\.(?:golf|com)|kenna\.io|golfpay\.co|quick18\.com|golfrev\.com|trwidget\.web\.app/i;
 
 /**
+ * Pulls any URL that's been percent-encoded inside another one.
+ *
+ * This is what was hiding Murray Parkway, Davis Park, Valley View and
+ * The Ridge. ForeUp's booking page loads Stripe, and Stripe's iframes
+ * carry the embedding page in their own fragment, escaped:
+ *
+ *   https://m.stripe.network/inner.html#url=https%3A%2F%2Fforeupsoftware
+ *   .com%2Findex.php%2Fbooking%2F19393%2F3564&title=...
+ *
+ * So the ids were on the page the whole time. The host test matched —
+ * "foreupsoftware.com" survives escaping intact — but the id pattern
+ * didn't, because every slash between it and the numbers was a %2F. The
+ * run then reported the *outer* host and offered a Stripe URL as the
+ * booking link to follow, which is why it looked like these courses had
+ * nothing but Stripe on them.
+ */
+function unwrapEncoded(url: string): string[] {
+  if (!/%2[fF]|%3[aA]/.test(url)) return [url];
+  try {
+    const decoded = decodeURIComponent(url);
+    // Stop the inner match at & so a trailing &title=... isn't swallowed.
+    return [url, decoded, ...(decoded.match(/https?:\/\/[^\s"'<>\\)&]+/g) ?? [])];
+  } catch {
+    // A stray % that isn't a valid escape — the raw URL still stands.
+    return [url];
+  }
+}
+
+/**
  * Every address the page mentions: link targets, embedded frames, and
  * anything URL-shaped in the markup. Widgets are often injected by a
  * script, so the raw HTML is worth scanning too.
@@ -376,7 +405,7 @@ async function pageUrls(page: Page): Promise<string[]> {
   } catch {
     // Page navigated or closed mid-scan; whatever was collected stands.
   }
-  return urls;
+  return urls.flatMap(unwrapEncoded);
 }
 
 /**
@@ -564,15 +593,21 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
       }
       found.offer(hit);
 
-      if (BOOKING_HOSTS.test(url)) bookingLinks.add(url.split("#")[0]);
+      // Match on the hostname, not the whole URL. A Stripe iframe quotes
+      // the booking page inside its own fragment, so testing the whole
+      // string makes m.stripe.network look like a booking host and
+      // offers a Stripe address as the link to follow.
+      let host: string | null = null;
+      try {
+        host = new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        continue; // not a parseable URL
+      }
 
-      if (BOOKING_HOSTS.test(url) || /tee.?time|booking|reserve/i.test(url)) {
-        try {
-          const host = new URL(url).hostname.replace(/^www\./, "");
-          if (host !== new URL(p.url()).hostname.replace(/^www\./, "")) bookingHosts.add(host);
-        } catch {
-          // not a parseable URL — ignore
-        }
+      if (BOOKING_HOSTS.test(host)) bookingLinks.add(url.split("#")[0]);
+
+      if (BOOKING_HOSTS.test(host) || /tee.?time|booking|reserve/i.test(new URL(url).pathname)) {
+        if (host !== new URL(p.url()).hostname.replace(/^www\./, "")) bookingHosts.add(host);
       }
     }
   };
