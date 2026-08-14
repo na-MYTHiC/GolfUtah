@@ -13,28 +13,25 @@
 
     Furthest point from centre here is ~157 units, comfortably inside.
 
-    NOT THE PAGE COLOUR. The tile used to be #0b0809, the same near-black
-    as the app background, and it disappeared into a dark wallpaper. A
-    home screen isn't a surface this app controls, so the icon can't
-    assume what it sits on. The ground is now a warm charcoal — same
-    family as the app's surfaces, light enough to read as its own object
-    against a dark wallpaper. The mark steps up to the brighter crimson
-    to hold its contrast against the lighter ground.
-  -->
-  <defs>
-    <!-- A shallow gradient, not a dramatic one. The first attempt ran
-         down to #1e181a, and measured against a #121212 wallpaper the
-         bottom edge came back at a contrast ratio of 1.07 — the lower
-         third of the tile was reintroducing exactly the problem the
-         lighter ground was meant to solve. Both ends now clear the
-         wallpaper; the gradient is there for depth, not for range. -->
-    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3d3336"/>
-      <stop offset="100%" stop-color="#2c2528"/>
-    </linearGradient>
-  </defs>
+    NOT THE PAGE COLOUR, AND FLAT. Two things this tile has to get right,
+    both learned the hard way.
 
-  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+    It was #0b0809 once — the app's own page colour — and it vanished into
+    a dark wallpaper. A home screen isn't a surface this app controls, so
+    the icon can't assume what it sits on. It needs to be lighter than the
+    page is.
+
+    Then it was a gradient, and warm. The warmth read as brown rather than
+    black; the ground is now the same cool near-black family as the app's
+    surfaces, a few steps up the ramp so it still separates from a dark
+    wallpaper. Flat rather than graded because AniLog's icon is, and for
+    its stated reason: solid shapes survive Safari's lossy icon
+    rasterization, gradients and opacity tricks don't.
+
+    The mark stays on the brighter crimson — it's carrying all of the
+    colour now that the ground has none.
+  -->
+  <rect width="512" height="512" rx="112" fill="#2b2b36"/>
 
   <!-- translate to centre, scale up, then shift the mark's own centre
        (12, 12.25 on its grid) back to the origin. Stroke width is given

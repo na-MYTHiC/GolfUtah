@@ -6,8 +6,8 @@
   "scope": "./",
   "id": "/GolfUtah/",
   "display": "standalone",
-  "background_color": "#0b0809",
-  "theme_color": "#0b0809",
+  "background_color": "#0d0d12",
+  "theme_color": "#0d0d12",
   "orientation": "portrait",
   "icons": [
     {

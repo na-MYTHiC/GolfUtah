@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0809",
+  themeColor: "#0d0d12",
   // Fills the notch area on iPhone when launched from the home screen.
   viewportFit: "cover",
 };
