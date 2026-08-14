@@ -11,6 +11,18 @@
 :root {
   color-scheme: dark;
 
+  /*
+   * The notch and the home indicator, named so they compose into calc()
+   * — and so a test browser can override them, since Chrome reports zero
+   * for every inset no matter how the viewport is configured.
+   *
+   * This app sets viewport-fit=cover with a translucent status bar, so on
+   * an iPhone the page genuinely extends under the clock. Anything pinned
+   * to the top of the screen has to pay for that itself.
+   */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
   --surface-0: #0b0809; /* page */
   --surface-1: #161213; /* cards */
   --surface-2: #221c1e; /* chips, inputs */

@@ -108,7 +108,16 @@ export function CourseDetail({
 
   return (
     <div className="min-h-screen bg-surface-0">
-      <main className="mx-auto max-w-2xl px-4 pb-16 pt-4">
+      {/* Nothing is pinned on this page, but viewport-fit=cover still puts
+          the top of the document under the iPhone clock, so the back link
+          needs to clear it. */}
+      <main
+        className="mx-auto max-w-2xl px-4"
+        style={{
+          paddingTop: "calc(1rem + var(--safe-top))",
+          paddingBottom: "calc(4rem + var(--safe-bottom))",
+        }}
+      >
         <a
           href={back}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-2"

@@ -234,8 +234,21 @@ export function Results({
       {/* The header rides with the controls rather than scrolling away
           from them. The wordmark is also the clear-everything button,
           which is exactly what you want within reach after scrolling
-          into a filtered dead end. */}
-      <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-2 pt-2 backdrop-blur-lg">
+          into a filtered dead end.
+
+          It must be the first thing in the scroll container with nothing
+          above it — `sticky top-0` pins at 0, so any padding on an
+          ancestor scrolls past first and the bar visibly slides up by
+          that much before catching. `main` therefore carries no top
+          padding; the space below the header belongs to the header.
+
+          The top padding is the notch: with viewport-fit=cover the pinned
+          position is the true top of the screen, which on an iPhone is
+          behind the clock. */}
+      <div
+        className="sticky top-0 z-20 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-2 backdrop-blur-lg"
+        style={{ paddingTop: "calc(0.5rem + var(--safe-top))" }}
+      >
         <AppHeader />
         <DateStrip today={today} active={date} />
         <div className="flex items-center gap-2 pt-2">
