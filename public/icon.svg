@@ -12,15 +12,27 @@
     its tee to a circular mask can't happen again.
 
     Furthest point from centre here is ~157 units, comfortably inside.
+
+    NOT THE PAGE COLOUR. The tile used to be #0b0809, the same near-black
+    as the app background, and it disappeared into a dark wallpaper. A
+    home screen isn't a surface this app controls, so the icon can't
+    assume what it sits on. The ground is now a warm charcoal — same
+    family as the app's surfaces, light enough to read as its own object
+    against a dark wallpaper. The mark steps up to the brighter crimson
+    to hold its contrast against the lighter ground.
   -->
   <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b3134"/>
+      <stop offset="100%" stop-color="#1e181a"/>
+    </linearGradient>
     <radialGradient id="glow" cx="50%" cy="50%" r="52%">
-      <stop offset="0%" stop-color="#dc143c" stop-opacity="0.26"/>
+      <stop offset="0%" stop-color="#dc143c" stop-opacity="0.34"/>
       <stop offset="100%" stop-color="#dc143c" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
-  <rect width="512" height="512" rx="112" fill="#0b0809"/>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
   <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
 
   <!-- translate to centre, scale up, then shift the mark's own centre
@@ -29,7 +41,7 @@
   <g
     transform="translate(256 256) scale(16) translate(-12 -12.25)"
     fill="none"
-    stroke="#dc143c"
+    stroke="#f0325a"
     stroke-width="1.8"
     stroke-linejoin="round"
   >
