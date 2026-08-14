@@ -65,6 +65,19 @@ export function TeeTimeRow({
   // out by phone light on fourteen.
   const light = daylight(booking.sunset, booking.time, booking.holes);
 
+  // Which nine you're going out on, when the platform actually said.
+  //
+  // "Back" is worth a word at any length — an eighteen off the back tee
+  // is a different afternoon. "Front" only earns its space on a nine,
+  // where it's the answer to a real question; on an eighteen it's the
+  // default and says nothing.
+  //
+  // A blank here means the platform didn't tell us, not that it's the
+  // front — ForeUp and Chronogolf only reveal a side when the course
+  // happens to name its sheet for one. See lib/adapters/*.ts.
+  const sideLabel =
+    booking.side === "Back" ? "Back" : booking.side === "Front" && booking.holes === 9 ? "Front" : null;
+
   return (
     <li>
       <a
@@ -124,18 +137,16 @@ export function TeeTimeRow({
             )}
             {/* Spelled out where it fits. Moving conditions into their
                 own column bought back the room for the word — but a row
-                that also carries "Back" runs out again at 360px inside a
+                that also carries a side runs out again at 360px inside a
                 card, and a clipped "4 ope" is worse than "18h". */}
             <span className="font-medium text-text-2">
               {booking.holes}
-              {booking.side === "Back" ? "h" : " holes"}
+              {sideLabel ? "h" : " holes"}
             </span>
-            {/* Only the back nine is worth a word. "Front" is the default
-                and says nothing, while costing the same space. */}
-            {booking.side === "Back" && (
+            {sideLabel && (
               <>
                 <Dot />
-                <span>Back</span>
+                <span>{sideLabel}</span>
               </>
             )}
             <Dot />

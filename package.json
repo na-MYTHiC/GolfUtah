@@ -26,7 +26,8 @@
     "teerocket:probe": "tsx scripts/teerocket-probe.ts",
     "build:data": "tsx scripts/build-data.ts",
     "osm": "tsx scripts/fetch-osm.ts",
-    "icons": "node scripts/gen-icons.mjs"
+    "icons": "node scripts/gen-icons.mjs",
+    "sides": "tsx scripts/side-coverage.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

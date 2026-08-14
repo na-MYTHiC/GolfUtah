@@ -128,12 +128,26 @@ gives one, and a ready-to-paste seed entry.
 
 Worth knowing before chasing a bug that isn't one.
 
-| Platform | Courses | Links to a specific day? |
-|---|---|---|
-| ForeUp | 23 | yes |
-| Chronogolf | 14 | yes — to the exact slot |
-| MemberSports | 6 | **no** |
-| TeeItUp | 4 | date in the query, unverified |
+| Platform | Courses | Links to a specific day? | Says front/back nine? |
+|---|---|---|---|
+| ForeUp | 23 | yes | only if the course names its sheet |
+| Chronogolf | 14 | yes — to the exact slot | only if the club splits the nine out |
+| MemberSports | 6 | **no** | yes — a real flag on every slot |
+| TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
+
+MemberSports and TeeItUp send a boolean, so the nine is always known.
+ForeUp and Chronogolf send neither — the side is read out of a *name*
+(ForeUp's tee sheet, Chronogolf's course), which only mentions a nine
+when the course happens to label it that way. A row with no side means
+the course didn't say, not that it's the front.
+
+```
+npm run sides
+```
+
+Counts it per course against the published data, and lists the ones that
+never say. Those aren't adapter gaps to fix — their booking systems
+don't publish it.
 
 MemberSports keeps the selected date in its app state rather than the
 URL — two different days produce byte-for-byte identical addresses. Those
