@@ -1,4 +1,5 @@
 import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
+import { politeFetch } from "./http";
 
 /**
  * TeeItUp (Kenna) — confirmed against a real capture on 2026-08-12 for
@@ -115,7 +116,8 @@ async function fetchOneDate(
     returnPromotedRates: "true",
   });
 
-  const resp = await fetch(`${API}?${params}`, {
+  const resp = await politeFetch(`${API}?${params}`, {
+    label: "TeeItUp",
     headers: {
       accept: "application/json, text/plain, */*",
       origin: `https://${alias}.${BOOKING_HOST}`,

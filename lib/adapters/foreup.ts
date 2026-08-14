@@ -1,4 +1,5 @@
 import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
+import { politeFetch, BROWSER_UA } from "./http";
 
 /**
  * ForeUp adapter — confirmed against a real capture from Sun Hills Golf
@@ -140,9 +141,7 @@ export function foreUpBookingUrl(
   return `${base}?${params}#/teetimes`;
 }
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
+const UA = BROWSER_UA;
 
 /**
  * PHPSESSID per course+schedule.
@@ -157,13 +156,37 @@ const UA =
 const sessions = new Map<string, { cookie: string; at: number }>();
 const SESSION_TTL_MS = 20 * 60 * 1000;
 
+/**
+ * In-flight session fetches, so N callers asking at once cost one page
+ * load rather than N.
+ *
+ * This became load-bearing when the build started fetching several days
+ * at a time: the cache is only populated once a response comes back, so
+ * concurrent first-callers for the same course all missed it and all
+ * loaded the booking page. That's the heaviest request this adapter
+ * makes — a full HTML page, purely to be handed a cookie — and doing it
+ * three times per course per run is exactly the sort of thing that gets
+ * an aggregator noticed for the wrong reason.
+ */
+const inFlight = new Map<string, Promise<string | undefined>>();
+
 async function getSession(ids: ForeUpIds): Promise<string | undefined> {
   const key = `${ids.courseId}:${ids.scheduleId}`;
   const hit = sessions.get(key);
   if (hit && Date.now() - hit.at < SESSION_TTL_MS) return hit.cookie;
 
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+
+  const run = fetchSession(ids, key).finally(() => inFlight.delete(key));
+  inFlight.set(key, run);
+  return run;
+}
+
+async function fetchSession(ids: ForeUpIds, key: string): Promise<string | undefined> {
   try {
-    const resp = await fetch(bookingPageUrl(ids.courseId, ids.scheduleId), {
+    const resp = await politeFetch(bookingPageUrl(ids.courseId, ids.scheduleId), {
+      label: "ForeUp session",
       headers: { accept: "text/html,application/xhtml+xml", "user-agent": UA },
     });
 
@@ -209,7 +232,8 @@ async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]>
 
   const cookie = await getSession(ids);
 
-  const resp = await fetch(`${API_BASE}/times?${params}`, {
+  const resp = await politeFetch(`${API_BASE}/times?${params}`, {
+    label: "ForeUp",
     headers: {
       accept: "application/json, text/javascript, */*; q=0.01",
       "accept-language": "en-US,en;q=0.5",

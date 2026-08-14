@@ -27,7 +27,8 @@
     "build:data": "tsx scripts/build-data.ts",
     "osm": "tsx scripts/fetch-osm.ts",
     "icons": "node scripts/gen-icons.mjs",
-    "sides": "tsx scripts/side-coverage.ts"
+    "sides": "tsx scripts/side-coverage.ts",
+    "simulate": "tsx --import ./scripts/netsim.ts scripts/build-data.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

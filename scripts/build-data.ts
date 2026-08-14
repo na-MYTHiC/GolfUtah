@@ -31,10 +31,15 @@
  * --near alone it would, which is what made a finer-grained schedule
  * cost more than it should.
  *
+ * Fetching is pipelined across days rather than done a day at a time —
+ * see fetchAll(). Same request count, same per-platform ceiling, but a
+ * platform that finishes today's courses starts on tomorrow's instead of
+ * waiting for the slowest platform to catch up.
+ *
  * Usage:
  *   npx tsx scripts/build-data.ts [--days 10] [--fresh 0-2] [--near 10]
  *                                 [--reuse https://user.github.io/repo]
- *                                 [--out public/data]
+ *                                 [--budget 240] [--out public/data]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { COURSES } from "../lib/courses.data";
@@ -44,12 +49,40 @@ import { todayInUtah, addDays } from "../lib/format";
 import type { Course } from "@prisma/client";
 
 /**
- * Simultaneous requests to any one booking platform. Fourteen Chronogolf
- * courses firing at once looks like a stampede from their side; a few at
- * a time looks like people browsing. Different platforms run in
- * parallel, so this costs little wall-clock time.
+ * Simultaneous requests to any one booking platform, scaled to how many
+ * courses that platform serves.
+ *
+ * It used to be a flat 3 for everyone, and that turned out to be the
+ * thing setting the length of every run. ForeUp carries 23 of the 47
+ * courses and Chronogolf 14, but both got the same three slots as
+ * TeeItUp's four — so on a ten-day tick ForeUp needed ~85 sequential
+ * rounds and took ~60s, while Chronogolf finished in ~21s and then sat
+ * idle for the remaining 38. The run was never bounded by the schedule
+ * or by the day-by-day structure; it was bounded by one platform's queue.
+ *
+ * WHY RAISING THIS IS NOT RUDE, which is the part worth being careful
+ * about. What a golf course could reasonably object to is how often its
+ * own tee sheet is polled, and that is completely unchanged: every
+ * course is asked exactly once per day per run either way. This number
+ * only decides how many *different* courses' sheets are in flight at the
+ * same instant against a shared SaaS host — and foreupsoftware.com
+ * serves thousands of courses. Six concurrent is less than one person
+ * opening one booking page in a browser.
+ *
+ * One slot per four courses, floored at 2 so a small platform still
+ * overlaps, capped at 6 so a platform that grows can't quietly turn into
+ * a stampede without someone changing this line.
  */
-const PER_PLATFORM_CONCURRENCY = 3;
+const COURSES_PER_SLOT = 4;
+const MIN_CONCURRENCY = 2;
+const MAX_CONCURRENCY = 6;
+
+function concurrencyFor(courseCount: number): number {
+  return Math.max(
+    MIN_CONCURRENCY,
+    Math.min(MAX_CONCURRENCY, Math.ceil(courseCount / COURSES_PER_SLOT))
+  );
+}
 
 /**
  * How stale a carried-over day may be before it's refetched anyway.
@@ -247,26 +280,97 @@ async function fetchCourse(
   return base;
 }
 
-/** Fetches one day across every course, a few per platform at a time. */
-async function fetchDay(
-  date: string,
-  ratings: Map<string, StaticCourse["rating"]>
-): Promise<StaticCourse[]> {
-  const byPlatform = new Map<string, (typeof COURSES)[number][]>();
-  for (const seed of COURSES) {
-    byPlatform.set(seed.platform, [...(byPlatform.get(seed.platform) ?? []), seed]);
+/**
+ * Every (course, day) that needs fetching, run as one pipeline per
+ * platform instead of one pass per day.
+ *
+ * THE PROBLEM THIS SOLVES. Days used to be fetched strictly in
+ * sequence: all courses for today, then all courses for tomorrow, and
+ * so on. Within a day the platforms ran in parallel, so each pass took
+ * as long as its *slowest* platform — and every other platform sat idle
+ * waiting for it before the next day could start. On a ten-day tick
+ * that idle time was paid ten times over.
+ *
+ * Flattening the work removes the barrier between days without changing
+ * anything a booking system can see: still at most
+ * PER_PLATFORM_CONCURRENCY requests in flight per platform, still the
+ * same total number of requests. The only difference is that a platform
+ * that finishes early gets on with the next day instead of waiting.
+ *
+ * ORDERING IS DAY-MAJOR, and deliberately so. The queue is walked in
+ * order, so day-major means the three in-flight requests for a platform
+ * are three *different courses* on the same day. Course-major would put
+ * three days of the same course in flight at once — which is the same
+ * volume aimed at one course rather than spread across the platform,
+ * and for ForeUp it would also race three callers into the same session
+ * fetch. It also means each course's days arrive in order, so its
+ * session is established once and reused.
+ */
+interface Job {
+  seed: (typeof COURSES)[number];
+  /** Index into `dates`, not a day offset from today. */
+  dayIndex: number;
+  date: string;
+}
+
+async function fetchAll(
+  jobs: Job[],
+  ratings: Map<string, StaticCourse["rating"]>,
+  deadline: number | null
+): Promise<Map<string, StaticCourse>> {
+  const byPlatform = new Map<string, Job[]>();
+  for (const job of jobs) {
+    byPlatform.set(job.seed.platform, [...(byPlatform.get(job.seed.platform) ?? []), job]);
   }
 
-  // Platforms in parallel, courses within a platform rate-limited.
-  const perPlatform = await Promise.all(
-    [...byPlatform.values()].map((seeds) =>
-      mapWithLimit(seeds, PER_PLATFORM_CONCURRENCY, (seed) =>
-        fetchCourse(seed, date, ratings.get(seed.name))
-      )
-    )
+  const results = new Map<string, StaticCourse>();
+  const skipped = new Map<string, number>();
+  const timing = new Map<string, number>();
+
+  await Promise.all(
+    [...byPlatform.entries()].map(async ([platform, list]) => {
+      const started = Date.now();
+      const courses = new Set(list.map((j) => j.seed.slug)).size;
+      await mapWithLimit(list, concurrencyFor(courses), async (job) => {
+        // Past the deadline we stop *starting* work rather than killing
+        // what's running. Whatever didn't get picked up falls back to the
+        // published copy, which is better than publishing a course as
+        // having no times when we simply never asked.
+        if (deadline != null && Date.now() > deadline) {
+          skipped.set(platform, (skipped.get(platform) ?? 0) + 1);
+          return;
+        }
+        results.set(
+          `${job.dayIndex}:${job.seed.slug}`,
+          await fetchCourse(job.seed, job.date, ratings.get(job.seed.name))
+        );
+      });
+      timing.set(platform, Date.now() - started);
+    })
   );
 
-  return perPlatform.flat();
+  // Printed every run because it's the one number that says whether the
+  // concurrency split is still right: platforms should finish close
+  // together, and whichever is slowest is what a shorter tick would have
+  // to beat.
+  const order = [...timing].sort((a, b) => b[1] - a[1]);
+  console.log(
+    "  " +
+      order
+        .map(([p, ms]) => {
+          const n = new Set(
+            (byPlatform.get(p) ?? []).map((j) => j.seed.slug)
+          ).size;
+          return `${p} ${(ms / 1000).toFixed(1)}s (${n} courses, ${concurrencyFor(n)} at a time)`;
+        })
+        .join("; ")
+  );
+
+  for (const [platform, n] of skipped) {
+    console.log(`  ${platform}: ${n} course-day(s) skipped — past the deadline`);
+  }
+
+  return results;
 }
 
 /**
@@ -328,6 +432,17 @@ async function main() {
   const outDir = arg("out", "public/data");
   const today = todayInUtah();
 
+  /**
+   * When to stop starting new fetches, as an absolute time.
+   *
+   * The job this runs under has its own timeout, and hitting that kills
+   * the run before anything is written — so a single slow platform
+   * doesn't cost one course, it costs the deploy. This lands first and
+   * publishes what's in hand. 0 disables it.
+   */
+  const budget = Number(arg("budget", "0"));
+  const deadline = budget > 0 ? Date.now() + budget * 1000 : null;
+
   mkdirSync(outDir, { recursive: true });
 
   // Ratings and reviews, either carried over from the published site or
@@ -365,26 +480,67 @@ async function main() {
   let reused = 0;
   let undatedLinks = 0;
 
+  // Carried days first, and in parallel — they're reads of our own
+  // published site, so there's nothing to be polite about, and doing
+  // them up front means the answer is in hand if a fresh day later needs
+  // to fall back to one.
+  const carried = new Map<number, DayFile>();
+  if (reuse) {
+    const wanted = dates.map((date, i) => ({ date, i })).filter(({ i }) => !fresh.has(i));
+    await Promise.all(
+      wanted.map(async ({ date, i }) => {
+        const file = await reuseDay(reuse, date);
+        if (file) carried.set(i, file);
+      })
+    );
+    reused = carried.size;
+  }
+
+  const started = Date.now();
+  const jobs: Job[] = dates.flatMap((date, dayIndex) =>
+    fresh.has(dayIndex) || !carried.has(dayIndex)
+      ? COURSES.map((seed) => ({ seed, dayIndex, date }))
+      : []
+  );
+
+  console.log(`Fetching ${jobs.length} course-day(s)…`);
+  const fetched = await fetchAll(jobs, ratings, deadline);
+  const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+  console.log(`Fetched in ${elapsed}s`);
+
   for (const [i, date] of dates.entries()) {
-    let file: DayFile | null = null;
-    let carriedOver = false;
+    const carriedOver = carried.has(i) && !fresh.has(i);
 
-    if (!fresh.has(i) && reuse) {
-      const carried = await reuseDay(reuse, date);
-      if (carried) {
-        file = carried;
-        carriedOver = true;
-        reused++;
-      }
-    }
-
-    if (!file) {
-      file = {
-        date,
-        generatedAt: new Date().toISOString(),
-        courses: await fetchDay(date, ratings),
-      };
-    }
+    // A fresh day is assembled per course rather than wholesale, so a
+    // course the deadline cut off falls back to its published entry on
+    // its own — the rest of the day is still this run's data.
+    const file: DayFile = carriedOver
+      ? carried.get(i)!
+      : {
+          date,
+          generatedAt: new Date().toISOString(),
+          courses: COURSES.map((seed) => {
+            const got = fetched.get(`${i}:${seed.slug}`);
+            if (got) return got;
+            const fallback = carried.get(i)?.courses.find((c) => c.slug === seed.slug);
+            return (
+              fallback ?? {
+                id: `${seed.platform}:${seed.externalId}`,
+                name: seed.name,
+                slug: seed.slug,
+                city: seed.city,
+                county: seed.county,
+                platform: seed.platform,
+                bookingUrl: seed.bookingUrl,
+                lat: seed.latitude,
+                lon: seed.longitude,
+                rating: ratings.get(seed.name),
+                slots: [],
+                error: "not fetched this run",
+              }
+            );
+          }),
+        };
 
     writeFileSync(`${outDir}/${date}.json`, JSON.stringify(file));
 

@@ -164,6 +164,78 @@ Two platforms are detected but have no adapter, both parked deliberately:
 
 ---
 
+## How often times refresh, and what actually limits it
+
+Five minutes is the floor. GitHub won't schedule a workflow more often
+than that, so there is no version of this that polls every minute
+without moving off Pages entirely.
+
+Within that, the schedule is tiered:
+
+| days | refreshed |
+|---|---|
+| today → +3 | every 5 minutes |
+| +4 → +6 | every 15 minutes |
+| +7 → +9 | every 30 minutes |
+
+66 day-fetches an hour. Every course is asked exactly **once per day per
+run** — that number is what a course operator would care about, and none
+of the tuning below changes it.
+
+### What was actually slow
+
+The run used to be bounded by one platform. Every platform got the same
+3 concurrent slots, but ForeUp carries 23 of the 47 courses and TeeItUp
+carries 4 — so on a ten-day tick ForeUp needed ~85 sequential rounds and
+took ~60s while Chronogolf finished in ~21s and idled for the rest.
+
+Concurrency now scales with course count (one slot per four courses,
+2–6). Same requests, same once-per-course-per-day, roughly half the
+wall clock:
+
+| tick | before | after |
+|---|---|---|
+| 4 days | 27.7s | 13.5s |
+| 7 days | 43.1s | 21.7s |
+| 10 days | ~60s | 29.7s |
+
+Restructuring the fetch to pipeline across days instead of doing one day
+at a time was tried first and made **no difference at all** (61.5s →
+60.6s) — because ForeUp was the slowest platform on every individual
+day, so there was never any waiting to eliminate. The pipelining was
+kept because it's the right shape, but the concurrency split is what
+actually did it.
+
+### Re-measuring after a change
+
+```
+npm run simulate -- --days 10 --fresh 0-9 --budget 150 --out /tmp/sim
+```
+
+Fakes the four platforms and runs the real adapters, limiter and
+scheduler against them. Prints per-platform time, request counts and
+peak concurrency. `SLOW_HOST=membersports npm run simulate -- …` hangs
+one host, which is how the timeout and `--budget` paths get exercised.
+
+The latencies in `scripts/netsim.ts` are estimates — nothing in a
+sandbox can measure the real ones. Compare strategies with it; don't
+read the absolute seconds as a prediction.
+
+### If a platform starts blocking
+
+In rough order of what to reach for:
+
+1. Raise `COURSES_PER_SLOT` in `scripts/build-data.ts` — fewer
+   concurrent requests per platform, longer runs.
+2. Slow the far tiers in `.github/workflows/deploy.yml`.
+3. Drop `MAX_CONCURRENCY`.
+
+Requests now identify themselves as `GolfUtahBot` with a link back (see
+`lib/adapters/http.ts`), so a course that wants this stopped can find
+out how rather than just blackholing an anonymous IP.
+
+---
+
 ## Optional: OpenStreetMap course facts
 
 ```

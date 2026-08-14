@@ -1,4 +1,5 @@
 import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
+import { politeFetch } from "./http";
 
 /**
  * Chronogolf (Lightspeed Golf) — confirmed against a real capture from
@@ -151,7 +152,8 @@ async function fetchPage(
     page: String(page),
   });
 
-  const resp = await fetch(`${API}?${params}`, {
+  const resp = await politeFetch(`${API}?${params}`, {
+    label: "Chronogolf",
     headers: {
       accept: "application/json",
       referer: "https://www.chronogolf.com/",

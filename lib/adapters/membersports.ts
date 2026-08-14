@@ -1,4 +1,5 @@
 import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
+import { politeFetch } from "./http";
 
 /**
  * MemberSports adapter — confirmed against a real capture from Eaglewood
@@ -86,7 +87,8 @@ async function fetchOneDate(
   golfCourseId: number,
   date: string
 ): Promise<RawTeeTimeBucket[]> {
-  const resp = await fetch(`${API_BASE}/golfclubs/onlineBookingTeeTimes`, {
+  const resp = await politeFetch(`${API_BASE}/golfclubs/onlineBookingTeeTimes`, {
+    label: "MemberSports",
     method: "POST",
     headers: {
       accept: "application/json",
