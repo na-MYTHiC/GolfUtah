@@ -22,18 +22,19 @@
     to hold its contrast against the lighter ground.
   -->
   <defs>
+    <!-- A shallow gradient, not a dramatic one. The first attempt ran
+         down to #1e181a, and measured against a #121212 wallpaper the
+         bottom edge came back at a contrast ratio of 1.07 — the lower
+         third of the tile was reintroducing exactly the problem the
+         lighter ground was meant to solve. Both ends now clear the
+         wallpaper; the gradient is there for depth, not for range. -->
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3b3134"/>
-      <stop offset="100%" stop-color="#1e181a"/>
+      <stop offset="0%" stop-color="#3d3336"/>
+      <stop offset="100%" stop-color="#2c2528"/>
     </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="50%" r="52%">
-      <stop offset="0%" stop-color="#dc143c" stop-opacity="0.34"/>
-      <stop offset="100%" stop-color="#dc143c" stop-opacity="0"/>
-    </radialGradient>
   </defs>
 
   <rect width="512" height="512" rx="112" fill="url(#tile)"/>
-  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
 
   <!-- translate to centre, scale up, then shift the mark's own centre
        (12, 12.25 on its grid) back to the origin. Stroke width is given
