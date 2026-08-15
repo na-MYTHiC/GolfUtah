@@ -122,6 +122,20 @@ class Collector {
   }
 }
 
+/**
+ * Fills in the Chronogolf club slug the API response can't supply.
+ *
+ * fromChronogolf reads course uuids out of the teetimes request, whose
+ * URL never mentions the club — so it emits a "<slug>" placeholder and
+ * relies on the caller knowing where it was. Leaving that in the output
+ * meant every Chronogolf find needed hand-editing before it could be
+ * pasted.
+ */
+function withSlug(ids: Ids | undefined, slug: string | undefined): Ids | undefined {
+  if (!ids || !slug || !ids.externalId.startsWith("<slug>:")) return ids;
+  return { ...ids, externalId: ids.externalId.replace("<slug>", slug) };
+}
+
 /** More colons means more ids; a response hit outranks a URL hit. */
 function rank(ids: Ids): number {
   return ids.externalId.split(":").length * 2 + (ids.source.includes("response") ? 1 : 0);
@@ -583,8 +597,15 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
 
   // Chronogolf's API is addressed by uuid and never mentions the club
   // slug, but the seed entry needs both. The slug only ever appears in
-  // the link that got us there, so it's kept aside and stitched back on.
-  let chronoSlug: string | undefined;
+  // the link that got us there, so it's kept aside and stitched back on
+  // by withSlug() below.
+  //
+  // Seeded from the target address first: running this against a club
+  // page directly is the one case where the slug is known before a
+  // single request goes out, and without this the output carried a
+  // literal "<slug>:" that someone then had to fix by hand.
+  let chronoSlug: string | undefined =
+    /chronogolf\.com\/club\/([a-z0-9-]+)/i.exec(target.url)?.[1];
 
   /** Links to a booking platform, to be followed when nothing else works. */
   const bookingLinks = new Set<string>();
@@ -678,7 +699,7 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
       await followUp(context, partial, found);
     }
 
-    const ids = found.result;
+    const ids = withSlug(found.result, chronoSlug);
     if (ids) return { ...target, ids };
 
     const pageText = await page
@@ -695,7 +716,7 @@ async function inspect(browser: Browser, target: Target): Promise<Finding> {
     };
   } catch (err) {
     // A timeout after a sighting still counts — the ids are real.
-    const ids = found.result;
+    const ids = withSlug(found.result, chronoSlug);
     if (ids) return { ...target, ids };
     return { ...target, note: (err as Error).message.split("\n")[0] };
   } finally {
@@ -747,6 +768,27 @@ function foreUpNeedingClass(): Target[] {
   });
 }
 
+/**
+ * A usable course name from a bare URL, for the one-off mode.
+ *
+ * It used to put the whole address in `name`, which then became a slug
+ * reading "https-www-chronogolf-com-club-the-outlaw-golf-club". The last
+ * path segment is nearly always the club's own slug, and title-casing it
+ * gets close enough to paste.
+ */
+function nameFromUrl(url: string): string {
+  try {
+    const last = new URL(url).pathname.split("/").filter(Boolean).pop();
+    if (!last) return url;
+    return last
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+  } catch {
+    return url;
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const headed = args.includes("--headed");
@@ -759,7 +801,7 @@ async function main() {
   );
 
   const targets: Target[] = urls.length
-    ? urls.map((url) => ({ name: url, url }))
+    ? urls.map((url) => ({ name: nameFromUrl(url), url }))
     : refresh
       ? foreUpNeedingClass()
       : unseededCandidates();

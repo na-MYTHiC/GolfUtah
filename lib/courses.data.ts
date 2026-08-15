@@ -694,6 +694,21 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.947,
   },
   {
+    name: "The Outlaw Golf Club",
+    slug: "the-outlaw-golf-club",
+    county: "Wasatch",
+    city: "Hideout",
+    platform: "CHRONOGOLF",
+    // Two surveys reported "no booking link or traffic found" because
+    // the candidate pointed at the course's own website, which links
+    // nowhere the script can follow. Aimed at the Chronogolf club page
+    // instead, the widget's own request gave the uuid immediately.
+    externalId: "the-outlaw-golf-club:186edea3-3b65-436e-bbd6-8ddf79ac1633",
+    bookingUrl: "https://www.chronogolf.com/club/the-outlaw-golf-club",
+    latitude: 40.594,
+    longitude: -111.411,
+  },
+  {
     name: "Park City Golf Club",
     slug: "park-city-golf-club",
     county: "Summit",

@@ -89,6 +89,15 @@ Still open:
 - **Park City Golf Club** is seeded — MemberSports `15426:18944`. Two
   discovery passes found no booking link; the ids came straight from the
   app URL.
+- **The Outlaw Golf Club** is seeded — Chronogolf. Same story: the
+  candidate pointed at the course's own site, which links nowhere the
+  script can follow. Pointed at the club's Chronogolf page, it resolved
+  on the first try.
+
+**The pattern in both:** "no booking link or traffic found" usually means
+the *course's website* is unhelpful, not that the course is unreachable.
+Finding the booking page by hand once and putting that URL in the
+candidate list is the fix, and it sticks.
 - **Canyons** is on quick18, **Birch Creek** on golfrev, **Golf the
   Round** on TeeItUp but as a driving range. No adapters for any.
 - **Crane Field** is seeded. It had been failing since the first survey
@@ -190,7 +199,7 @@ Worth knowing before chasing a bug that isn't one.
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
 | ForeUp | 27 | yes | only if the course names its sheet |
-| Chronogolf | 14 | yes — to the exact slot | only if the club splits the nine out |
+| Chronogolf | 15 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 7 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
