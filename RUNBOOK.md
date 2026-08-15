@@ -131,33 +131,28 @@ own address before seeding anything from a sweep.
 Cove View (Richfield) was the only other Utah course on that tenant and
 is seeded, identified by name alone.
 
-**Open question on both new seeds.** A refresh run pointed at
-`/booking/19197/1259` (Mt. Ogden) and `/booking/19197/1265` (Cove View)
-came back reporting El Monte, schedule 1258 — the account's default
-sheet. Asking the API directly for 1259 does return Mt. Ogden with 64
-slots, so the *data* is right; it's the *booking link* that's in doubt.
+**The booking link problem, and how it was diagnosed.** A refresh
+pointed at `/booking/19197/1259` (Mt. Ogden) came back reporting El
+Monte, schedule 1258 — twice. Opening it in a browser confirmed it: the
+page really does serve El Monte.
 
-The likely explanation is that on a multi-tenant account the second path
-segment isn't the schedule id — the widget selects the sheet in-app off
-the hash route. If so, times shown for these two are correct but tapping
-one may hand the golfer El Monte's checkout.
+The path is `/booking/<bookingSiteId>/<scheduleId>`, and **a booking site
+belongs to one course**. 19197 is *El Monte's* site. Asking the API under
+it for schedule 1259 still returns Mt. Ogden's times, so the data was
+never wrong — but a booking link built from 19197 sends the golfer to El
+Monte's checkout.
 
-To settle it, open both URLs and see which course's name the page shows.
-If it's El Monte, their booking links need to come from the courses' own
-websites instead.
-
-If the booking page won't load but you know the ids:
+ForeUp reports the real owner on every response row as `course_id`, which
+the script was discarding. It now surfaces it, flags any sheet whose
+owner differs from the id swept, and builds the seed entry from the owner
+rather than the sweep id:
 
 ```
-npm run foreup:schedules -- 19197 --ids 1258,1259
+npm run foreup:schedules -- 19197 --ids 1259,1265
 ```
 
-That skips the browser and just does the naming, which is the half that
-matters. If both ids come back with the *same* name, that's ForeUp's
-answer — they really are one course, and only one should be seeded.
-
-Works for any city running several courses on one ForeUp account, not
-just Ogden.
+Re-run that and the output will name Mt. Ogden's and Cove View's real
+course ids.
 
 **Schneiter's Bluff and Schneiter's Riverside.** Same shape, same
 reason: both pages resolve to TeeRocket group `YFlPUck58D81fB5Kqqa8`,

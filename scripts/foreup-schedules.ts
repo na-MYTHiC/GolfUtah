@@ -40,6 +40,21 @@ const SETTLE_MS = 4_000;
 
 interface Sheet {
   scheduleId: number;
+  /**
+   * The course id ForeUp reports on the response rows, which is not
+   * necessarily the one the request was made under.
+   *
+   * This is the field that untangled Ogden. Asking under 19197 for
+   * schedule 1259 returns Mt. Ogden's times — but loading
+   * /booking/19197/1259 in a browser serves El Monte, because 19197 is
+   * *El Monte's booking site*. The path is /booking/<bookingSiteId>/
+   * <scheduleId>, and a booking site belongs to one course. So a booking
+   * link built from the id you swept under sends the golfer to whoever
+   * owns that site, not to the course whose times you're showing.
+   *
+   * The response knows better, and says so on every row.
+   */
+  ownerId?: number;
   /** What ForeUp calls it, once a times response has named it. */
   courseName?: string;
   bookingClassId?: number;
@@ -210,6 +225,7 @@ async function probe(
       const rows = (await resp.json()) as {
         course_name?: string;
         booking_class_id?: number;
+        course_id?: number;
       }[];
       if (!Array.isArray(rows) || rows.length === 0) continue;
 
@@ -220,6 +236,9 @@ async function probe(
       return {
         courseName: rows.find((r) => r.course_name)?.course_name,
         bookingClassId: rows.find((r) => r.booking_class_id)?.booking_class_id,
+        // The id the *course* belongs to, which is not always the one we
+        // asked under. See ownerId on Sheet.
+        ownerId: rows.find((r) => r.course_id)?.course_id,
         slots: rows.length,
       };
     } catch (err) {
@@ -245,11 +264,13 @@ async function report(courseId: number, ids: Set<number>) {
   for (const id of [...ids].sort((a, b) => a - b)) {
     const info = await identify(id, courseId);
     sheets.push({ scheduleId: id, ...info });
+    const owned = info.ownerId && info.ownerId !== courseId;
     console.log(
       `  ${courseId}:${id}`.padEnd(18) +
         (info.courseName
           ? `${info.courseName}${info.bookingClassId ? ` (booking class ${info.bookingClassId})` : ""}` +
-            `  — ${info.slots} slot(s)`
+            `  — ${info.slots} slot(s)` +
+            (owned ? `  [belongs to course ${info.ownerId}]` : "")
           : `— ${info.note}`)
     );
   }
@@ -305,6 +326,17 @@ async function report(courseId: number, ids: Set<number>) {
     console.log("");
   }
 
+  const rehomed = real.filter((s) => s.ownerId && s.ownerId !== courseId);
+  if (rehomed.length) {
+    console.log(
+      `${rehomed.length} sheet(s) report a different course id than the one swept.\n` +
+        "The entries below use the id ForeUp reported, not the one asked under —\n" +
+        "a booking link built from the sweep id lands on whoever owns that\n" +
+        "booking site instead of the course whose times you're showing."
+    );
+    console.log("");
+  }
+
   console.log("Paste into lib/courses.data.ts:\n");
   for (const s of real) {
     console.log(`  {
@@ -313,8 +345,8 @@ async function report(courseId: number, ids: Set<number>) {
     county: "", // TODO
     city: "", // TODO
     platform: "FOREUP",
-    externalId: "${courseId}:${s.scheduleId}${s.bookingClassId ? `:${s.bookingClassId}` : ""}",
-    bookingUrl: "${BOOKING}/${courseId}/${s.scheduleId}#/teetimes",
+    externalId: "${s.ownerId ?? courseId}:${s.scheduleId}${s.bookingClassId ? `:${s.bookingClassId}` : ""}",
+    bookingUrl: "${BOOKING}/${s.ownerId ?? courseId}/${s.scheduleId}#/teetimes",
     latitude: 0, // TODO
     longitude: 0, // TODO
   },`);
