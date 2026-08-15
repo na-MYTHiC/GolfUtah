@@ -16,10 +16,13 @@
  *                 been listing nothing rather than listing short.
  *
  *                 24 of 26 have one. The two without are Mt. Ogden and
- *                 Cove View: a refresh against their booking links
- *                 resolves to El Monte's sheet, so the class it captures
- *                 isn't theirs to take. Both may be showing incomplete
- *                 times, and the UI says so.
+ *                 Cove View, which were found by sweeping schedule ids
+ *                 rather than from a booking page — the sweep names a
+ *                 course and reports its owner, but never sees the
+ *                 widget's own request, which is where the class lives.
+ *                 Both answer without one, so they list *something*;
+ *                 whether it's the whole sheet is unconfirmed, and the
+ *                 UI says so.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -675,24 +678,18 @@ export const COURSES: CourseSeed[] = [
     county: "Weber",
     city: "Ogden",
     platform: "FOREUP",
-    // The sibling sheet, found by sweeping schedule ids under 19197 —
-    // nothing on the web links to it, because Ogden City's Mt Ogden page
-    // points at El Monte's booking page instead. Asking the API directly
-    // for schedule 1259 returns "Mt. Ogden Golf Course" with 64 slots,
-    // so the data path is right.
+    // Nothing on the web links here: Ogden City's Mt Ogden page points at
+    // El Monte's booking page, which is what made this course invisible
+    // to two discovery passes. It was found by sweeping schedule ids
+    // under El Monte's booking site.
     //
-    // THE BOOKING LINK BELOW IS NOT VERIFIED. A refresh run pointed at
-    // it came back reporting El Monte, schedule 1258 — so loading
-    // /booking/19197/1259 appears to land on the account's default sheet
-    // rather than this one. The second path segment may not be the
-    // schedule id at all on a multi-tenant account; the widget picks the
-    // sheet in-app, off the hash route.
-    //
-    // Which means times shown here are Mt. Ogden's, but tapping one may
-    // hand the golfer El Monte's checkout. No booking class either, for
-    // the same reason — the one the run captured belongs to El Monte.
-    externalId: "19197:1259",
-    bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1259#/teetimes",
+    // 19196, NOT 19197. The sweep ran under 19197, and seeding that id
+    // sent golfers to El Monte's checkout — because the path is
+    // /booking/<bookingSiteId>/<scheduleId> and a booking site belongs
+    // to one course. ForeUp reports the real owner as `course_id` on
+    // every response row, and it's 19196 here.
+    externalId: "19196:1259",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19196/1259#/teetimes",
     latitude: 41.199,
     longitude: -111.947,
   },
@@ -716,10 +713,10 @@ export const COURSES: CourseSeed[] = [
     // edge of the surveyed band. Not a problem, just no longer true that
     // the app stops there.
     //
-    // Booking link unverified, exactly as for Mt. Ogden above — a
-    // refresh run against it also came back as El Monte's sheet.
-    externalId: "19197:1265",
-    bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1265#/teetimes",
+    // 19201, not the 19197 it was swept under — see the note on Mt. Ogden
+    // above for why that distinction matters.
+    externalId: "19201:1265",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19201/1265#/teetimes",
     latitude: 38.773,
     longitude: -112.084,
   },

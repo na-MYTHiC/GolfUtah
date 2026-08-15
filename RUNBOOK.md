@@ -131,28 +131,27 @@ own address before seeding anything from a sweep.
 Cove View (Richfield) was the only other Utah course on that tenant and
 is seeded, identified by name alone.
 
-**The booking link problem, and how it was diagnosed.** A refresh
-pointed at `/booking/19197/1259` (Mt. Ogden) came back reporting El
-Monte, schedule 1258 — twice. Opening it in a browser confirmed it: the
-page really does serve El Monte.
+**Resolved.** El Monte `19197:1258:14275`, Mt. Ogden `19196:1259`, Cove
+View `19201:1265`.
 
-The path is `/booking/<bookingSiteId>/<scheduleId>`, and **a booking site
-belongs to one course**. 19197 is *El Monte's* site. Asking the API under
-it for schedule 1259 still returns Mt. Ogden's times, so the data was
-never wrong — but a booking link built from 19197 sends the golfer to El
-Monte's checkout.
+The trap worth remembering: a refresh pointed at `/booking/19197/1259`
+came back reporting El Monte — twice — and opening it in a browser showed
+El Monte too. The path is `/booking/<bookingSiteId>/<scheduleId>`, and
+**a booking site belongs to one course**. 19197 is El Monte's. Asking the
+API under it for schedule 1259 still returns Mt. Ogden's times, so the
+data was never wrong; only the booking link was, and it was sending
+golfers to El Monte's checkout.
 
-ForeUp reports the real owner on every response row as `course_id`, which
-the script was discarding. It now surfaces it, flags any sheet whose
-owner differs from the id swept, and builds the seed entry from the owner
-rather than the sweep id:
+ForeUp reports the real owner on every response row as `course_id`. The
+script now surfaces it, flags any sheet whose owner differs from the id
+swept, and builds both the externalId and the booking URL from the owner:
 
 ```
-npm run foreup:schedules -- 19197 --ids 1259,1265
+  19197:1259   Mt. Ogden Golf Course — 64 slot(s)  [belongs to course 19196]
 ```
 
-Re-run that and the output will name Mt. Ogden's and Cove View's real
-course ids.
+So: sweep under whatever id you have, then seed under the one ForeUp
+reports back.
 
 **Schneiter's Bluff and Schneiter's Riverside.** Same shape, same
 reason: both pages resolve to TeeRocket group `YFlPUck58D81fB5Kqqa8`,
