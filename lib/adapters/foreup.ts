@@ -80,6 +80,14 @@ interface ForeUpIds {
  *
  * So: capture booking_class per course. Without it the adapter still
  * works, but treat the result as possibly incomplete.
+ *
+ * ON SOME INSTALLS IT ISN'T OPTIONAL AT ALL. Davis Park (19500:1757)
+ * returns an empty array to a request with no booking_class — cold and
+ * with a session, on every date tried — and the full sheet once
+ * booking_class=2094 is included. So the failure mode isn't always a
+ * truncated morning; it can be a course that looks like it has published
+ * nothing. If a ForeUp course shows no times at all, this is the first
+ * thing to check.
  */
 export function parseExternalId(externalId: string): ForeUpIds {
   const [course, schedule, bookingClass] = externalId.split(":");

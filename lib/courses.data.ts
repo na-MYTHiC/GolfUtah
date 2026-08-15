@@ -10,15 +10,16 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 22 of 26 have one. The four without:
- *                   Davis Park, Valley View — their booking pages still
- *                     reach no tee sheet, even after the script learned
- *                     to unwrap Stripe's nested URLs
- *                   Mt. Ogden, Cove View — a refresh against their
- *                     booking links resolves to El Monte's sheet, so the
- *                     class it captures isn't theirs to take
- *                 Those four may be showing incomplete times, and the UI
- *                 says so. `npm run discover:refresh` retries them.
+ *                 sheet — and on some installs, no sheet at all. Davis
+ *                 Park and Valley View each answered with an empty array
+ *                 until their class was captured by hand, so they had
+ *                 been listing nothing rather than listing short.
+ *
+ *                 24 of 26 have one. The two without are Mt. Ogden and
+ *                 Cove View: a refresh against their booking links
+ *                 resolves to El Monte's sheet, so the class it captures
+ *                 isn't theirs to take. Both may be showing incomplete
+ *                 times, and the UI says so.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -425,12 +426,14 @@ export const COURSES: CourseSeed[] = [
     city: "Kaysville",
     platform: "FOREUP",
     // Points straight at the tee sheet rather than at the course's home
-    // page. Two refresh runs found nothing from davisparkutah.com — the
-    // booking link isn't reachable from it in a way the script can
-    // follow — and the ids here, confirmed by this URL, were right all
-    // along. Landing on the sheet is also what lets a refresh capture
-    // the booking class.
-    externalId: "19500:1757",
+    // page: davisparkutah.com doesn't expose a booking link either
+    // discovery pass could follow.
+    //
+    // The booking class here is not a nicety. This install answers a
+    // request without one with an empty array — so before 2094 was
+    // captured from a browser's network tab, this course was showing no
+    // tee times at all rather than a short sheet.
+    externalId: "19500:1757:2094",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19500/1757#/teetimes",
     latitude: 41.035,
     longitude: -111.938,
@@ -523,9 +526,10 @@ export const COURSES: CourseSeed[] = [
     city: "Layton",
     platform: "FOREUP",
     // Adjacent ids to Davis Park (19500:1757) — the two Davis County
-    // municipals sit on adjacent ForeUp installs. Booking link goes
-    // straight to the sheet, for the same reason as Davis Park's.
-    externalId: "19501:1759",
+    // municipals sit on adjacent ForeUp installs, and behave the same
+    // way: empty response without a booking class, full sheet with one.
+    // Booking link goes straight to the tee sheet for the same reason.
+    externalId: "19501:1759:1208",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19501/1759#/teetimes",
     latitude: 41.073,
     longitude: -111.93,

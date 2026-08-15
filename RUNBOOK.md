@@ -29,50 +29,43 @@ to either underlying command if you want to watch.
 
 ### Pass 1 — courses already in the app that may be showing short sheets
 
-ForeUp courses with no `booking_class` captured. Without one, ForeUp can
-return a *subset* of the tee sheet: Sun Hills listed from 11:06am when
-the course was actually selling from 6:45.
+ForeUp courses with no `booking_class` captured. **24 of 26 now have
+one**, up from 17 when this section was written.
 
-**22 of 26 now have one.** The Stripe unwrapping fix landed Murray
-Parkway (`6263:244:7668`) and The Ridge (`22131:9898:13622`) — the
-latter was recorded here as being behind a login, which turned out to be
-wrong. Roosevelt and El Monte resolved too.
+Two different failure modes turned up, and the second is worse than this
+section originally described:
 
-Four left, in two kinds:
+**A short sheet.** Sun Hills listed from 11:06am without a class when the
+course was actually selling from 6:45.
 
-| Course | Why |
-|---|---|
-| Davis Park, Valley View | booking page still reaches no tee sheet |
-| Mt. Ogden, Cove View | a refresh resolves to El Monte's sheet — see below |
+**No sheet at all.** Davis Park (`19500:1757`) and Valley View
+(`19501:1759`) answer a request without a booking class with an *empty
+array* — cold, with a session, on every date tried. They had been showing
+as "nothing published" in the app, not as short. If a ForeUp course shows
+no times whatsoever, check this first.
 
-**Davis Park and Valley View won't resolve through `discover:refresh`,
-and now it's clear why.** Their `bookingUrl` points straight at the
-ForeUp tee sheet, so the ids the page yields are the ids we already had
-— and the refresh pass suppresses those deliberately, or every run would
-report a "find" that was just its own input echoed back
-(`Collector.offer`, discover-ids.ts). That leaves only a times *response*
-as evidence, and on these two installs the widget never fires one within
-the settle window: it shows an intermediate step first. Which is
-probably the same reason they need a booking class at all.
+Only Mt. Ogden and Cove View are left, and for a different reason — see
+the section below on 19197.
 
-Use the API directly instead — no browser, no widget to click through:
+#### When `discover:refresh` can't crack one
+
+Try the API directly, which needs no browser:
 
 ```
-npm run foreup:schedules -- 19500 --ids 1757
-npm run foreup:schedules -- 19501 --ids 1759
+npm run foreup:schedules -- <courseId> --ids <scheduleId>
 ```
 
-That reads `booking_class_id` straight off the times response. **This is
-the fallback for any ForeUp course `discover:refresh` can't crack** — it
-needs only the course and schedule ids, which are already in the seed's
-`externalId`.
+If that also comes back empty, the install almost certainly requires a
+booking class, and the only way to see it is the widget's own request:
 
-Both of these first came back "no times returned on any day tried",
-which turned out to be a second, separate thing: some installs won't
-answer the times endpoint cold. A browser loads the booking page first,
-which issues a PHPSESSID, and the sheet is held against that session.
-The script now retries with one — but only after a cold request comes
-back empty, so a wide `--scan` doesn't pay for a page load per id.
+1. open the course's booking page
+2. F12 → Network, filter on `times`
+3. click through until tee times appear
+4. right-click the `times?...` request → Copy → Copy as cURL
+
+The URL carries `booking_class`, `schedule_id` and everything else. That
+capture is what resolved both Davis County courses after two discovery
+passes and an API probe had all failed.
 
 ### Pass 2 — courses not in the app yet
 
