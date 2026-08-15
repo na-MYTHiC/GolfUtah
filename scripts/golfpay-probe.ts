@@ -200,9 +200,30 @@ function summarise(body: unknown): void {
   };
 
   console.log(`\n  --- across all ${times.length} rows ---`);
-  console.log(
-    `  first/last local_tee_time: ${times[0].local_tee_time} .. ${times[times.length - 1].local_tee_time}`
-  );
+
+  // Distinct times, sorted — array order turned out to mean nothing:
+  // row 0 and row 44 were both 18:30, so "first and last" said only that
+  // the response isn't in time order.
+  const slots = [...new Set(times.map((t) => String(t.local_tee_time)))].sort();
+  console.log(`  ${slots.length} distinct tee times: ${slots[0]} .. ${slots[slots.length - 1]}`);
+  console.log(`  rows per time: ${(times.length / slots.length).toFixed(1)} on average`);
+
+  // Every row for one time. This is what decides whether cart-included
+  // and walking are separate rows for the same slot — and so whether the
+  // adapter should merge them into one price plus a cart fee, which is
+  // the shape the rest of the app expects.
+  const sample = slots[Math.floor(slots.length / 2)];
+  const atSample = times.filter((t) => t.local_tee_time === sample);
+  console.log(`\n  all ${atSample.length} row(s) at ${sample}:`);
+  for (const r of atSample) {
+    console.log(
+      `    holes=${r.number_of_holes} cart=${r.is_cart_included} ` +
+        `price=${r.regular_price_formatted} green=${r.regular_golfer_green_fee} ` +
+        `cartfee=${r.regular_golfer_cart_fee} max=${r.max_allowed_golfers} ` +
+        `block=${r.is_online_block}`
+    );
+  }
+  console.log("");
   for (const key of [
     "number_of_holes",
     "min_allowed_golfers",
