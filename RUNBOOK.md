@@ -63,9 +63,16 @@ npm run foreup:schedules -- 19501 --ids 1759
 ```
 
 That reads `booking_class_id` straight off the times response. **This is
-the fallback for any ForeUp course `discover:refresh` can't crack** —
-it needs only the course and schedule ids, which are already in the
-seed's `externalId`.
+the fallback for any ForeUp course `discover:refresh` can't crack** — it
+needs only the course and schedule ids, which are already in the seed's
+`externalId`.
+
+Both of these first came back "no times returned on any day tried",
+which turned out to be a second, separate thing: some installs won't
+answer the times endpoint cold. A browser loads the booking page first,
+which issues a PHPSESSID, and the sheet is held against that session.
+The script now retries with one — but only after a cold request comes
+back empty, so a wide `--scan` doesn't pay for a page load per id.
 
 ### Pass 2 — courses not in the app yet
 

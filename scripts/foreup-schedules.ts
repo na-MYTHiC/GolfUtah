@@ -113,6 +113,45 @@ async function collectScheduleIds(page: Page, courseId: number): Promise<Set<num
 }
 
 /**
+ * A PHPSESSID for one tee sheet, the way a browser gets one.
+ *
+ * Most installs answer the times endpoint cold. Some don't: Davis Park
+ * (19500:1757) and Valley View (19501:1759) both returned an empty array
+ * to a cold request on every date tried, while their booking pages work
+ * fine in a browser. The difference is that a browser loads
+ * /booking/<course>/<schedule> first, which issues a session, and only
+ * then does the widget ask for times — and on those installs the sheet
+ * appears to be held against that session. lib/adapters/foreup.ts has
+ * the same note; this is the same trick.
+ *
+ * Fetched lazily, only after a cold request comes back empty, so a wide
+ * --scan doesn't pay for a page load per id it's only probing.
+ */
+const sessions = new Map<string, string | undefined>();
+
+async function sessionFor(courseId: number, scheduleId: number): Promise<string | undefined> {
+  const key = `${courseId}:${scheduleId}`;
+  if (sessions.has(key)) return sessions.get(key);
+
+  let cookie: string | undefined;
+  try {
+    const resp = await fetch(`${BOOKING}/${courseId}/${scheduleId}`, {
+      headers: { accept: "text/html,application/xhtml+xml", "user-agent": UA },
+      signal: AbortSignal.timeout(20_000),
+    });
+    // getSetCookie keeps multiple Set-Cookie headers separate; a plain
+    // get() would join them into one unusable string.
+    const parts = resp.headers.getSetCookie?.().map((c) => c.split(";")[0]).filter(Boolean);
+    if (parts?.length) cookie = parts.join("; ");
+  } catch {
+    // No session is survivable — the caller just gets the cold answer.
+  }
+
+  sessions.set(key, cookie);
+  return cookie;
+}
+
+/**
  * Asks ForeUp what a schedule is, by requesting its times and reading
  * the name off the response.
  *
@@ -121,6 +160,23 @@ async function collectScheduleIds(page: Page, courseId: number): Promise<Set<num
  * itself. Falls back to today if that's empty too.
  */
 async function identify(scheduleId: number, courseId: number): Promise<Partial<Sheet>> {
+  const cold = await probe(scheduleId, courseId, undefined);
+  if (cold.courseName) return cold;
+
+  // Nothing cold. Establish a session and ask once more before calling
+  // it empty — see sessionFor().
+  const cookie = await sessionFor(courseId, scheduleId);
+  if (!cookie) return cold;
+
+  const warm = await probe(scheduleId, courseId, cookie);
+  return warm.courseName ? warm : cold;
+}
+
+async function probe(
+  scheduleId: number,
+  courseId: number,
+  cookie: string | undefined
+): Promise<Partial<Sheet>> {
   for (const daysAhead of [7, 1, 0]) {
     const params = new URLSearchParams({
       time: "all",
@@ -142,6 +198,7 @@ async function identify(scheduleId: number, courseId: number): Promise<Partial<S
           "user-agent": UA,
           "x-fu-golfer-location": "foreup",
           "x-requested-with": "XMLHttpRequest",
+          ...(cookie ? { cookie } : {}),
         },
         signal: AbortSignal.timeout(20_000),
       });
