@@ -259,7 +259,17 @@ async function report(courseId: number, ids: Set<number>) {
 
   console.log("");
   if (named.length === 0) {
-    console.log("None of them returned a name. Send the schedule ids and I'll take it from here.");
+    console.log("None of them returned a name.\n");
+    console.log("The endpoint answered, but with nothing — cold and with a session. That");
+    console.log("means the ids are wrong, or this install needs a booking_class before it");
+    console.log("will list anything. Either way the app is probably showing this course as");
+    console.log("having no tee times right now.\n");
+    console.log("The capture that settles it, in a browser:");
+    console.log("  1. open the course's booking page");
+    console.log("  2. F12 -> Network, filter on 'times'");
+    console.log("  3. click through until tee times appear");
+    console.log("  4. right-click the times request -> Copy -> Copy as cURL\n");
+    console.log("That URL carries the real schedule_id and booking_class.");
     return;
   }
   if (distinct.size < named.length) {
