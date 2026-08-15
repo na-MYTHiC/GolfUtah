@@ -32,7 +32,14 @@
  *
  * Coordinates are city-level approximations — accurate enough to sort
  * courses by distance and to pull a local forecast, not to navigate by.
- * Refine them per course as real ones turn up.
+ * Refine them per course as real ones turn up. `npm run osm:utah` prints
+ * OpenStreetMap's, which are the course polygon's centre and better than
+ * these; the two differ by up to two miles.
+ *
+ * Scope is the whole state. There was a period when this stopped at
+ * Green River in the south, which was a survey convenience rather than a
+ * decision, and it is no longer true of either the seed list or the
+ * candidate list.
  */
 
 export type PlatformName =
@@ -625,8 +632,8 @@ export const COURSES: CourseSeed[] = [
     longitude: -112.32,
   },
 
-  // Roosevelt and Palisade close the two counties inside the seeded
-  // latitude band that had no course at all.
+  // Roosevelt and Palisade were the first two courses in counties that
+  // had nothing seeded at all.
   {
     name: "Roosevelt Golf Course",
     slug: "roosevelt-golf-course",
@@ -839,10 +846,6 @@ export const COURSES: CourseSeed[] = [
     // account" proves nothing. Richfield's Cove View is a real municipal
     // 18, and 87 published slots fits, but nothing here has confirmed
     // it's the same one.
-    //
-    // And it sits ~15 miles south of Green River, which was the southern
-    // edge of the surveyed band. Not a problem, just no longer true that
-    // the app stops there.
     //
     // 19201, not the 19197 it was swept under — see the note on Mt. Ogden
     // above for why that distinction matters.
