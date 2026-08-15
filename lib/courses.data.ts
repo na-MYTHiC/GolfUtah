@@ -15,7 +15,7 @@
  *                 until their class was captured by hand, so they had
  *                 been listing nothing rather than listing short.
  *
- *                 24 of 26 have one. The two without are Mt. Ogden and
+ *                 25 of 27 have one. The two without are Mt. Ogden and
  *                 Cove View, which were found by sweeping schedule ids
  *                 rather than from a booking page — the sweep names a
  *                 course and reports its owner, but never sees the
@@ -692,6 +692,26 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19196/1259#/teetimes",
     latitude: 41.199,
     longitude: -111.947,
+  },
+  {
+    name: "Crane Field Golf Course",
+    slug: "crane-field-golf-course",
+    county: "Davis",
+    city: "Clinton",
+    platform: "FOREUP",
+    // Course 1, schedule 1 — and that is not a typo or a placeholder.
+    //
+    // Discovery found "1:1" on this page from the very first survey and
+    // threw it away every time, because a guard assumed a ForeUp course
+    // id under 100 had to be template markup. Every real id seen at that
+    // point was five digits. But ForeUp has been handing out ids since it
+    // had one customer, and somebody has to be first: a capture from
+    // Crane Field's own booking page returns a full sheet for 1:1:6420.
+    // The guard is gone.
+    externalId: "1:1:6420",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/1/1#/teetimes",
+    latitude: 41.139,
+    longitude: -112.05,
   },
   {
     name: "Cove View Golf Course",

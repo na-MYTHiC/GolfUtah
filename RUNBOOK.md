@@ -29,7 +29,7 @@ to either underlying command if you want to watch.
 
 ### Pass 1 — courses already in the app that may be showing short sheets
 
-ForeUp courses with no `booking_class` captured. **24 of 26 now have
+ForeUp courses with no `booking_class` captured. **25 of 27 now have
 one**, up from 17 when this section was written.
 
 Two different failure modes turned up, and the second is worse than this
@@ -83,6 +83,10 @@ Still open:
   discovery run.
 - **Canyons** is on quick18, **Birch Creek** on golfrev, **Golf the
   Round** on TeeItUp but as a driving range. No adapters for any.
+- **Crane Field** is seeded. It had been failing since the first survey
+  because a guard in discover-ids discarded ForeUp course ids under 100
+  as template placeholders — and Crane Field really is course 1,
+  schedule 1. The guard is gone.
 - Eight courses turned up no booking link at all. The script prints a
   search link for each, so a course whose site simply moved is one click
   from being found rather than a dead end.
@@ -177,7 +181,7 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
-| ForeUp | 26 | yes | only if the course names its sheet |
+| ForeUp | 27 | yes | only if the course names its sheet |
 | Chronogolf | 14 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 6 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |

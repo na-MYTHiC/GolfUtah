@@ -130,18 +130,23 @@ function rank(ids: Ids): number {
 const FOREUP_BOOKING_URL = /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/;
 
 /**
- * Real ForeUp course ids are five digits; Crane Field's page yields
- * "1:1", which is placeholder markup rather than a course. Schedule ids
- * genuinely can be small (Timpanogos is 6279:49), so only the course id
- * is checked.
+ * REMOVED: a guard that discarded ForeUp course ids under 100.
+ *
+ * It was added because Crane Field's page yielded "1:1", which looked
+ * exactly like the placeholder you'd find in template markup — most real
+ * ids seen at that point were five digits. It wasn't a placeholder.
+ * Crane Field genuinely is course 1, schedule 1, booking class 6420, and
+ * a capture from its own booking page returns a full tee sheet. The
+ * guard had been suppressing a real course for as long as it existed,
+ * and no amount of re-running discovery would ever have found it.
+ *
+ * The lesson worth keeping: "this id looks too small to be real" is a
+ * guess about someone else's numbering scheme. ForeUp has been assigning
+ * ids since it had one customer, and somebody has to be first.
  */
-function isPlaceholder(courseId: string): boolean {
-  return Number(courseId) < 100;
-}
-
 function fromForeUpUrl(url: string): Ids | undefined {
   const m = FOREUP_BOOKING_URL.exec(url);
-  if (!m || isPlaceholder(m[1])) return undefined;
+  if (!m) return undefined;
   return { platform: "FOREUP", externalId: `${m[1]}:${m[2]}`, source: "booking url" };
 }
 
@@ -227,7 +232,7 @@ const LINK_PATTERNS: { platform: Platform; re: RegExp; ids: (m: RegExpMatchArray
   {
     platform: "FOREUP",
     re: /foreupsoftware\.com\/index\.php\/booking\/(\d+)\/(\d+)/i,
-    ids: (m) => (isPlaceholder(m[1]) ? "" : `${m[1]}:${m[2]}`),
+    ids: (m) => `${m[1]}:${m[2]}`,
   },
   {
     platform: "MEMBERSPORTS",
