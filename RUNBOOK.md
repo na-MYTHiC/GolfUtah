@@ -45,11 +45,27 @@ Four left, in two kinds:
 | Davis Park, Valley View | booking page still reaches no tee sheet |
 | Mt. Ogden, Cove View | a refresh resolves to El Monte's sheet — see below |
 
-Davis Park and Valley View reported "no booking link or traffic found"
-twice — their course websites don't expose a booking link the script can
-follow. Their `bookingUrl` now points straight at the ForeUp tee sheet
-instead of the course home page, which should let the next refresh land
-on it and capture a class.
+**Davis Park and Valley View won't resolve through `discover:refresh`,
+and now it's clear why.** Their `bookingUrl` points straight at the
+ForeUp tee sheet, so the ids the page yields are the ids we already had
+— and the refresh pass suppresses those deliberately, or every run would
+report a "find" that was just its own input echoed back
+(`Collector.offer`, discover-ids.ts). That leaves only a times *response*
+as evidence, and on these two installs the widget never fires one within
+the settle window: it shows an intermediate step first. Which is
+probably the same reason they need a booking class at all.
+
+Use the API directly instead — no browser, no widget to click through:
+
+```
+npm run foreup:schedules -- 19500 --ids 1757
+npm run foreup:schedules -- 19501 --ids 1759
+```
+
+That reads `booking_class_id` straight off the times response. **This is
+the fallback for any ForeUp course `discover:refresh` can't crack** —
+it needs only the course and schedule ids, which are already in the
+seed's `externalId`.
 
 ### Pass 2 — courses not in the app yet
 
