@@ -167,6 +167,82 @@ function describe(value: unknown, depth = 0): void {
   }
 }
 
+/**
+ * Aggregates across every row, because the first one settles nothing.
+ *
+ * The Barn's first 9-hole slot is a 6:30pm at $1.00 with
+ * is_online_block true — which could mean the course sells a dollar
+ * twilight, or that the row isn't bookable at all and its prices are
+ * placeholders. One row can't tell you, and an adapter that guesses
+ * wrong either hides a course's whole sheet or advertises $1 golf.
+ *
+ * Three questions this answers:
+ *   - do prices vary, or is every row $1?
+ *   - does max_allowed_golfers vary? It is the only candidate for
+ *     "spots left" anywhere in the response; there is no explicit count.
+ *   - what does is_online_block actually track?
+ */
+function summarise(body: unknown): void {
+  const times = (body as { data?: { times?: Record<string, unknown>[] } })?.data?.times;
+  if (!Array.isArray(times) || times.length === 0) return;
+
+  const tally = (key: string) => {
+    const counts = new Map<string, number>();
+    for (const t of times) {
+      const v = JSON.stringify(t[key]);
+      counts.set(v, (counts.get(v) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([v, n]) => `${v}x${n}`)
+      .join("  ");
+  };
+
+  console.log(`\n  --- across all ${times.length} rows ---`);
+  console.log(
+    `  first/last local_tee_time: ${times[0].local_tee_time} .. ${times[times.length - 1].local_tee_time}`
+  );
+  for (const key of [
+    "number_of_holes",
+    "min_allowed_golfers",
+    "max_allowed_golfers",
+    "is_online_block",
+    "is_cart_included",
+    "regular_price_formatted",
+    "booking_golfer_price_formatted",
+  ]) {
+    console.log(`  ${key}: ${tally(key)}`);
+  }
+
+  // Does is_online_block line up with the $1 rows? If every blocked row
+  // is $1 and no open row is, the flag is the filter and the price is a
+  // placeholder.
+  const blocked = times.filter((t) => t.is_online_block === true);
+  const open = times.filter((t) => t.is_online_block !== true);
+  const priced = (rows: Record<string, unknown>[]) =>
+    [...new Set(rows.map((r) => String(r.regular_price_formatted)))].slice(0, 6).join(", ") || "none";
+  console.log(`  is_online_block=true  (${blocked.length} rows): prices ${priced(blocked)}`);
+  console.log(`  is_online_block=false (${open.length} rows): prices ${priced(open)}`);
+
+  // The per-slot booking link, decoded — this is what a golfer would be
+  // handed, so it matters whether it names the slot or just the course.
+  const url = (times[0].actions as { createBookingUrl?: string } | undefined)?.createBookingUrl;
+  if (url) {
+    console.log(`\n  createBookingUrl (row 0):`);
+    const raw = /bookingParams=([^&]+)/.exec(url)?.[1];
+    if (raw) {
+      try {
+        console.log(`    decoded bookingParams: ${decodeURIComponent(raw)}`);
+      } catch {
+        console.log(`    ${url.slice(0, 140)}`);
+      }
+    } else {
+      console.log(`    ${url.slice(0, 140)}`);
+    }
+  }
+}
+
 async function main() {
   const slug = arg("slug", "the-barn-golf-club-ogden-ut-84414");
   const courseId = arg("course", "1466");
@@ -206,6 +282,7 @@ async function main() {
   for (const [key, body] of Object.entries(results)) {
     console.log(`\n${key}:`);
     describe(body);
+    summarise(body);
   }
 }
 

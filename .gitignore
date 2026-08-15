@@ -64,3 +64,8 @@ discovered-ids.json
 teerocket-probe.json
 refresh.json
 discovered.json
+
+# Probe output, sometimes hundreds of KB of one course's tee sheet.
+/golfpay-probe.json
+/discovered*.json
+/refresh.json
