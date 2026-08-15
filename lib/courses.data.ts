@@ -761,6 +761,20 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.984,
   },
   {
+    name: "Round Valley Golf Course",
+    slug: "round-valley-golf-course",
+    county: "Morgan",
+    city: "Morgan",
+    platform: "CHRONOGOLF",
+    // Two uuids — the club publishes a second nine on the same sheet.
+    // First course in Morgan County.
+    externalId:
+      "round-valley-golf-course:4e1afb89-3f24-432b-964d-551c34d53e2f,95d7ea85-49af-43d8-b5a6-7af7fb42283f",
+    bookingUrl: "https://www.chronogolf.com/club/round-valley-golf-course",
+    latitude: 41.036,
+    longitude: -111.677,
+  },
+  {
     name: "The Outlaw Golf Club",
     slug: "the-outlaw-golf-club",
     county: "Wasatch",

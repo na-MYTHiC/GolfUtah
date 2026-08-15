@@ -69,45 +69,66 @@ passes and an API probe had all failed.
 
 ### Pass 2 — courses not in the app yet
 
-54 courses seeded. Salt Lake and Utah counties are close to complete —
-Old Mill, Stonebridge, South Mountain, Hobble Creek, Fox Hollow and
-Sleepy Ridge are all in — so what's left is thinner than it looks.
+59 courses seeded, across 18 of Utah's 29 counties.
 
-**Private clubs are out of scope** and have been removed from the
-candidate list. Glenwild and Promontory aren't bookable by the public at
-any price, so there is nothing for an aggregator to show.
+#### Surveying the whole state
 
-Seventeen candidates remain, in three groups.
+```
+npm run osm:utah
+```
 
-**Worth a run — platform still unknown:**
-West Ridge (West Valley City), Ben Lomond (Ogden), Sherwood Hills
-(Wellsville), The Moab.
+Asks OpenStreetMap for every golf course in Utah in **one** Overpass
+query, then diffs it against the seed list and prints what's missing,
+with coordinates and — where OSM has it — the course's own website.
 
-Those four came from general knowledge rather than a source, so a name
-or URL may be wrong. That costs one page load and prints a search link —
-worth trying, but don't read a failure as proof the course doesn't exist.
+This replaced adding candidates from memory, which was wrong in both
+directions: it invented courses that cost a page load each to disprove,
+and it offered East Bay as a gap when East Bay is Timpanogos renamed and
+had been seeded for weeks.
 
-**Round Valley** is Chronogolf; its candidate now points at the club page,
-so a run should give up the uuid.
+**It matches by position as well as by name**, which is what catches a
+rename. Timpanogos sits where East Bay sits, so the two match on
+coordinates despite sharing not one word. Anything matched that way is
+printed under "check these are really the same course" — worth reading,
+because it's also how two genuinely different courses on one property
+would show up.
 
-**East Bay is not a gap** — it's Timpanogos Golf Club, renamed, and
-already seeded as `6279:49:14927`. Removed from the candidates.
+Private clubs are counted and hidden (`--include-private` to see them),
+driving ranges and mini-golf are filtered out, and a course mapped as
+both a way and a relation is deduplicated.
 
-**Known platform, no adapter:**
-Canyons (quick18), Birch Creek (golfrev), **Glenmoor (cps.golf)** — Club
-Prophet Systems, a fifth platform nobody here has looked at.
+Caveats worth keeping in mind: OSM is contributed by anyone, so a course
+can be missing, closed but still mapped, or tagged as a course when it
+isn't one. The `access` tag is often absent, so "public" here means "not
+tagged private" rather than confirmed bookable.
 
-**Genuinely closed:**
+#### Then resolve the platform
+
+For each missing course, aim discovery at its **booking page**, not its
+home page:
+
+```
+npm run discover -- "<booking or club url>"
+```
+
+**The single most useful lesson from this whole exercise:** "no booking
+link or traffic found" nearly always means the *course's website* is
+unhelpful, not that the course is unreachable. Park City, Outlaw and
+Round Valley each failed two full surveys and then resolved on the first
+try once pointed at their actual booking page. Putting that URL in
+`courses.candidates.json` fixes it permanently.
+
+#### Known platform, no adapter
+
+Canyons (quick18), Birch Creek (golfrev), Glenmoor (cps.golf — Club
+Prophet Systems). Each is the same shape of work GolfPay took: one probe
+to learn the response, one capture to confirm, one adapter.
+
+#### Genuinely closed
+
 Schneiter's Bluff and Riverside need a login, so availability isn't
 public at all. Homestead's server fails TLS negotiation. Golf the Round
 is a Toptracer range, not a course.
-
-**The lesson from Park City and Outlaw:** "no booking link or traffic
-found" nearly always means the *course's website* is unhelpful, not that
-the course is unreachable. Both resolved the moment their booking page
-was aimed at directly. If a course here fails, finding its booking page
-by hand once and putting that URL in `courses.candidates.json` fixes it
-permanently.
 
 ---
 
@@ -199,7 +220,7 @@ Worth knowing before chasing a bug that isn't one.
 |---|---|---|---|
 | ForeUp | 30 | yes | only if the course names its sheet |
 | GolfPay | 1 | yes — to the exact slot | no |
-| Chronogolf | 15 | yes — to the exact slot | only if the club splits the nine out |
+| Chronogolf | 16 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 8 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
