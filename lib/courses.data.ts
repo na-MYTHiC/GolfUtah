@@ -10,16 +10,14 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 18 of 26 have one. The eight without, and why:
- *                   Murray Parkway, Davis Park, Valley View — their
- *                     booking pages surface only Stripe's hosts, so the
- *                     tee sheet sits in a frame the script doesn't reach
- *                   The Ridge — booking page is behind a login
- *                   Roosevelt — seeded from a link, no refresh run yet
- *                   El Monte, Mt. Ogden, Cove View — found by sweeping
- *                     schedule ids, which names a course but doesn't
- *                     reveal its booking class
- *                 All eight may be showing incomplete times, and the UI
+ *                 sheet. 22 of 26 have one. The four without:
+ *                   Davis Park, Valley View — their booking pages still
+ *                     reach no tee sheet, even after the script learned
+ *                     to unwrap Stripe's nested URLs
+ *                   Mt. Ogden, Cove View — a refresh against their
+ *                     booking links resolves to El Monte's sheet, so the
+ *                     class it captures isn't theirs to take
+ *                 Those four may be showing incomplete times, and the UI
  *                 says so. `npm run discover:refresh` retries them.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
@@ -371,7 +369,7 @@ export const COURSES: CourseSeed[] = [
     county: "Salt Lake",
     city: "Murray",
     platform: "FOREUP",
-    externalId: "6263:244",
+    externalId: "6263:244:7668",
     bookingUrl: "https://parkwaygolf.org/",
     latitude: 40.65,
     longitude: -111.92,
@@ -426,8 +424,14 @@ export const COURSES: CourseSeed[] = [
     county: "Davis",
     city: "Kaysville",
     platform: "FOREUP",
+    // Points straight at the tee sheet rather than at the course's home
+    // page. Two refresh runs found nothing from davisparkutah.com — the
+    // booking link isn't reachable from it in a way the script can
+    // follow — and the ids here, confirmed by this URL, were right all
+    // along. Landing on the sheet is also what lets a refresh capture
+    // the booking class.
     externalId: "19500:1757",
-    bookingUrl: "https://www.davisparkutah.com/",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19500/1757#/teetimes",
     latitude: 41.035,
     longitude: -111.938,
   },
@@ -507,7 +511,7 @@ export const COURSES: CourseSeed[] = [
     county: "Salt Lake",
     city: "West Valley City",
     platform: "FOREUP",
-    externalId: "22131:9898",
+    externalId: "22131:9898:13622",
     bookingUrl: "https://www.golftheridgegc.com/",
     latitude: 40.688,
     longitude: -112.03,
@@ -519,9 +523,10 @@ export const COURSES: CourseSeed[] = [
     city: "Layton",
     platform: "FOREUP",
     // Adjacent ids to Davis Park (19500:1757) — the two Davis County
-    // municipals sit on one ForeUp install.
+    // municipals sit on adjacent ForeUp installs. Booking link goes
+    // straight to the sheet, for the same reason as Davis Park's.
     externalId: "19501:1759",
-    bookingUrl: "https://www.valleyviewutah.com/",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19501/1759#/teetimes",
     latitude: 41.073,
     longitude: -111.93,
   },
@@ -614,9 +619,7 @@ export const COURSES: CourseSeed[] = [
     county: "Duchesne",
     city: "Roosevelt",
     platform: "FOREUP",
-    // From a booking link rather than a tee-sheet response, so no
-    // booking class yet — the next refresh run should capture one.
-    externalId: "6285:82",
+    externalId: "6285:82:14930",
     bookingUrl: "https://www.rooseveltcity.com/golf",
     latitude: 40.299,
     longitude: -109.989,
@@ -657,7 +660,7 @@ export const COURSES: CourseSeed[] = [
     //
     // No booking class; 32 slots came back without one on any row, so
     // this listing may be partial and the UI says so.
-    externalId: "19197:1258",
+    externalId: "19197:1258:14275",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1258#/teetimes",
     latitude: 41.229,
     longitude: -111.937,
@@ -670,8 +673,20 @@ export const COURSES: CourseSeed[] = [
     platform: "FOREUP",
     // The sibling sheet, found by sweeping schedule ids under 19197 —
     // nothing on the web links to it, because Ogden City's Mt Ogden page
-    // points at El Monte's booking page instead. ForeUp names this one
-    // "Mt. Ogden Golf Course", which is what finally told the two apart.
+    // points at El Monte's booking page instead. Asking the API directly
+    // for schedule 1259 returns "Mt. Ogden Golf Course" with 64 slots,
+    // so the data path is right.
+    //
+    // THE BOOKING LINK BELOW IS NOT VERIFIED. A refresh run pointed at
+    // it came back reporting El Monte, schedule 1258 — so loading
+    // /booking/19197/1259 appears to land on the account's default sheet
+    // rather than this one. The second path segment may not be the
+    // schedule id at all on a multi-tenant account; the widget picks the
+    // sheet in-app, off the hash route.
+    //
+    // Which means times shown here are Mt. Ogden's, but tapping one may
+    // hand the golfer El Monte's checkout. No booking class either, for
+    // the same reason — the one the run captured belongs to El Monte.
     externalId: "19197:1259",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1259#/teetimes",
     latitude: 41.199,
@@ -696,6 +711,9 @@ export const COURSES: CourseSeed[] = [
     // And it sits ~15 miles south of Green River, which was the southern
     // edge of the surveyed band. Not a problem, just no longer true that
     // the app stops there.
+    //
+    // Booking link unverified, exactly as for Mt. Ogden above — a
+    // refresh run against it also came back as El Monte's sheet.
     externalId: "19197:1265",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1265#/teetimes",
     latitude: 38.773,

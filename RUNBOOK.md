@@ -31,38 +31,25 @@ to either underlying command if you want to watch.
 
 ForeUp courses with no `booking_class` captured. Without one, ForeUp can
 return a *subset* of the tee sheet: Sun Hills listed from 11:06am when
-the course was actually selling from 6:45. So these may be hiding their
-mornings from you right now.
+the course was actually selling from 6:45.
 
-| Course | Status |
+**22 of 26 now have one.** The Stripe unwrapping fix landed Murray
+Parkway (`6263:244:7668`) and The Ridge (`22131:9898:13622`) — the
+latter was recorded here as being behind a login, which turned out to be
+wrong. Roosevelt and El Monte resolved too.
+
+Four left, in two kinds:
+
+| Course | Why |
 |---|---|
-| Murray Parkway | was stalling — should be fixed, see below |
-| Davis Park | was stalling — should be fixed, see below |
-| Valley View | was stalling — should be fixed, see below |
-| The Ridge | booking page sits behind a login |
-| Roosevelt | never tried — seeded from a link |
-| El Monte, Mt. Ogden, Cove View | found by id sweep; no booking class exposed |
+| Davis Park, Valley View | booking page still reaches no tee sheet |
+| Mt. Ogden, Cove View | a refresh resolves to El Monte's sheet — see below |
 
-**The three stalls were a bug in this script, now fixed.** All three
-reported "booking links point at js.stripe.com, m.stripe.network", which
-read like the page never reached a tee sheet. It had. ForeUp's booking
-page loads Stripe, and Stripe's iframe carries the embedding page inside
-its own fragment, percent-encoded:
-
-```
-https://m.stripe.network/inner.html#url=https%3A%2F%2Fforeupsoftware.com
-%2Findex.php%2Fbooking%2F19393%2F3564
-```
-
-The ids were on the page the whole time. Every slash between the host and
-the numbers was a `%2F`, so the id pattern didn't match while the host
-test — which only needs the literal string `foreupsoftware.com` — did.
-The script then reported the *outer* host and queued a Stripe address as
-the booking link to follow. It now decodes URLs nested inside other URLs,
-and matches booking hosts against the hostname rather than the whole
-string, so a third party can't masquerade as the booking link.
-
-The Ridge is the one genuine wall: no login, no tee sheet.
+Davis Park and Valley View reported "no booking link or traffic found"
+twice — their course websites don't expose a booking link the script can
+follow. Their `bookingUrl` now points straight at the ForeUp tee sheet
+instead of the course home page, which should let the next refresh land
+on it and capture a class.
 
 ### Pass 2 — courses not in the app yet
 
@@ -127,6 +114,21 @@ own address before seeding anything from a sweep.
 
 Cove View (Richfield) was the only other Utah course on that tenant and
 is seeded, identified by name alone.
+
+**Open question on both new seeds.** A refresh run pointed at
+`/booking/19197/1259` (Mt. Ogden) and `/booking/19197/1265` (Cove View)
+came back reporting El Monte, schedule 1258 — the account's default
+sheet. Asking the API directly for 1259 does return Mt. Ogden with 64
+slots, so the *data* is right; it's the *booking link* that's in doubt.
+
+The likely explanation is that on a multi-tenant account the second path
+segment isn't the schedule id — the widget selects the sheet in-app off
+the hash route. If so, times shown for these two are correct but tapping
+one may hand the golfer El Monte's checkout.
+
+To settle it, open both URLs and see which course's name the page shows.
+If it's El Monte, their booking links need to come from the courses' own
+websites instead.
 
 If the booking page won't load but you know the ids:
 
