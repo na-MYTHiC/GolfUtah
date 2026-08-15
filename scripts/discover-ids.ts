@@ -860,6 +860,32 @@ async function main() {
     );
   }
 
+  /**
+   * Ids we already have, under a name that didn't match.
+   *
+   * Spanish Oaks resolved to ForeUp 21698:8633:10949 and came out as a
+   * ready-to-paste seed entry — for a course seeded weeks earlier as
+   * "The Oaks at Spanish Fork", with byte-identical ids. The collision
+   * check above only compares findings against each other within one
+   * run, so a duplicate of something already in the app sailed through
+   * looking like a discovery.
+   *
+   * Course names are the least reliable thing here: courses get renamed,
+   * OSM and the operator and the city website disagree, and a survey
+   * built on names alone can't see it. Ids can't lie.
+   */
+  const alreadySeeded = hits.filter((f) =>
+    COURSES.some((c) => c.externalId === f.ids!.externalId && c.platform === f.ids!.platform)
+  );
+  if (alreadySeeded.length) {
+    console.log(`\nALREADY SEEDED — same ids, different name:`);
+    for (const f of alreadySeeded) {
+      const seeded = COURSES.find((c) => c.externalId === f.ids!.externalId)!;
+      console.log(`  "${f.name}" is "${seeded.name}" (${f.ids!.externalId})`);
+    }
+    console.log(`  Don't paste these; drop them from courses.candidates.json instead.`);
+  }
+
   if (refresh) {
     const withClass = hits.filter((f) => f.ids!.externalId.split(":").length === 3);
     console.log(`Captured a booking class for ${withClass.length}.\n`);
@@ -867,8 +893,10 @@ async function main() {
       console.log(`  ${f.name}: externalId: "${f.ids!.externalId}",`);
     }
   } else if (hits.length) {
+    // Only offer entries that are safe to paste: not sharing ids with
+    // another finding, and not already in the app under another name.
     const collided = new Set(collisions.flatMap(([, fs]) => fs.map((f) => f.name)));
-    const clean = hits.filter((f) => !collided.has(f.name));
+    const clean = hits.filter((f) => !collided.has(f.name) && !alreadySeeded.includes(f));
     if (clean.length) {
       console.log(`\nPaste into lib/courses.data.ts:\n`);
       for (const f of clean) printSeed(f);

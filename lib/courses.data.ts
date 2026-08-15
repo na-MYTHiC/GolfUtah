@@ -15,7 +15,7 @@
  *                 until their class was captured by hand, so they had
  *                 been listing nothing rather than listing short.
  *
- *                 25 of 30 have one. The five without are Mt. Ogden and
+ *                 28 of 33 have one. The five without are Mt. Ogden and
  *                 Cove View, found by sweeping schedule ids, and
  *                 Stansbury Park, Oquirrh Hills and Dinaland, seeded
  *                 from a booking URL. Neither route ever sees the
@@ -766,6 +766,64 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414",
     latitude: 41.322,
     longitude: -111.984,
+  },
+  {
+    name: "Sky Mountain Golf Course",
+    slug: "sky-mountain-golf-course",
+    county: "Washington",
+    city: "Hurricane",
+    platform: "FOREUP",
+    // First course in Washington County — St. George is the biggest
+    // golf area in the state and had nothing seeded until the statewide
+    // OSM survey went looking.
+    externalId: "22750:11805:50871",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/22750/11805#/teetimes",
+    // Coordinates from OSM's course polygon rather than the town centre,
+    // so these are the good kind.
+    latitude: 37.1895,
+    longitude: -113.3359,
+  },
+  {
+    name: "Sand Hollow Resort",
+    slug: "sand-hollow-resort",
+    county: "Washington",
+    city: "Hurricane",
+    platform: "CHRONOGOLF",
+    // Two uuids: the championship 18 and the Links nine.
+    //
+    // "14225" sits where a club slug normally goes because that's what
+    // the booking page uses — Chronogolf addresses some clubs by number
+    // rather than by name, and /club/14225 resolves the same way a slug
+    // does.
+    externalId: "14225:156b2e8d-85e7-41e5-8bc8-107cca3666bd,7d929560-7ea4-45ea-990d-6b5f3a20d20e",
+    bookingUrl: "https://www.chronogolf.com/club/14225",
+    latitude: 37.1179,
+    longitude: -113.4122,
+  },
+  {
+    name: "Remuda Golf Course",
+    slug: "remuda-golf-course",
+    county: "Weber",
+    city: "Farr West",
+    platform: "FOREUP",
+    externalId: "6238:44:8993",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/6238/44#/teetimes",
+    latitude: 41.3266,
+    longitude: -112.0447,
+  },
+  {
+    name: "Mulligans Golf & Games",
+    slug: "mulligans-golf-games",
+    county: "Salt Lake",
+    city: "South Jordan",
+    platform: "FOREUP",
+    // Named as ForeUp names it. It's an executive par 3 alongside a
+    // range and mini-golf, so it's a smaller round than everything else
+    // here — but it sells real tee times, which is the bar.
+    externalId: "21630:8401:10879",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/21630/8401#/teetimes",
+    latitude: 40.5618,
+    longitude: -111.9117,
   },
   {
     name: "Round Valley Golf Course",

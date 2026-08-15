@@ -218,9 +218,9 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
-| ForeUp | 30 | yes | only if the course names its sheet |
+| ForeUp | 33 | yes | only if the course names its sheet |
 | GolfPay | 1 | yes — to the exact slot | no |
-| Chronogolf | 16 | yes — to the exact slot | only if the club splits the nine out |
+| Chronogolf | 17 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 8 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
