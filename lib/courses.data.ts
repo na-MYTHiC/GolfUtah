@@ -694,6 +694,21 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.947,
   },
   {
+    name: "Park City Golf Club",
+    slug: "park-city-golf-club",
+    county: "Summit",
+    city: "Park City",
+    platform: "MEMBERSPORTS",
+    // Two discovery passes found no booking link on this one; the ids
+    // came from the MemberSports app URL directly. First course in
+    // Summit County, which had been one of fifteen Utah counties with
+    // nothing seeded at all.
+    externalId: "15426:18944",
+    bookingUrl: "https://app.membersports.com/tee-times/15426/18944/0",
+    latitude: 40.646,
+    longitude: -111.498,
+  },
+  {
     name: "Crane Field Golf Course",
     slug: "crane-field-golf-course",
     county: "Davis",

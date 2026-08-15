@@ -29,7 +29,8 @@
     "icons": "node scripts/gen-icons.mjs",
     "sides": "tsx scripts/side-coverage.ts",
     "simulate": "tsx --import ./scripts/netsim.ts scripts/build-data.ts",
-    "foreup:schedules": "tsx scripts/foreup-schedules.ts"
+    "foreup:schedules": "tsx scripts/foreup-schedules.ts",
+    "golfpay:probe": "tsx scripts/golfpay-probe.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

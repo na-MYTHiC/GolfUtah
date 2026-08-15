@@ -79,8 +79,16 @@ Still open:
 - **El Monte / Mount Ogden** and **Schneiter's Bluff / Riverside** each
   came back with one id shared between two courses — the collision guard
   doing its job. See below.
-- **The Barn** confirmed as GolfPay. That needs an adapter, not another
-  discovery run.
+- **The Barn** is GolfPay, and a capture now shows the endpoint:
+  `GET golfpay.co/api/tee-times?date=MM/DD/YYYY&course_id=1466&tsid=20
+  &number_of_holes=9`. Before an adapter is worth writing, two things
+  have to hold — that a Laravel session and CSRF token can be obtained
+  headlessly (a token from someone's browser is useless in CI), and that
+  the response carries times, prices and spots. `npm run golfpay:probe`
+  answers both and writes the response to `golfpay-probe.json`.
+- **Park City Golf Club** is seeded — MemberSports `15426:18944`. Two
+  discovery passes found no booking link; the ids came straight from the
+  app URL.
 - **Canyons** is on quick18, **Birch Creek** on golfrev, **Golf the
   Round** on TeeItUp but as a driving range. No adapters for any.
 - **Crane Field** is seeded. It had been failing since the first survey
@@ -183,7 +191,7 @@ Worth knowing before chasing a bug that isn't one.
 |---|---|---|---|
 | ForeUp | 27 | yes | only if the course names its sheet |
 | Chronogolf | 14 | yes — to the exact slot | only if the club splits the nine out |
-| MemberSports | 6 | **no** | yes — a real flag on every slot |
+| MemberSports | 7 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
 MemberSports and TeeItUp send a boolean, so the nine is always known.
