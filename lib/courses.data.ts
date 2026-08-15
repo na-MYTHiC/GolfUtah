@@ -15,14 +15,14 @@
  *                 until their class was captured by hand, so they had
  *                 been listing nothing rather than listing short.
  *
- *                 25 of 27 have one. The two without are Mt. Ogden and
- *                 Cove View, which were found by sweeping schedule ids
- *                 rather than from a booking page — the sweep names a
- *                 course and reports its owner, but never sees the
- *                 widget's own request, which is where the class lives.
- *                 Both answer without one, so they list *something*;
- *                 whether it's the whole sheet is unconfirmed, and the
- *                 UI says so.
+ *                 25 of 30 have one. The five without are Mt. Ogden and
+ *                 Cove View, found by sweeping schedule ids, and
+ *                 Stansbury Park, Oquirrh Hills and Dinaland, seeded
+ *                 from a booking URL. Neither route ever sees the
+ *                 widget's own request, which is the only place the
+ *                 class appears. All five answer without one, so they
+ *                 list *something*; whether it's the whole sheet is
+ *                 unconfirmed, and the UI says so.
  *   GolfPay       "<courseSlug>:<courseId>:<tsid>" — the slug only
  *                 builds the fallback link; the API wants the numbers.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
@@ -699,6 +699,52 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19196/1259#/teetimes",
     latitude: 41.199,
     longitude: -111.947,
+  },
+  {
+    name: "Stansbury Park Golf Course",
+    slug: "stansbury-park-golf-course",
+    county: "Tooele",
+    city: "Stansbury Park",
+    platform: "FOREUP",
+    externalId: "6315:51",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/6315/51#/teetimes",
+    latitude: 40.638,
+    longitude: -112.297,
+  },
+  {
+    name: "Oquirrh Hills Golf Course",
+    slug: "oquirrh-hills-golf-course",
+    county: "Tooele",
+    city: "Tooele",
+    platform: "FOREUP",
+    externalId: "22325:10403",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/22325/10403#/teetimes",
+    latitude: 40.545,
+    longitude: -112.29,
+  },
+  {
+    name: "Canyon Hills Golf Course",
+    slug: "canyon-hills-golf-course",
+    county: "Juab",
+    city: "Nephi",
+    platform: "MEMBERSPORTS",
+    // First course in Juab County.
+    externalId: "15379:18889",
+    bookingUrl: "https://app.membersports.com/tee-times/15379/18889/0",
+    latitude: 39.71,
+    longitude: -111.836,
+  },
+  {
+    name: "Dinaland Golf Course",
+    slug: "dinaland-golf-course",
+    county: "Uintah",
+    city: "Vernal",
+    platform: "FOREUP",
+    // First course in Uintah County.
+    externalId: "19506:1826",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19506/1826#/teetimes",
+    latitude: 40.455,
+    longitude: -109.528,
   },
   {
     name: "The Barn Golf Club",

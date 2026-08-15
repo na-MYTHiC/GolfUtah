@@ -79,19 +79,23 @@ any price, so there is nothing for an aggregator to show.
 
 Seventeen candidates remain, in three groups.
 
-**Worth a run — platform unknown, public courses:**
-West Ridge (West Valley City), Glenmoor (South Jordan), East Bay
-(Provo), Stansbury Park, Oquirrh Hills (Tooele), Ben Lomond (Ogden),
-Sherwood Hills (Wellsville), The Moab, Round Valley (Morgan), Canyon
-Hills (Nephi), Dinaland (Vernal).
+**Worth a run — platform still unknown:**
+West Ridge (West Valley City), Ben Lomond (Ogden), Sherwood Hills
+(Wellsville), The Moab.
 
-The first seven were added from general knowledge rather than a source,
-so a name or a URL may be wrong. That costs one page load and prints a
-search link — cheap enough to be worth trying, but don't read a failure
-as proof the course doesn't exist.
+Those four came from general knowledge rather than a source, so a name
+or URL may be wrong. That costs one page load and prints a search link —
+worth trying, but don't read a failure as proof the course doesn't exist.
+
+**Round Valley** is Chronogolf; its candidate now points at the club page,
+so a run should give up the uuid.
+
+**East Bay is not a gap** — it's Timpanogos Golf Club, renamed, and
+already seeded as `6279:49:14927`. Removed from the candidates.
 
 **Known platform, no adapter:**
-Canyons (quick18), Birch Creek (golfrev).
+Canyons (quick18), Birch Creek (golfrev), **Glenmoor (cps.golf)** — Club
+Prophet Systems, a fifth platform nobody here has looked at.
 
 **Genuinely closed:**
 Schneiter's Bluff and Riverside need a login, so availability isn't
@@ -193,10 +197,10 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
-| ForeUp | 27 | yes | only if the course names its sheet |
+| ForeUp | 30 | yes | only if the course names its sheet |
 | GolfPay | 1 | yes — to the exact slot | no |
 | Chronogolf | 15 | yes — to the exact slot | only if the club splits the nine out |
-| MemberSports | 7 | **no** | yes — a real flag on every slot |
+| MemberSports | 8 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
 MemberSports and TeeItUp send a boolean, so the nine is always known.
