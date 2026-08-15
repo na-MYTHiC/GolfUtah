@@ -10,17 +10,16 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 18 of 23 have one, captured by
- *                 `npm run discover:refresh`. The five without are
- *                 Murray Parkway, Davis Park, Valley View, The Ridge and
- *                 Roosevelt — the first four because their booking pages
- *                 never reach a tee sheet for the script (The Ridge sits
- *                 behind a login; the other three surface only Stripe's
- *                 hosts, so the sheet is inside an iframe the script
- *                 doesn't follow), Roosevelt because it was seeded from a
- *                 link and hasn't been through a refresh run yet. All
- *                 five may be showing incomplete times, and the UI says
- *                 so.
+ *                 sheet. 18 of 24 have one. The six without, and why:
+ *                   Murray Parkway, Davis Park, Valley View — their
+ *                     booking pages surface only Stripe's hosts, so the
+ *                     tee sheet sits in a frame the script doesn't reach
+ *                   The Ridge — booking page is behind a login
+ *                   Roosevelt — seeded from a link, no refresh run yet
+ *                   El Monte — 32 slots came back with no booking class
+ *                     on any row, so there may not be one to capture
+ *                 All six may be showing incomplete times, and the UI
+ *                 says so. `npm run discover:refresh` retries them.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -636,5 +635,24 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://stateparks.utah.gov/golf/palisade/",
     latitude: 39.212,
     longitude: -111.691,
+  },
+  {
+    name: "El Monte Golf Course",
+    slug: "el-monte-golf-course",
+    county: "Weber",
+    city: "Ogden",
+    platform: "FOREUP",
+    // Named by ForeUp itself rather than inferred: the times response
+    // for this schedule comes back as "El Monte Golf Course", which is
+    // what finally separated it from Mount Ogden. Both are Ogden City
+    // courses under account 19197, and the city's own Mount Ogden page
+    // links here — see `npm run foreup:schedules`.
+    //
+    // No booking class yet; 32 slots came back without one on any row,
+    // so this listing may be partial and the UI says so.
+    externalId: "19197:1258",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1258#/teetimes",
+    latitude: 41.229,
+    longitude: -111.937,
   },
 ];

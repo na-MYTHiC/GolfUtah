@@ -41,6 +41,7 @@ mornings from you right now.
 | Valley View | was stalling — should be fixed, see below |
 | The Ridge | booking page sits behind a login |
 | Roosevelt | never tried — seeded from a link |
+| El Monte | no booking class on any row |
 
 **The three stalls were a bug in this script, now fixed.** All three
 reported "booking links point at js.stripe.com, m.stripe.network", which
@@ -106,7 +107,19 @@ a schedule id is known, ForeUp itself says which course it is. No
 guessing from a municipal website that links to the wrong page.
 
 It prints a ready-to-paste seed entry per sheet, including the booking
-class, so these two would go in complete rather than partial.
+class when ForeUp gives one.
+
+**Status:** El Monte resolved and is seeded (`19197:1258`, 32 slots).
+Mount Ogden did not — the booking page links to only one sheet, so its
+schedule id isn't discoverable that way. Sister courses on one account
+are numbered close together, so sweep for it:
+
+```
+npm run foreup:schedules -- 19197 --scan 1240-1290
+```
+
+Bounded to 60 ids and run sequentially; it asks each id what it's
+called and reports any that name a different course.
 
 If the booking page won't load but you know the ids:
 
@@ -154,7 +167,7 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
-| ForeUp | 23 | yes | only if the course names its sheet |
+| ForeUp | 24 | yes | only if the course names its sheet |
 | Chronogolf | 14 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 6 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |

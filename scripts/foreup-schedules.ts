@@ -156,9 +156,13 @@ async function identify(scheduleId: number, courseId: number): Promise<Partial<S
       }[];
       if (!Array.isArray(rows) || rows.length === 0) continue;
 
+      // Not reliably on the first row: El Monte returned 32 slots with
+      // no booking class on row 0. Without one ForeUp can serve a
+      // partial sheet, so it's worth looking past the first row before
+      // giving up on it.
       return {
-        courseName: rows[0].course_name,
-        bookingClassId: rows[0].booking_class_id,
+        courseName: rows.find((r) => r.course_name)?.course_name,
+        bookingClassId: rows.find((r) => r.booking_class_id)?.booking_class_id,
         slots: rows.length,
       };
     } catch (err) {
@@ -235,12 +239,51 @@ async function main() {
   const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
   const headed = process.argv.includes("--headed");
   if (args.length === 0) {
-    console.error("Usage: npm run foreup:schedules -- <courseId | booking URL> [--headed]");
+    console.error(
+      "Usage: npm run foreup:schedules -- <courseId | booking URL>\n" +
+        "         [--ids 1258,1259] [--scan 1250-1275] [--headed]"
+    );
     process.exit(1);
   }
 
   const { courseId, scheduleId } = parseTarget(args[0]);
   console.log(`ForeUp course ${courseId} — looking for its tee sheets\n`);
+
+  /**
+   * A bounded sweep of neighbouring schedule ids.
+   *
+   * For the case this script was written for: Ogden's booking page links
+   * only to El Monte, so Mount Ogden's sheet exists but nothing on the
+   * web points at it. Sister courses on one account are numbered close
+   * together, so a small window around a known id usually finds it.
+   *
+   * Sequential and deliberately small. This is one operator's tee sheets
+   * being asked what they're called, once — not a crawl.
+   */
+  const scan = arg("scan");
+  if (scan) {
+    const m = /^(\d+)-(\d+)$/.exec(scan);
+    if (!m) throw new Error(`--scan wants a range like 1250-1275, got "${scan}"`);
+    const [from, to] = [Number(m[1]), Number(m[2])];
+    if (to - from > 60) throw new Error(`--scan range too wide (${to - from}); keep it under 60`);
+
+    console.log(`Scanning schedule ids ${from}-${to} under course ${courseId}…\n`);
+    const hits = new Set<number>();
+    for (let id = from; id <= to; id++) {
+      const info = await identify(id, courseId);
+      if (info.courseName) {
+        hits.add(id);
+        console.log(`  ${courseId}:${id}`.padEnd(18) + `${info.courseName} — ${info.slots} slot(s)`);
+      }
+    }
+    console.log("");
+    if (hits.size === 0) {
+      console.log("Nothing in that range. Try a different window, or a different course id.");
+      return;
+    }
+    await report(courseId, hits);
+    return;
+  }
 
   // Skips the browser entirely. For when the ids are already known, or
   // when the booking page won't load but the API still answers — naming
