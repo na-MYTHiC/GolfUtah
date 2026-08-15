@@ -60,11 +60,6 @@
     "url": "http://birchcreekgolf.com/"
   },
   {
-    "name": "The Moab Golf Course",
-    "city": "Moab",
-    "url": "https://moabgolfcourse.com/"
-  },
-  {
     "name": "Palisade Golf Course",
     "city": "Sterling",
     "url": "https://stateparks.utah.gov/golf/palisade/",
@@ -123,5 +118,145 @@
     "name": "Sherwood Hills Golf Course",
     "city": "Wellsville",
     "url": "https://www.sherwoodhills.com/"
+  },
+  {
+    "name": "Dixie Red Hills Golf Club",
+    "city": "St. George",
+    "url": "http://stgeorgecitygolf.com/dixieredhills.php"
+  },
+  {
+    "name": "Southgate Golf Course",
+    "city": "St. George",
+    "url": "http://stgeorgecitygolf.com/southgate.php"
+  },
+  {
+    "name": "St. George Golf Club",
+    "city": "St. George",
+    "url": "http://stgeorgecitygolf.com/stgeorge.php"
+  },
+  {
+    "name": "Sunbrook Golf Club",
+    "city": "St. George",
+    "url": "http://stgeorgecitygolf.com/sunbrook.php"
+  },
+  {
+    "name": "Green Spring Golf Course",
+    "city": "Washington",
+    "url": "http://www.greenspringgolfcourse.com/"
+  },
+  {
+    "name": "Sky Mountain Golf Course",
+    "city": "Hurricane",
+    "url": "https://www.skymountaingolf.com/"
+  },
+  {
+    "name": "Coral Canyon Golf Course",
+    "city": "Washington",
+    "url": "https://www.coralcanyongolf.com/"
+  },
+  {
+    "name": "Sand Hollow Resort",
+    "city": "Hurricane",
+    "url": "https://sandhollowresorts.com/"
+  },
+  {
+    "name": "The Ledges Golf Course",
+    "city": "St. George",
+    "url": "https://www.ledges.com/"
+  },
+  {
+    "name": "Sun River Golf Club",
+    "city": "St. George",
+    "url": "https://www.sunrivergolf.com/"
+  },
+  {
+    "name": "Cedar Ridge Golf Course",
+    "city": "Cedar City",
+    "url": "https://www.google.com/search?q=Cedar+Ridge+Golf+Course+Cedar+City+Utah+tee+times"
+  },
+  {
+    "name": "Copper Rock Golf Course",
+    "city": "Hurricane",
+    "url": "https://www.google.com/search?q=Copper+Rock+Golf+Course+Hurricane+Utah+tee+times"
+  },
+  {
+    "name": "Black Desert Golf Course",
+    "city": "Ivins",
+    "url": "https://www.google.com/search?q=Black+Desert+Golf+Course+Ivins+Utah+tee+times"
+  },
+  {
+    "name": "Canyon Breeze Golf Course",
+    "city": "Beaver",
+    "url": "http://www.beaverutah.net/golf/"
+  },
+  {
+    "name": "Paradise Golf Resort",
+    "city": "Fillmore",
+    "url": "http://www.golfparadiseatfillmore.com/"
+  },
+  {
+    "name": "Sunset View Golf Course",
+    "city": "Delta",
+    "url": "http://sunsetviewgc.com/"
+  },
+  {
+    "name": "The Hideout Golf Club",
+    "city": "Monticello",
+    "url": "https://www.hideoutgolf.com/"
+  },
+  {
+    "name": "Moab Golf Club",
+    "city": "Moab",
+    "url": "https://www.moabcountryclub.com/"
+  },
+  {
+    "name": "Thunderbird Golf Course",
+    "city": "Mount Carmel",
+    "url": "https://www.zionnational-park.com/golf.htm"
+  },
+  {
+    "name": "Cherokee Springs Golf & RV Resort",
+    "city": "Panguitch",
+    "url": "http://cherokeespringsresort.com/"
+  },
+  {
+    "name": "Central Valley Golf Course",
+    "city": "South Salt Lake",
+    "url": "http://www.centralvalleygolfcourse.net/"
+  },
+  {
+    "name": "Mulligans Golf Course",
+    "city": "South Jordan",
+    "url": "http://www.mulligans-south.com/"
+  },
+  {
+    "name": "Copper Golf Club",
+    "city": "Magna",
+    "url": "https://coppergolfclub.com/"
+  },
+  {
+    "name": "Schneiter's Pebblebrook Golf Course",
+    "city": "Sandy",
+    "url": "http://www.golfpebblebrook.com/"
+  },
+  {
+    "name": "Spanish Oaks Golf Course",
+    "city": "Spanish Fork",
+    "url": "http://www.golfspanishoaks.com/"
+  },
+  {
+    "name": "The Ranches Golf Club",
+    "city": "Eagle Mountain",
+    "url": "https://www.theranchesgolfclub.com/"
+  },
+  {
+    "name": "Remuda Golf Course",
+    "city": "Farr West",
+    "url": "https://www.remudagolf.com/"
+  },
+  {
+    "name": "Toad's National Golf Course",
+    "city": "Ogden",
+    "url": "http://toadsnational.com/"
   }
 ]

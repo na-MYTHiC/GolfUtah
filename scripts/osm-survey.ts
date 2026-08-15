@@ -65,6 +65,28 @@ const norm = (s: string) =>
     .replace(/[^a-z0-9]/g, "");
 
 /**
+ * Same course, allowing for one name being longer than the other.
+ *
+ * Exact normalized equality was too strict by exactly one word, and it
+ * put six courses already in the app onto the missing list: OSM calls
+ * them Palisade *State Park*, Roosevelt *Municipal*, Wasatch Mountain
+ * *State*, Wolf Creek (seeded as Wolf Creek *Resort*), and — best of all
+ * — *Pro Shop at* Eagle Mountain. Containment catches every one.
+ *
+ * The length floor is what stops it going the other way: without it
+ * "oaks" would match anything with oaks in its name.
+ */
+const MIN_CONTAINMENT = 6;
+
+function sameName(a: string, b: string): boolean {
+  const [x, y] = [norm(a), norm(b)];
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= MIN_CONTAINMENT && long.includes(short);
+}
+
+/**
  * Members-only. The app has nothing to show for a course the public
  * can't book, so these are reported separately rather than as gaps.
  *
@@ -78,6 +100,13 @@ function isPrivate(tags: Record<string, string>): boolean {
     tags.golf_course === "private" ||
     tags.membership === "members_only"
   );
+}
+
+function cleanUrl(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const markdown = /\]\((https?:\/\/[^)]+)\)/.exec(raw);
+  const url = markdown?.[1] ?? raw.trim();
+  return /^https?:\/\//i.test(url) ? url : `https://${url.replace(/^\/+/, "")}`;
 }
 
 /** Ranges and mini-golf get mapped as courses often enough to matter. */
@@ -156,7 +185,10 @@ async function main() {
       lat,
       lon,
       city: tags["addr:city"],
-      website: tags.website ?? tags["contact:website"],
+      // One Utah entry has its website tagged as markdown:
+      // "[www.SunRiverGolf.com](https://www.SunRiverGolf.com)". Take the
+      // target, since that's the only half that is a URL.
+      website: cleanUrl(tags.website ?? tags["contact:website"]),
       holes: tags.holes,
       private: isPrivate(tags),
     });
@@ -172,24 +204,32 @@ async function main() {
     if (!dupe) unique.push(f);
   }
 
-  /**
-   * Seeded already? Name first, then position — position is what catches
-   * a course that has been renamed since it was added.
-   */
-  const seededMatch = (f: Found) =>
-    COURSES.find(
-      (c) =>
-        norm(c.name) === norm(f.name) ||
-        distanceMiles(c.latitude, c.longitude, f.lat, f.lon) < SAME_COURSE_MILES
-    );
-
   const missing: Found[] = [];
   const matched: { osm: Found; seeded: string }[] = [];
+  const ambiguous: { osm: Found; seeded: string; miles: number }[] = [];
 
   for (const f of unique) {
-    const hit = seededMatch(f);
-    if (hit) matched.push({ osm: f, seeded: hit.name });
-    else missing.push(f);
+    const byName = COURSES.find((c) => sameName(c.name, f.name));
+    if (byName) {
+      matched.push({ osm: f, seeded: byName.name });
+      continue;
+    }
+
+    // Nothing matched on name. Position alone is a hint, not an answer:
+    // it correctly spots a rename, but it also paired Nibley Park with
+    // Forest Dale, and Homestead with Wasatch Mountain — different
+    // courses that happen to be neighbours. Counting those as seeded
+    // silently hid Homestead, which really is missing. So they get their
+    // own bucket and stay in the missing list.
+    const near = COURSES.map((c) => ({
+      c,
+      miles: distanceMiles(c.latitude, c.longitude, f.lat, f.lon),
+    })).sort((a, b) => a.miles - b.miles)[0];
+
+    if (near && near.miles < SAME_COURSE_MILES) {
+      ambiguous.push({ osm: f, seeded: near.c.name, miles: near.miles });
+    }
+    missing.push(f);
   }
 
   const publicMissing = missing.filter((f) => !f.private);
@@ -199,15 +239,17 @@ async function main() {
     `OSM knows ${unique.length} golf course(s) in Utah` +
       (unnamed.length ? ` (plus ${unnamed.length} with no name tag, skipped)` : "")
   );
-  console.log(`  ${matched.length} already seeded`);
+  console.log(`  ${matched.length} already seeded (matched by name)`);
   console.log(`  ${publicMissing.length} not seeded, public`);
   console.log(`  ${privateMissing.length} not seeded, tagged private\n`);
 
-  // Renames are the interesting matches: same place, different name.
-  const renamed = matched.filter((m) => norm(m.osm.name) !== norm(m.seeded));
-  if (renamed.length) {
-    console.log("Matched by position, not by name — check these are really the same course:");
-    for (const m of renamed) console.log(`  OSM "${m.osm.name}"  ~  seeded "${m.seeded}"`);
+  if (ambiguous.length) {
+    console.log("CLOSE TO A SEEDED COURSE BUT NAMED DIFFERENTLY — decide each one.");
+    console.log("Still counted as missing below: position alone can't tell a rename");
+    console.log("from two courses that happen to be neighbours.\n");
+    for (const m of ambiguous.sort((a, b) => a.miles - b.miles)) {
+      console.log(`  "${m.osm.name}"  is ${m.miles.toFixed(2)} mi from seeded "${m.seeded}"`);
+    }
     console.log("");
   }
 
