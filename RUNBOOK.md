@@ -79,13 +79,12 @@ Still open:
 - **El Monte / Mount Ogden** and **Schneiter's Bluff / Riverside** each
   came back with one id shared between two courses — the collision guard
   doing its job. See below.
-- **The Barn** is GolfPay, and a capture now shows the endpoint:
-  `GET golfpay.co/api/tee-times?date=MM/DD/YYYY&course_id=1466&tsid=20
-  &number_of_holes=9`. Before an adapter is worth writing, two things
-  have to hold — that a Laravel session and CSRF token can be obtained
-  headlessly (a token from someone's browser is useless in CI), and that
-  the response carries times, prices and spots. `npm run golfpay:probe`
-  answers both and writes the response to `golfpay-probe.json`.
+- **The Barn** is seeded — GolfPay now has an adapter, written against
+  `npm run golfpay:probe` rather than guessed. The endpoint answers cold,
+  so no Laravel session or CSRF token is needed. Two costs worth knowing:
+  9 and 18 are separate sheets, so a course-day is two requests; and each
+  time appears twice, with and without a cart, which the adapter collapses
+  into a green fee plus a cart fee.
 - **Park City Golf Club** is seeded — MemberSports `15426:18944`. Two
   discovery passes found no booking link; the ids came straight from the
   app URL.
@@ -199,6 +198,7 @@ Worth knowing before chasing a bug that isn't one.
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
 | ForeUp | 27 | yes | only if the course names its sheet |
+| GolfPay | 1 | yes — to the exact slot | no |
 | Chronogolf | 15 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 7 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
@@ -222,9 +222,8 @@ URL — two different days produce byte-for-byte identical addresses. Those
 rows say "opens on today" for that reason. It isn't a bug and it can't be
 fixed from this side.
 
-Two platforms are detected but have no adapter, both parked deliberately:
+One platform is detected and has no adapter, parked deliberately:
 
-- **GolfPay** (The Barn) — needs one availability capture. Doable.
 - **TeeRocket** (Schneiter's ×2) — needs a *user account*. The widget
   renders "Please login to reserve a tee time", so availability isn't
   public at all. Not an adapter problem, and no amount of protocol work

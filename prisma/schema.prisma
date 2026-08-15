@@ -22,6 +22,7 @@ enum Platform {
   CHRONOGOLF
   MEMBERSPORTS
   TEEITUP
+  GOLFPAY
 }
 
 model Course {

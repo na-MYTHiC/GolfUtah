@@ -23,6 +23,8 @@
  *                 Both answer without one, so they list *something*;
  *                 whether it's the whole sheet is unconfirmed, and the
  *                 UI says so.
+ *   GolfPay       "<courseSlug>:<courseId>:<tsid>" — the slug only
+ *                 builds the fallback link; the API wants the numbers.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
  *                 lists its back nine separately) and its own widget asks
@@ -33,7 +35,12 @@
  * Refine them per course as real ones turn up.
  */
 
-export type PlatformName = "FOREUP" | "CHRONOGOLF" | "MEMBERSPORTS" | "TEEITUP";
+export type PlatformName =
+  | "FOREUP"
+  | "CHRONOGOLF"
+  | "MEMBERSPORTS"
+  | "TEEITUP"
+  | "GOLFPAY";
 
 export interface CourseSeed {
   name: string;
@@ -692,6 +699,20 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19196/1259#/teetimes",
     latitude: 41.199,
     longitude: -111.947,
+  },
+  {
+    name: "The Barn Golf Club",
+    slug: "the-barn-golf-club",
+    county: "Weber",
+    city: "Pleasant View",
+    platform: "GOLFPAY",
+    // The first GolfPay course, and the reason that adapter exists.
+    // externalId is slug:courseId:tsid — the slug only builds the
+    // fallback link, the API is addressed by the numbers.
+    externalId: "the-barn-golf-club-ogden-ut-84414:1466:20",
+    bookingUrl: "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414",
+    latitude: 41.322,
+    longitude: -111.984,
   },
   {
     name: "The Outlaw Golf Club",
