@@ -29,7 +29,7 @@ to either underlying command if you want to watch.
 
 ### Pass 1 — courses already in the app that may be showing short sheets
 
-ForeUp courses with no `booking_class` captured. **25 of 27 now have
+ForeUp courses with no `booking_class` captured. **28 of 33 now have
 one**, up from 17 when this section was written.
 
 Two different failure modes turned up, and the second is worse than this
@@ -69,7 +69,7 @@ passes and an API probe had all failed.
 
 ### Pass 2 — courses not in the app yet
 
-59 courses seeded, across 18 of Utah's 29 counties.
+65 courses seeded, across 19 of Utah's 29 counties.
 
 #### Surveying the whole state
 
@@ -86,12 +86,23 @@ directions: it invented courses that cost a page load each to disprove,
 and it offered East Bay as a gap when East Bay is Timpanogos renamed and
 had been seeded for weeks.
 
-**It matches by position as well as by name**, which is what catches a
-rename. Timpanogos sits where East Bay sits, so the two match on
-coordinates despite sharing not one word. Anything matched that way is
-printed under "check these are really the same course" — worth reading,
-because it's also how two genuinely different courses on one property
-would show up.
+**Names are matched loosely, on containment.** Exact matching was one
+word too strict and put six seeded courses on the missing list: OSM calls
+them Palisade *State Park*, Roosevelt *Municipal*, Wasatch Mountain
+*State*, Wolf Creek (seeded as Wolf Creek *Resort*), and *Pro Shop at*
+Eagle Mountain.
+
+**Proximity flags, it doesn't resolve.** A course near a seeded one but
+named differently is printed for you to decide and *stays in the missing
+list*. Treating position as proof went wrong in both directions — it
+paired Homestead with Wasatch Mountain, 0.21 miles apart and different
+courses, and hid Homestead entirely.
+
+**And discovery now catches duplicates by id.** Spanish Oaks resolved to
+ids already seeded under "The Oaks at Spanish Fork" and was printed as a
+fresh find. Any hit matching a seeded externalId is now reported as
+already seeded and kept out of the paste block. Names get changed; ids
+don't.
 
 Private clubs are counted and hidden (`--include-private` to see them),
 driving ranges and mini-golf are filtered out, and a course mapped as
@@ -221,7 +232,7 @@ Worth knowing before chasing a bug that isn't one.
 | ForeUp | 33 | yes | only if the course names its sheet |
 | GolfPay | 1 | yes — to the exact slot | no |
 | Chronogolf | 17 | yes — to the exact slot | only if the club splits the nine out |
-| MemberSports | 8 | **no** | yes — a real flag on every slot |
+| MemberSports | 10 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
 MemberSports and TeeItUp send a boolean, so the nine is always known.

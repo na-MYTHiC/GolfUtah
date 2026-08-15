@@ -140,34 +140,14 @@
     "url": "http://stgeorgecitygolf.com/sunbrook.php"
   },
   {
-    "name": "Green Spring Golf Course",
-    "city": "Washington",
-    "url": "http://www.greenspringgolfcourse.com/"
-  },
-  {
-    "name": "Sky Mountain Golf Course",
-    "city": "Hurricane",
-    "url": "https://www.skymountaingolf.com/"
-  },
-  {
     "name": "Coral Canyon Golf Course",
     "city": "Washington",
     "url": "https://www.coralcanyongolf.com/"
   },
   {
-    "name": "Sand Hollow Resort",
-    "city": "Hurricane",
-    "url": "https://sandhollowresorts.com/"
-  },
-  {
     "name": "The Ledges Golf Course",
     "city": "St. George",
     "url": "https://www.ledges.com/"
-  },
-  {
-    "name": "Sun River Golf Club",
-    "city": "St. George",
-    "url": "https://www.sunrivergolf.com/"
   },
   {
     "name": "Cedar Ridge Golf Course",
@@ -225,11 +205,6 @@
     "url": "http://www.centralvalleygolfcourse.net/"
   },
   {
-    "name": "Mulligans Golf Course",
-    "city": "South Jordan",
-    "url": "http://www.mulligans-south.com/"
-  },
-  {
     "name": "Copper Golf Club",
     "city": "Magna",
     "url": "https://coppergolfclub.com/"
@@ -243,11 +218,6 @@
     "name": "The Ranches Golf Club",
     "city": "Eagle Mountain",
     "url": "https://www.theranchesgolfclub.com/"
-  },
-  {
-    "name": "Remuda Golf Course",
-    "city": "Farr West",
-    "url": "https://www.remudagolf.com/"
   },
   {
     "name": "Toad's National Golf Course",

@@ -768,6 +768,31 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.984,
   },
   {
+    name: "Green Spring Golf Course",
+    slug: "green-spring-golf-course",
+    county: "Washington",
+    city: "Washington",
+    platform: "MEMBERSPORTS",
+    // Discovery got as far as "booking links point at
+    // app.membersports.com" and no further — the ids only exist in the
+    // app's own URL, which is where these came from.
+    externalId: "15402:18913",
+    bookingUrl: "https://app.membersports.com/tee-times/15402/18913/0",
+    latitude: 37.1417,
+    longitude: -113.525,
+  },
+  {
+    name: "Sun River Golf Club",
+    slug: "sun-river-golf-club",
+    county: "Washington",
+    city: "St. George",
+    platform: "MEMBERSPORTS",
+    externalId: "15452:18977",
+    bookingUrl: "https://app.membersports.com/tee-times/15452/18977/0",
+    latitude: 37.0308,
+    longitude: -113.6217,
+  },
+  {
     name: "Sky Mountain Golf Course",
     slug: "sky-mountain-golf-course",
     county: "Washington",
