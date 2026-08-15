@@ -45,16 +45,6 @@
     "url": "https://www.parkcitymountain.com/explore-the-resort/activities/golf.aspx"
   },
   {
-    "name": "Glenwild Golf Club",
-    "city": "Park City",
-    "url": "https://www.glenwildgolfclub.com/"
-  },
-  {
-    "name": "Promontory Club (Pete Dye Canyon Course)",
-    "city": "Park City",
-    "url": "https://www.promontoryclub.com/dye-golf-course/"
-  },
-  {
     "name": "The Outlaw Golf Club",
     "city": "Hideout",
     "url": "https://www.chronogolf.com/club/the-outlaw-golf-club"
@@ -103,5 +93,40 @@
     "city": "Vernal",
     "url": "https://www.vernalcity.org/181/Golf-Course",
     "note": "url unverified"
+  },
+  {
+    "name": "West Ridge Golf Course",
+    "city": "West Valley City",
+    "url": "https://www.wvc-ut.gov/159/West-Ridge-Golf-Course"
+  },
+  {
+    "name": "Glenmoor Golf Course",
+    "city": "South Jordan",
+    "url": "https://www.glenmoorgolf.com/"
+  },
+  {
+    "name": "East Bay Golf Course",
+    "city": "Provo",
+    "url": "https://www.provo.org/departments/parks-recreation/golf-course"
+  },
+  {
+    "name": "Stansbury Park Golf Course",
+    "city": "Stansbury Park",
+    "url": "https://www.stansburygolf.com/"
+  },
+  {
+    "name": "Oquirrh Hills Golf Course",
+    "city": "Tooele",
+    "url": "https://www.tooelecity.org/departments/golf-course/"
+  },
+  {
+    "name": "Ben Lomond Golf Course",
+    "city": "Ogden",
+    "url": "https://www.benlomondgolf.com/"
+  },
+  {
+    "name": "Sherwood Hills Golf Course",
+    "city": "Wellsville",
+    "url": "https://www.sherwoodhills.com/"
   }
 ]

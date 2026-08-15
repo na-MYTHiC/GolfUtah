@@ -69,45 +69,41 @@ passes and an API probe had all failed.
 
 ### Pass 2 — courses not in the app yet
 
-The last run resolved 7 of 20. Two are now seeded — **Palisade**
-(TeeItUp, the fourth and last Utah State Parks course) and **Roosevelt**
-(ForeUp), which between them close the two counties inside the covered
-latitude band that had no course at all.
+54 courses seeded. Salt Lake and Utah counties are close to complete —
+Old Mill, Stonebridge, South Mountain, Hobble Creek, Fox Hollow and
+Sleepy Ridge are all in — so what's left is thinner than it looks.
 
-Still open:
+**Private clubs are out of scope** and have been removed from the
+candidate list. Glenwild and Promontory aren't bookable by the public at
+any price, so there is nothing for an aggregator to show.
 
-- **El Monte / Mount Ogden** and **Schneiter's Bluff / Riverside** each
-  came back with one id shared between two courses — the collision guard
-  doing its job. See below.
-- **The Barn** is seeded — GolfPay now has an adapter, written against
-  `npm run golfpay:probe` rather than guessed. The endpoint answers cold,
-  so no Laravel session or CSRF token is needed. Two costs worth knowing:
-  9 and 18 are separate sheets, so a course-day is two requests; and each
-  time appears twice, with and without a cart, which the adapter collapses
-  into a green fee plus a cart fee.
-- **Park City Golf Club** is seeded — MemberSports `15426:18944`. Two
-  discovery passes found no booking link; the ids came straight from the
-  app URL.
-- **The Outlaw Golf Club** is seeded — Chronogolf. Same story: the
-  candidate pointed at the course's own site, which links nowhere the
-  script can follow. Pointed at the club's Chronogolf page, it resolved
-  on the first try.
+Seventeen candidates remain, in three groups.
 
-**The pattern in both:** "no booking link or traffic found" usually means
-the *course's website* is unhelpful, not that the course is unreachable.
-Finding the booking page by hand once and putting that URL in the
-candidate list is the fix, and it sticks.
-- **Canyons** is on quick18, **Birch Creek** on golfrev, **Golf the
-  Round** on TeeItUp but as a driving range. No adapters for any.
-- **Crane Field** is seeded. It had been failing since the first survey
-  because a guard in discover-ids discarded ForeUp course ids under 100
-  as template placeholders — and Crane Field really is course 1,
-  schedule 1. The guard is gone.
-- Eight courses turned up no booking link at all. The script prints a
-  search link for each, so a course whose site simply moved is one click
-  from being found rather than a dead end.
-- **Homestead** fails TLS negotiation outright
-  (`ERR_SSL_VERSION_OR_CIPHER_MISMATCH`) — their server, not ours.
+**Worth a run — platform unknown, public courses:**
+West Ridge (West Valley City), Glenmoor (South Jordan), East Bay
+(Provo), Stansbury Park, Oquirrh Hills (Tooele), Ben Lomond (Ogden),
+Sherwood Hills (Wellsville), The Moab, Round Valley (Morgan), Canyon
+Hills (Nephi), Dinaland (Vernal).
+
+The first seven were added from general knowledge rather than a source,
+so a name or a URL may be wrong. That costs one page load and prints a
+search link — cheap enough to be worth trying, but don't read a failure
+as proof the course doesn't exist.
+
+**Known platform, no adapter:**
+Canyons (quick18), Birch Creek (golfrev).
+
+**Genuinely closed:**
+Schneiter's Bluff and Riverside need a login, so availability isn't
+public at all. Homestead's server fails TLS negotiation. Golf the Round
+is a Toptracer range, not a course.
+
+**The lesson from Park City and Outlaw:** "no booking link or traffic
+found" nearly always means the *course's website* is unhelpful, not that
+the course is unreachable. Both resolved the moment their booking page
+was aimed at directly. If a course here fails, finding its booking page
+by hand once and putting that URL in `courses.candidates.json` fixes it
+permanently.
 
 ---
 
