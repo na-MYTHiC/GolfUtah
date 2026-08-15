@@ -10,15 +10,16 @@
  *   ForeUp        "<courseId>:<scheduleId>:<bookingClassId>" — the
  *                 booking class is optional but should be captured:
  *                 without it ForeUp can return only part of the tee
- *                 sheet. 18 of 24 have one. The six without, and why:
+ *                 sheet. 18 of 26 have one. The eight without, and why:
  *                   Murray Parkway, Davis Park, Valley View — their
  *                     booking pages surface only Stripe's hosts, so the
  *                     tee sheet sits in a frame the script doesn't reach
  *                   The Ridge — booking page is behind a login
  *                   Roosevelt — seeded from a link, no refresh run yet
- *                   El Monte — 32 slots came back with no booking class
- *                     on any row, so there may not be one to capture
- *                 All six may be showing incomplete times, and the UI
+ *                   El Monte, Mt. Ogden, Cove View — found by sweeping
+ *                     schedule ids, which names a course but doesn't
+ *                     reveal its booking class
+ *                 All eight may be showing incomplete times, and the UI
  *                 says so. `npm run discover:refresh` retries them.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
  *                 can publish several courses on one sheet (Riverbend
@@ -644,15 +645,60 @@ export const COURSES: CourseSeed[] = [
     platform: "FOREUP",
     // Named by ForeUp itself rather than inferred: the times response
     // for this schedule comes back as "El Monte Golf Course", which is
-    // what finally separated it from Mount Ogden. Both are Ogden City
-    // courses under account 19197, and the city's own Mount Ogden page
-    // links here — see `npm run foreup:schedules`.
+    // what separated it from Mount Ogden after Ogden City's own Mt Ogden
+    // page turned out to link here.
     //
-    // No booking class yet; 32 slots came back without one on any row,
-    // so this listing may be partial and the UI says so.
+    // NOTE ON 19197 — it is NOT Ogden City's account, which is what this
+    // comment used to claim. Sweeping the id range found thirteen tee
+    // sheets under it across at least five states, plus two of ForeUp's
+    // own "Setup Training Account" fixtures. A ForeUp courseId is a
+    // shared tenant, not one operator, so nothing about a course can be
+    // assumed from sharing one.
+    //
+    // No booking class; 32 slots came back without one on any row, so
+    // this listing may be partial and the UI says so.
     externalId: "19197:1258",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1258#/teetimes",
     latitude: 41.229,
     longitude: -111.937,
+  },
+  {
+    name: "Mt. Ogden Golf Course",
+    slug: "mt-ogden-golf-course",
+    county: "Weber",
+    city: "Ogden",
+    platform: "FOREUP",
+    // The sibling sheet, found by sweeping schedule ids under 19197 —
+    // nothing on the web links to it, because Ogden City's Mt Ogden page
+    // points at El Monte's booking page instead. ForeUp names this one
+    // "Mt. Ogden Golf Course", which is what finally told the two apart.
+    externalId: "19197:1259",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1259#/teetimes",
+    latitude: 41.199,
+    longitude: -111.947,
+  },
+  {
+    name: "Cove View Golf Course",
+    slug: "cove-view-golf-course",
+    county: "Sevier",
+    city: "Richfield",
+    platform: "FOREUP",
+    // Turned up in the same sweep as Mt. Ogden, and the only other Utah
+    // course on that tenant.
+    //
+    // TWO THINGS TO KNOW. Identified by name alone — ForeUp's times
+    // response carries no location, and the other eleven sheets under
+    // 19197 are spread across at least five states, so "it's on the same
+    // account" proves nothing. Richfield's Cove View is a real municipal
+    // 18, and 87 published slots fits, but nothing here has confirmed
+    // it's the same one.
+    //
+    // And it sits ~15 miles south of Green River, which was the southern
+    // edge of the surveyed band. Not a problem, just no longer true that
+    // the app stops there.
+    externalId: "19197:1265",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19197/1265#/teetimes",
+    latitude: 38.773,
+    longitude: -112.084,
   },
 ];

@@ -41,7 +41,7 @@ mornings from you right now.
 | Valley View | was stalling — should be fixed, see below |
 | The Ridge | booking page sits behind a login |
 | Roosevelt | never tried — seeded from a link |
-| El Monte | no booking class on any row |
+| El Monte, Mt. Ogden, Cove View | found by id sweep; no booking class exposed |
 
 **The three stalls were a bug in this script, now fixed.** All three
 reported "booking links point at js.stripe.com, m.stripe.network", which
@@ -109,17 +109,24 @@ guessing from a municipal website that links to the wrong page.
 It prints a ready-to-paste seed entry per sheet, including the booking
 class when ForeUp gives one.
 
-**Status:** El Monte resolved and is seeded (`19197:1258`, 32 slots).
-Mount Ogden did not — the booking page links to only one sheet, so its
-schedule id isn't discoverable that way. Sister courses on one account
-are numbered close together, so sweep for it:
+**Resolved.** El Monte is `19197:1258`, Mt. Ogden is `19197:1259`. The
+booking page only ever linked to El Monte, so Mt. Ogden was found by
+sweeping the id range:
 
 ```
 npm run foreup:schedules -- 19197 --scan 1240-1290
 ```
 
-Bounded to 60 ids and run sequentially; it asks each id what it's
-called and reports any that name a different course.
+**What that sweep also proved: a ForeUp `courseId` is a shared tenant,
+not one operator.** 19197 hosts thirteen tee sheets across at least five
+states, plus two of ForeUp's own "Setup Training Account" fixtures. So a
+sweep returns candidates, not a shortlist — and since the times response
+carries no location, only the name is known. The script now skips
+obvious test sheets and says so; check the booking URL for a course's
+own address before seeding anything from a sweep.
+
+Cove View (Richfield) was the only other Utah course on that tenant and
+is seeded, identified by name alone.
 
 If the booking page won't load but you know the ids:
 
@@ -167,7 +174,7 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
-| ForeUp | 24 | yes | only if the course names its sheet |
+| ForeUp | 26 | yes | only if the course names its sheet |
 | Chronogolf | 14 | yes — to the exact slot | only if the club splits the nine out |
 | MemberSports | 6 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |

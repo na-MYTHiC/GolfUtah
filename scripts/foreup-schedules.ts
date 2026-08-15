@@ -214,8 +214,32 @@ async function report(courseId: number, ids: Set<number>) {
     console.log("");
   }
 
+  // A ForeUp courseId is a shared tenant, not one operator. Sweeping
+  // 19197 returned thirteen sheets across at least five states plus two
+  // of ForeUp's own training fixtures — so the list below is candidates,
+  // not a shortlist, and nothing here can tell you where any of them is.
+  const suspect = named.filter((s) => /setup|training|test|demo/i.test(s.courseName!));
+  if (suspect.length) {
+    console.log(
+      `Skipping ${suspect.length} that look like ForeUp's own test sheets: ` +
+        suspect.map((s) => s.courseName).join(", ")
+    );
+    console.log("");
+  }
+
+  const real = named.filter((s) => !suspect.includes(s));
+  if (real.length > 1) {
+    console.log(
+      "CHECK THE STATE BEFORE PASTING. One ForeUp course id serves many\n" +
+        "unrelated operators, and the times response carries no location —\n" +
+        "these names could be anywhere. Open the booking URL to see the\n" +
+        "course's own address."
+    );
+    console.log("");
+  }
+
   console.log("Paste into lib/courses.data.ts:\n");
-  for (const s of named) {
+  for (const s of real) {
     console.log(`  {
     name: "${s.courseName}",
     slug: "${slugify(s.courseName!)}",
