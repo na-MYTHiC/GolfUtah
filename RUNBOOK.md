@@ -93,65 +93,56 @@ Still open:
 
 ## The things a script can't get
 
-**El Monte and Mount Ogden.** Both resolve to the same ForeUp sheet,
-because Ogden City's Mt Ogden page links to El Monte's booking page.
-Neither is seeded, because seeding both would show identical times under
-two course names.
+**El Monte, Mt. Ogden and Cove View — all resolved.** Kept here because
+the way they failed is the most instructive thing in this file.
 
-There's now a script for exactly this:
+| Course | externalId |
+|---|---|
+| El Monte | `19197:1258:14275` |
+| Mt. Ogden | `19196:1259` |
+| Cove View | `19201:1265` |
 
-```
-npm run foreup:schedules -- 19197
-```
+Three separate traps, in the order they were hit:
 
-Both courses live under ForeUp course id `19197` as separate tee sheets,
-and every row of ForeUp's times response carries `course_name` — so once
-a schedule id is known, ForeUp itself says which course it is. No
-guessing from a municipal website that links to the wrong page.
+**1. A city website that links to the wrong course.** Ogden City's Mt
+Ogden page points at El Monte's booking page, so every discovery pass
+resolved both courses to the same sheet and the collision guard refused
+to seed either. Correctly.
 
-It prints a ready-to-paste seed entry per sheet, including the booking
-class when ForeUp gives one.
-
-**Resolved.** El Monte is `19197:1258`, Mt. Ogden is `19197:1259`. The
-booking page only ever linked to El Monte, so Mt. Ogden was found by
-sweeping the id range:
+**2. A ForeUp course id is not one operator.** Sweeping the id range
+under 19197 found thirteen tee sheets across at least five states, plus
+two of ForeUp's own "Setup Training Account" fixtures:
 
 ```
 npm run foreup:schedules -- 19197 --scan 1240-1290
 ```
 
-**What that sweep also proved: a ForeUp `courseId` is a shared tenant,
-not one operator.** 19197 hosts thirteen tee sheets across at least five
-states, plus two of ForeUp's own "Setup Training Account" fixtures. So a
-sweep returns candidates, not a shortlist — and since the times response
-carries no location, only the name is known. The script now skips
-obvious test sheets and says so; check the booking URL for a course's
-own address before seeding anything from a sweep.
+So a sweep returns *candidates*, not a shortlist. The times response
+carries no location, so only the name is known — the script skips obvious
+test sheets and warns, but checking the booking page for a real address
+is still on you. Cove View (Richfield) was the only other Utah course
+there.
 
-Cove View (Richfield) was the only other Utah course on that tenant and
-is seeded, identified by name alone.
-
-**Resolved.** El Monte `19197:1258:14275`, Mt. Ogden `19196:1259`, Cove
-View `19201:1265`.
-
-The trap worth remembering: a refresh pointed at `/booking/19197/1259`
-came back reporting El Monte — twice — and opening it in a browser showed
-El Monte too. The path is `/booking/<bookingSiteId>/<scheduleId>`, and
-**a booking site belongs to one course**. 19197 is El Monte's. Asking the
-API under it for schedule 1259 still returns Mt. Ogden's times, so the
-data was never wrong; only the booking link was, and it was sending
-golfers to El Monte's checkout.
+**3. The booking path belongs to a course, not to the sweep.** The path
+is `/booking/<bookingSiteId>/<scheduleId>`, and **a booking site belongs
+to one course**. 19197 is El Monte's, so `/booking/19197/1259` serves El
+Monte no matter what — which meant Mt. Ogden and Cove View shipped for
+three versions with booking links that opened the wrong course's
+checkout. The times were always right; the handoff wasn't.
 
 ForeUp reports the real owner on every response row as `course_id`. The
-script now surfaces it, flags any sheet whose owner differs from the id
-swept, and builds both the externalId and the booking URL from the owner:
+script surfaces it now:
 
 ```
   19197:1259   Mt. Ogden Golf Course — 64 slot(s)  [belongs to course 19196]
 ```
 
-So: sweep under whatever id you have, then seed under the one ForeUp
-reports back.
+**Sweep under whatever id you have; seed under the one ForeUp reports
+back.**
+
+Neither exposed a booking class, and that's expected rather than
+outstanding — a sweep talks to the API directly and never sees the
+widget's own request, which is the only place the class appears.
 
 **Schneiter's Bluff and Schneiter's Riverside.** Same shape, same
 reason: both pages resolve to TeeRocket group `YFlPUck58D81fB5Kqqa8`,
