@@ -94,8 +94,32 @@ because Ogden City's Mt Ogden page links to El Monte's booking page.
 Neither is seeded, because seeding both would show identical times under
 two course names.
 
-Open each course's own "Book Tee Time" and send both URLs. They'll share
-course id `19197` and differ in schedule id.
+There's now a script for exactly this:
+
+```
+npm run foreup:schedules -- 19197
+```
+
+Both courses live under ForeUp course id `19197` as separate tee sheets,
+and every row of ForeUp's times response carries `course_name` — so once
+a schedule id is known, ForeUp itself says which course it is. No
+guessing from a municipal website that links to the wrong page.
+
+It prints a ready-to-paste seed entry per sheet, including the booking
+class, so these two would go in complete rather than partial.
+
+If the booking page won't load but you know the ids:
+
+```
+npm run foreup:schedules -- 19197 --ids 1258,1259
+```
+
+That skips the browser and just does the naming, which is the half that
+matters. If both ids come back with the *same* name, that's ForeUp's
+answer — they really are one course, and only one should be seeded.
+
+Works for any city running several courses on one ForeUp account, not
+just Ogden.
 
 **Schneiter's Bluff and Schneiter's Riverside.** Same shape, same
 reason: both pages resolve to TeeRocket group `YFlPUck58D81fB5Kqqa8`,
