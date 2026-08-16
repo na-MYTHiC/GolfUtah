@@ -1,6 +1,22 @@
 /**
  * Can TenFore Golf be read without a browser?
  *
+ * ANSWERED: no. Kept because the reasoning took three passes and two of
+ * them were wrong, and because a future TenFore course will raise the
+ * same question. Run it again if you think something changed.
+ *
+ *   booking-times  ->  HTTP 400, "reCAPTCHA token is required."
+ *
+ * The full account is in RUNBOOK.md under the parked platforms. The
+ * short version: two of three endpoints answer cold but neither carries
+ * a tee time, the third refuses a body identical to the capture's, an
+ * empty token and a junk token draw *different* refusals — so the token
+ * is forwarded to Google, not merely looked for — and reCAPTCHA v3
+ * scores automated browsers low by design, so even paying for a browser
+ * per refresh buys something that can silently stop working.
+ *
+ * What follows is the original question, left as written.
+ *
  * The Ranches (fox.tenfore.golf/theranches) runs on TenFore, and a
  * capture gives three clean endpoints on swan.tenfore.golf:
  *
@@ -331,18 +347,44 @@ async function main() {
   // HTTP codes — booking-times is the only endpoint that matters, since
   // the other two return metadata a golfer can't book.
   if (times == null) {
-    const distinct = new Set(failures.map((f) => f.text.trim()));
     console.log("booking-times refused every body variant, including the captured one.");
+
+    // Two layers, and telling them apart is the whole point. ASP.NET's
+    // model binder answers first and names a field; the reCAPTCHA
+    // filter sits behind it and only speaks to a body that bound. A
+    // binder complaint is a bug in this script. A token complaint is
+    // TenFore's answer.
+    const tokenRefusals = failures.filter((f) => /recaptcha/i.test(f.text));
+    const binderRefusals = failures.filter((f) => /validation errors|could not be converted/i.test(f.text));
+
+    if (tokenRefusals.length > 0) {
+      console.log(
+        `\n${tokenRefusals.length} of ${failures.length} variants bound cleanly and were then refused`
+      );
+      console.log("by name: the reCAPTCHA is enforced server-side on the one endpoint that");
+      console.log("carries tee times. The other two answer cold but return only which days");
+      console.log("are on sale and a schedule record with every time field null.");
+      console.log("\nTenFore joins TeeRocket: reachable only with a real browser per refresh,");
+      console.log("and reCAPTCHA v3 scores automated browsers low by design, so even that");
+      console.log("buys something that can silently stop working. Not worth it.");
+      if (binderRefusals.length > 0) {
+        console.log(
+          `\n(${binderRefusals.length} variant(s) failed earlier, in model binding — those never`
+        );
+        console.log("reached the token check and say nothing about it either way.)");
+      }
+      return;
+    }
+
+    const distinct = new Set(failures.map((f) => f.text.trim()));
     if (distinct.size === 1) {
       console.log("Every variant drew the identical reply, so the body is not what it");
       console.log("objects to — the request is being rejected before anyone reads it.");
     } else {
       console.log(`${distinct.size} different replies across ${failures.length} variants —`);
       console.log("the body does change the answer, so this is worth another pass.");
+      console.log("Read the bodies above; a named field is the next variant to try.");
     }
-    console.log("\nRead the bodies above. If they name the token, TenFore joins TeeRocket:");
-    console.log("reachable only with a real browser per refresh, which is not worth it");
-    console.log("for one course. If they name a field, that field is the next variant.");
   }
 }
 

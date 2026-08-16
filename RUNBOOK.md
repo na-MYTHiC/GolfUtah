@@ -290,12 +290,46 @@ URL — two different days produce byte-for-byte identical addresses. Those
 rows say "opens on today" for that reason. It isn't a bug and it can't be
 fixed from this side.
 
-One platform is detected and has no adapter, parked deliberately:
+Two platforms are detected and have no adapter, parked deliberately:
 
 - **TeeRocket** (Schneiter's ×2) — needs a *user account*. The widget
   renders "Please login to reserve a tee time", so availability isn't
   public at all. Not an adapter problem, and no amount of protocol work
   gets past it.
+
+- **TenFore** (The Ranches) — reCAPTCHA v3, enforced server-side on the
+  only endpoint that matters. `npm run tenfore:probe` settled this
+  rather than assuming it, and the reasoning is worth keeping because
+  the first two readings of the evidence were both wrong.
+
+  Two of three endpoints answer cold, on the app id alone. That looked
+  promising and isn't: `booking-dates` returns which days are on sale
+  and `booking-schedule` returns a schedule record whose every useful
+  field — `startTime`, `endTime`, `numberOfTimes`, `gap`, `days` — is
+  null or empty. Neither contains a tee time. `booking-times` is the
+  only endpoint carrying anything bookable.
+
+  It answers 400, which reads like a bad request and isn't. The
+  captured body is `{golfCourseId, subCourseId, dateFrom, appId}`, the
+  probe sent exactly that, and the reply is 28 bytes of
+  `reCAPTCHA token is required.` Vary the body and you get ASP.NET's
+  model binder instead — missing `subCourseId`, or a `dateFrom` that
+  won't parse as `DateOnly` — which only proves the token check sits
+  *behind* binding and that a valid body is what earns you the real
+  answer. (The `searchParams field is required` line in those errors is
+  ASP.NET naming its unbound action parameter, not a wrapper object the
+  request is missing.)
+
+  An empty token draws that same "is required"; a junk token draws a
+  different message. Presence and validity are checked separately, so
+  the server is forwarding the token to Google rather than looking for
+  a header.
+
+  A browser per refresh is the only way past it, and it wouldn't
+  reliably work: reCAPTCHA v3 scores rather than passes, and scoring
+  automated browsers low is the whole product. That would add a browser
+  launch to every 5-minute build for a result that can silently start
+  failing. Not worth it for one course.
 
 ---
 
