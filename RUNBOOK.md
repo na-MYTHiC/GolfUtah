@@ -69,7 +69,7 @@ passes and an API probe had all failed.
 
 ### Pass 2 — courses not in the app yet
 
-65 courses seeded, across 19 of Utah's 29 counties.
+68 courses seeded, across 22 of Utah's 29 counties.
 
 #### Surveying the whole state
 
@@ -132,8 +132,44 @@ try once pointed at their actual booking page. Putting that URL in
 #### Known platform, no adapter
 
 Canyons (quick18), Birch Creek (golfrev), Glenmoor (cps.golf — Club
-Prophet Systems). Each is the same shape of work GolfPay took: one probe
-to learn the response, one capture to confirm, one adapter.
+Prophet Systems), The Ranches (tenfore.golf).
+
+TenFore is the interesting one, and there's a probe for it:
+
+```
+npm run tenfore:probe
+```
+
+Its API is clean — three endpoints on swan.tenfore.golf — but every
+request carries an `x-recaptcha-token`. Those are reCAPTCHA v3 tokens,
+minted by Google's script inside the page and valid for about two
+minutes, so a scheduled build cannot produce one without holding a real
+browser open on every refresh.
+
+Whether that matters depends on whether the token is *verified*, which
+isn't knowable from a capture. GolfPay's request carried a Laravel
+session and a CSRF header that looked mandatory, and the endpoint
+answered cold. The probe tries four ways — no token, empty token, junk
+token, action header alone — and says plainly which way it went.
+
+#### Blocked by a login
+
+**St. George City's four** — Dixie Red Hills, Southgate, St. George Golf
+Club, Sunbrook — are MemberSports behind a login. That's not
+automatically fatal: the MemberSports adapter already authenticates as
+nobody (it sends the literal string `Bearer null`, which is what the
+platform's own page sends) and serves eleven Utah courses that way. So
+the question is whether these clubs have anonymous access switched off.
+
+```
+npm run membersports:probe -- --club <id> --course <id>
+npm run membersports:probe -- --club <id> --scan 18900-18930
+```
+
+The ids are the two numbers in an `app.membersports.com/tee-times/<club>/<course>/0`
+URL. A login screen usually still carries the club id in its address,
+which is the half that's hard to guess; `--scan` walks the course ids
+around it.
 
 #### Genuinely closed
 
@@ -229,10 +265,10 @@ Worth knowing before chasing a bug that isn't one.
 
 | Platform | Courses | Links to a specific day? | Says front/back nine? |
 |---|---|---|---|
-| ForeUp | 33 | yes | only if the course names its sheet |
+| ForeUp | 35 | yes | only if the course names its sheet |
 | GolfPay | 1 | yes — to the exact slot | no |
 | Chronogolf | 17 | yes — to the exact slot | only if the club splits the nine out |
-| MemberSports | 10 | **no** | yes — a real flag on every slot |
+| MemberSports | 11 | **no** | yes — a real flag on every slot |
 | TeeItUp | 4 | date in the query, unverified | yes — a real flag on every slot |
 
 MemberSports and TeeItUp send a boolean, so the nine is always known.

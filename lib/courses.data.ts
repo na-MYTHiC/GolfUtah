@@ -768,6 +768,44 @@ export const COURSES: CourseSeed[] = [
     longitude: -111.984,
   },
   {
+    name: "Cedar Ridge Golf Course",
+    slug: "cedar-ridge-golf-course",
+    county: "Iron",
+    city: "Cedar City",
+    platform: "FOREUP",
+    // First course in Iron County.
+    externalId: "19680:2165",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/19680/2165#/teetimes",
+    latitude: 37.6955,
+    longitude: -113.055,
+  },
+  {
+    name: "Canyon Breeze Golf Course",
+    slug: "canyon-breeze-golf-course",
+    county: "Beaver",
+    city: "Beaver",
+    platform: "FOREUP",
+    // First course in Beaver County.
+    externalId: "21251:7447",
+    bookingUrl: "https://foreupsoftware.com/index.php/booking/21251/7447#/teetimes",
+    latitude: 38.2789,
+    longitude: -112.6067,
+  },
+  {
+    name: "Sunset View Golf Course",
+    slug: "sunset-view-golf-course",
+    county: "Millard",
+    city: "Delta",
+    platform: "MEMBERSPORTS",
+    // First course in Millard County. Club id 16773 sits well above the
+    // 15379-15455 band every other seeded MemberSports club falls in —
+    // worth noting only so nobody "corrects" it later.
+    externalId: "16773:20538",
+    bookingUrl: "https://app.membersports.com/tee-times/16773/20538/0",
+    latitude: 39.3755,
+    longitude: -112.5175,
+  },
+  {
     name: "Green Spring Golf Course",
     slug: "green-spring-golf-course",
     county: "Washington",

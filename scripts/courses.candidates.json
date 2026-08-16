@@ -147,12 +147,7 @@
   {
     "name": "The Ledges Golf Course",
     "city": "St. George",
-    "url": "https://www.ledges.com/"
-  },
-  {
-    "name": "Cedar Ridge Golf Course",
-    "city": "Cedar City",
-    "url": "https://www.google.com/search?q=Cedar+Ridge+Golf+Course+Cedar+City+Utah+tee+times"
+    "url": "https://www.chronogolf.com/club/the-ledges-golf-club"
   },
   {
     "name": "Copper Rock Golf Course",
@@ -165,19 +160,9 @@
     "url": "https://www.google.com/search?q=Black+Desert+Golf+Course+Ivins+Utah+tee+times"
   },
   {
-    "name": "Canyon Breeze Golf Course",
-    "city": "Beaver",
-    "url": "http://www.beaverutah.net/golf/"
-  },
-  {
     "name": "Paradise Golf Resort",
     "city": "Fillmore",
     "url": "http://www.golfparadiseatfillmore.com/"
-  },
-  {
-    "name": "Sunset View Golf Course",
-    "city": "Delta",
-    "url": "http://sunsetviewgc.com/"
   },
   {
     "name": "The Hideout Golf Club",
@@ -207,7 +192,7 @@
   {
     "name": "Copper Golf Club",
     "city": "Magna",
-    "url": "https://coppergolfclub.com/"
+    "url": "https://www.chronogolf.com/club/copper-club-golf-course"
   },
   {
     "name": "Schneiter's Pebblebrook Golf Course",

@@ -31,7 +31,9 @@
     "simulate": "tsx --import ./scripts/netsim.ts scripts/build-data.ts",
     "foreup:schedules": "tsx scripts/foreup-schedules.ts",
     "golfpay:probe": "tsx scripts/golfpay-probe.ts",
-    "osm:utah": "tsx scripts/osm-survey.ts"
+    "osm:utah": "tsx scripts/osm-survey.ts",
+    "membersports:probe": "tsx scripts/membersports-probe.ts",
+    "tenfore:probe": "tsx scripts/tenfore-probe.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

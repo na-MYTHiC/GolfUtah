@@ -35,6 +35,8 @@
  * to see the shape. Needs a machine that can reach golfpay.co.
  */
 
+import { writeFileSync } from "node:fs";
+
 const SITE = "https://golfpay.co";
 const API = `${SITE}/api/tee-times`;
 
@@ -296,7 +298,6 @@ async function main() {
     return;
   }
 
-  const { writeFileSync } = await import("node:fs");
   writeFileSync("golfpay-probe.json", JSON.stringify(results, null, 2));
   console.log("\nWrote golfpay-probe.json\n");
   console.log("Response shape:");
