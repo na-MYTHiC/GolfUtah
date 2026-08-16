@@ -69,7 +69,7 @@ passes and an API probe had all failed.
 
 ### Pass 2 — courses not in the app yet
 
-68 courses seeded, across 22 of Utah's 29 counties.
+70 courses seeded, across 22 of Utah's 29 counties.
 
 #### Surveying the whole state
 

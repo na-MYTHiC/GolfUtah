@@ -864,6 +864,23 @@ export const COURSES: CourseSeed[] = [
     longitude: -113.4122,
   },
   {
+    name: "The Ledges Golf Club",
+    slug: "the-ledges-golf-club",
+    county: "Washington",
+    city: "St. George",
+    // Half-resolved on the first pass: the sweep found club id 14257 and
+    // stopped there, because a club id alone can't be asked for tee
+    // times. Running discover against the Chronogolf club URL got the
+    // course uuid out of the widget's own request, which is the only
+    // place it appears.
+    platform: "CHRONOGOLF",
+    externalId: "the-ledges-golf-club:7afad2b1-2316-42b8-8fb4-d63de579e1d0",
+    bookingUrl: "https://www.chronogolf.com/club/the-ledges-golf-club",
+    // OSM polygon centre, not the town.
+    latitude: 37.1968,
+    longitude: -113.6187,
+  },
+  {
     name: "Remuda Golf Course",
     slug: "remuda-golf-course",
     county: "Weber",
@@ -887,6 +904,21 @@ export const COURSES: CourseSeed[] = [
     bookingUrl: "https://foreupsoftware.com/index.php/booking/21630/8401#/teetimes",
     latitude: 40.5618,
     longitude: -111.9117,
+  },
+  {
+    name: "Copper Golf Club",
+    slug: "copper-golf-club",
+    county: "Salt Lake",
+    city: "Magna",
+    platform: "CHRONOGOLF",
+    // Named the way the course names itself (coppergolfclub.com and
+    // OSM); Chronogolf still addresses it by its older
+    // "copper-club-golf-course" slug, which is why the externalId and
+    // the display name disagree.
+    externalId: "copper-club-golf-course:48b066e8-9aaa-4b72-bf58-fdabc1735aaa",
+    bookingUrl: "https://www.chronogolf.com/club/copper-club-golf-course",
+    latitude: 40.7154,
+    longitude: -112.1018,
   },
   {
     name: "Round Valley Golf Course",

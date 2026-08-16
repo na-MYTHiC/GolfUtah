@@ -33,6 +33,35 @@
  * cheap. If all four are refused, TenFore belongs with TeeRocket:
  * technically reachable, practically not, and worth saying so plainly
  * rather than half-building something that breaks on the first run.
+ *
+ * ---
+ *
+ * SECOND PASS. The first run came back split: both GETs answered on the
+ * app id alone, and booking-times — the only one that returns tee times
+ * — refused all four attempts with HTTP 400.
+ *
+ * 400 is the interesting part. A refused reCAPTCHA is normally 403, and
+ * 400 means "bad request", which would usually point at the body. It
+ * doesn't here: the capture's body is
+ *
+ *   {"golfCourseId":16515,"subCourseId":null,"dateFrom":"2026-08-17","appId":23}
+ *
+ * and that is exactly, field for field, what the first pass sent. So a
+ * wrong shape is already ruled out, and the 28-byte reply is the only
+ * thing left that can say why. The first pass measured its length and
+ * threw it away, which is the one mistake worth not repeating: 28 bytes
+ * is a sentence, and the junk token drew a *different* sentence at 48.
+ *
+ * This pass therefore prints every failure body verbatim, and varies
+ * the two things the capture can't rule out on its own:
+ *
+ *   - the date. The first pass guessed today+2; booking-dates says
+ *     which days the course actually sells, so ask it and use one.
+ *   - the body, in case a field is conditionally required (the schedule
+ *     id booking-schedule hands back is the obvious candidate).
+ *
+ * If every variant draws the same message and that message names the
+ * token, the answer is no and this file is the reason why.
  */
 
 import { writeFileSync } from "node:fs";
@@ -93,11 +122,37 @@ function describe(value: unknown, depth = 0): void {
   }
 }
 
+/**
+ * Every refusal, printed.
+ *
+ * The first pass reported "HTTP 400, 28 bytes" and dropped the 28 bytes,
+ * which is where the answer was. Bodies at this size are error messages;
+ * they are worth reading in full, and the truncation is only here so a
+ * stray HTML error page doesn't fill the terminal.
+ */
+function showFailure(status: number, text: string): void {
+  const body = text.trim();
+  if (body) console.log(`    body: ${body.length > 400 ? `${body.slice(0, 400)}…` : body}`);
+  // 403 would be the plain "your token was checked and rejected". 400
+  // says bad request, which normally means the body — except the body
+  // here is the captured one, so a 400 that repeats across every variant
+  // is the server declining to be specific about the token.
+  if (status === 403) console.log(`    -> 403, the token is verified`);
+}
+
+/** Collects every attempt so failures can be compared, not just counted. */
+interface Outcome {
+  label: string;
+  status: number;
+  text: string;
+}
+
 async function tryEndpoint(
   label: string,
   action: string,
   appId: string,
-  run: (headers: Record<string, string>) => Promise<Response>
+  run: (headers: Record<string, string>) => Promise<Response>,
+  outcomes?: Outcome[]
 ): Promise<unknown | null> {
   console.log(`\n${label}`);
   for (const attempt of attempts(appId, action)) {
@@ -105,6 +160,7 @@ async function tryEndpoint(
       const resp = await run(attempt.headers);
       const text = await resp.text();
       console.log(`  ${attempt.label.padEnd(18)} HTTP ${resp.status}, ${text.length} bytes`);
+      outcomes?.push({ label: attempt.label, status: resp.status, text });
 
       if (resp.ok && text.length > 2) {
         try {
@@ -113,8 +169,7 @@ async function tryEndpoint(
           console.log(`    (not JSON: ${text.slice(0, 100)})`);
         }
       }
-      // 403 here almost certainly means the token really is checked.
-      if (resp.status === 403) console.log(`    -> 403, the token is verified`);
+      showFailure(resp.status, text);
     } catch (err) {
       console.log(`  ${attempt.label.padEnd(18)} failed: ${(err as Error).message}`);
     }
@@ -122,16 +177,51 @@ async function tryEndpoint(
   return null;
 }
 
+/** The first date booking-dates admits to selling, if it answered. */
+function firstBookableDate(dates: unknown): string | null {
+  const rows = (dates as { data?: { date?: string }[] } | null)?.data;
+  if (!Array.isArray(rows)) return null;
+  for (const row of rows) {
+    const d = typeof row?.date === "string" ? row.date.slice(0, 10) : null;
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  }
+  return null;
+}
+
+/**
+ * Body shapes for booking-times, cheapest hypothesis first.
+ *
+ * The first is the capture, unchanged — it is the control, and it
+ * failing again is itself a result. The rest exist because the capture
+ * can't rule them out: a field can be required only under conditions
+ * the capture happened not to be in.
+ */
+function bodyVariants(courseId: number, appId: number, date: string, scheduleId: number | null) {
+  const base = { golfCourseId: courseId, subCourseId: null, dateFrom: date, appId };
+  const variants: { label: string; body: Record<string, unknown> }[] = [
+    { label: "as captured", body: base },
+    { label: "no subCourseId", body: { golfCourseId: courseId, dateFrom: date, appId } },
+    { label: "with dateTo", body: { ...base, dateTo: date } },
+    { label: "midnight datetime", body: { ...base, dateFrom: `${date}T00:00:00` } },
+  ];
+  // booking-schedule hands back an id; if booking-times wants to be told
+  // which schedule it is reading, that's the number it would want.
+  if (scheduleId != null) {
+    variants.push({ label: "with scheduleId", body: { ...base, scheduleId } });
+  }
+  return variants;
+}
+
 async function main() {
   const courseId = arg("course", "16515");
   const appId = arg("app", "23");
 
-  const date = new Date();
-  date.setDate(date.getDate() + 2);
-  const iso = date.toISOString().slice(0, 10);
+  const guess = new Date();
+  guess.setDate(guess.getDate() + 2);
+  let iso = guess.toISOString().slice(0, 10);
 
-  console.log(`TenFore probe — golfCourseId ${courseId}, appId ${appId}, date ${iso}`);
-  console.log("Trying each endpoint without a reCAPTCHA token.\n");
+  console.log(`TenFore probe — golfCourseId ${courseId}, appId ${appId}`);
+  console.log("Trying each endpoint without a reCAPTCHA token, and printing refusals.\n");
 
   const dates = await tryEndpoint(
     "booking-dates (which days are bookable)",
@@ -144,6 +234,15 @@ async function main() {
       })
   );
 
+  // Prefer a date the course says it sells over one this script invented.
+  // A 400 for an out-of-range date would look exactly like a 400 for a
+  // bad body, and that ambiguity is cheap to remove.
+  const real = firstBookableDate(dates);
+  if (real) {
+    console.log(`\n  using ${real} from booking-dates (was guessing ${iso})`);
+    iso = real;
+  }
+
   const schedule = await tryEndpoint(
     "booking-schedule (the day's sheet)",
     "bookingenginev4_booking_schedule",
@@ -154,24 +253,43 @@ async function main() {
         signal: AbortSignal.timeout(25_000),
       })
   );
+  const scheduleId = (schedule as { data?: { id?: number } } | null)?.data?.id ?? null;
 
-  const times = await tryEndpoint(
-    "booking-times (POST)",
-    "bookingenginev4_booking_times",
-    appId,
-    (headers) =>
-      fetch(`${API}/booking-times`, {
+  // The headers made no difference last time — all four drew the same
+  // 400 — so vary the body under the most honest one rather than
+  // running a 4x5 matrix that says the same thing twenty times.
+  const header = attempts(appId, "bookingenginev4_booking_times")[0];
+  const failures: Outcome[] = [];
+  let times: unknown = null;
+
+  console.log("\nbooking-times (POST) — body variants, app id only");
+  for (const variant of bodyVariants(Number(courseId), Number(appId), iso, scheduleId)) {
+    try {
+      const resp = await fetch(`${API}/booking-times`, {
         method: "POST",
-        headers: { ...headers, "content-type": "application/json" },
-        body: JSON.stringify({
-          golfCourseId: Number(courseId),
-          subCourseId: null,
-          dateFrom: iso,
-          appId: Number(appId),
-        }),
+        headers: { ...header.headers, "content-type": "application/json" },
+        body: JSON.stringify(variant.body),
         signal: AbortSignal.timeout(25_000),
-      })
-  );
+      });
+      const text = await resp.text();
+      console.log(`  ${variant.label.padEnd(18)} HTTP ${resp.status}, ${text.length} bytes`);
+      failures.push({ label: variant.label, status: resp.status, text });
+
+      if (resp.ok && text.length > 2) {
+        try {
+          times = JSON.parse(text);
+          console.log(`    -> answered. The token is decoration on this endpoint too.`);
+          break;
+        } catch {
+          console.log(`    (not JSON: ${text.slice(0, 100)})`);
+        }
+      } else {
+        showFailure(resp.status, text);
+      }
+    } catch (err) {
+      console.log(`  ${variant.label.padEnd(18)} failed: ${(err as Error).message}`);
+    }
+  }
 
   const got = [
     ["booking-dates", dates],
@@ -196,6 +314,24 @@ async function main() {
     console.log(`${name}:`);
     describe(body);
     console.log("");
+  }
+
+  // The verdict, stated rather than left to be inferred from a wall of
+  // HTTP codes — booking-times is the only endpoint that matters, since
+  // the other two return metadata a golfer can't book.
+  if (times == null) {
+    const distinct = new Set(failures.map((f) => f.text.trim()));
+    console.log("booking-times refused every body variant, including the captured one.");
+    if (distinct.size === 1) {
+      console.log("Every variant drew the identical reply, so the body is not what it");
+      console.log("objects to — the request is being rejected before anyone reads it.");
+    } else {
+      console.log(`${distinct.size} different replies across ${failures.length} variants —`);
+      console.log("the body does change the answer, so this is worth another pass.");
+    }
+    console.log("\nRead the bodies above. If they name the token, TenFore joins TeeRocket:");
+    console.log("reachable only with a real browser per refresh, which is not worth it");
+    console.log("for one course. If they name a field, that field is the next variant.");
   }
 }
 
