@@ -15,14 +15,17 @@
  *                 until their class was captured by hand, so they had
  *                 been listing nothing rather than listing short.
  *
- *                 28 of 33 have one. The five without are Mt. Ogden and
- *                 Cove View, found by sweeping schedule ids, and
- *                 Stansbury Park, Oquirrh Hills and Dinaland, seeded
- *                 from a booking URL. Neither route ever sees the
- *                 widget's own request, which is the only place the
- *                 class appears. All five answer without one, so they
- *                 list *something*; whether it's the whole sheet is
- *                 unconfirmed, and the UI says so.
+ *                 28 of 35 have one. The seven without are Mt. Ogden
+ *                 and Cove View, found by sweeping schedule ids, and
+ *                 Stansbury Park, Oquirrh Hills, Dinaland, Cedar Ridge
+ *                 and Canyon Breeze, seeded from a booking URL. Neither
+ *                 route ever sees the widget's own request, which is
+ *                 the only place the class appears. All seven answer
+ *                 without one, so they list *something*; whether it's
+ *                 the whole sheet is unconfirmed, and the UI says so.
+ *
+ *                 Fixing one is a two-minute capture per course, and
+ *                 RUNBOOK.md pass 1 has the steps.
  *   GolfPay       "<courseSlug>:<courseId>:<tsid>" — the slug only
  *                 builds the fallback link; the API wants the numbers.
  *   Chronogolf    "<clubSlug>:<courseUuid>[,<courseUuid>...]" — a club
