@@ -133,36 +133,47 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const DEFAULT_INTERVAL_MS = 100;
 
 /**
- * 600ms for Chronogolf is measured, not chosen.
+ * 300ms for Chronogolf, and it is not the rate that avoids being
+ * throttled — there isn't one.
  *
- * Three production runs, each asking 190 course-days:
+ * Four production runs, each asking 190 course-days:
  *
  *   ~19/sec   429s from roughly the 57th request on
- *   300ms     429s on day +3, 14 of them
- *   600ms     38 further requests, two full days, none refused
+ *   300ms     429s at request ~57, 14 of them
+ *   600ms     429s at request ~57, 16 of them
  *
- * That last line is also what rules out a quota. A fixed budget of
- * requests per window would have kept refusing at any speed; a rate
- * limit stops complaining once you're under it, which is what happened.
+ * Six times slower, same place. That is a budget of requests per
+ * window, not a rate, and no spacing gets under it — spacing only
+ * decides how much of the run is spent discovering that. A middle run
+ * looked like 600ms had solved it, on the strength of two days that
+ * happened to succeed after the cooldowns; the next run at 600ms from
+ * the start was refused just as early and finished worse, because
+ * everything after the widening ran at 1200ms and missed the deadline.
  *
- * Starting at 300 and adapting still cost a run: the widening only
- * happens after the refusals, and the refusals bring 5s cooldowns with
- * them, so the first minute went on learning something already known.
- * 190 at 600ms is 114s, inside the workflow's 150s budget.
+ * So the spacing exists to be polite and to stop the stampede, not to
+ * dodge the limit. 300ms because it got the most days published of
+ * anything tried: 61/70/70/54 courses on days +3 to +6, against
+ * 59/62/50/50 at 600ms.
+ *
+ * What actually fixes the missing tee times is not here — it's the
+ * per-course fallback in build-data.ts, which serves the last good
+ * answer for a course this run couldn't reach.
  */
-const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 600]];
+const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 300]];
 
 /**
  * A 429 doubles the interval, up to here.
  *
- * Room for one step past Chronogolf's measured 600ms, and no more. The
- * first version capped at 2000ms; a run took 163s against a 150s
- * deadline and skipped 96 course-days, which trades one kind of missing
- * data for another. 190 requests at 1200ms is 228s — so reaching this
- * cap means far days get dropped, and that is the intended shape: it's
- * a signal to ask for fewer days, not a rate to settle at.
+ * One step past the starting interval, and no more.
+ *
+ * Going slower does not stop Chronogolf refusing — four runs say the
+ * refusals arrive at the same request count at any speed — so a wide
+ * cap buys nothing and costs the deadline. 2000ms made a run take 163s
+ * and skip 96 course-days; 1200ms made one take 159s and skip 102. Both
+ * traded one kind of missing data for another, and both were worse than
+ * being refused and falling back to the last good answer.
  */
-const MAX_INTERVAL_MS = 1_200;
+const MAX_INTERVAL_MS = 600;
 
 /** How long every worker on a host pauses when one of them is throttled. */
 const THROTTLE_COOLDOWN_MS = 5_000;

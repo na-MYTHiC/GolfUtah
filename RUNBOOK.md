@@ -399,20 +399,36 @@ the same wall. Defaults are 100ms, and **600ms for Chronogolf** — 100ms
 is roughly what ForeUp already ran at, so this deliberately doesn't
 change the platform that wasn't complaining.
 
-**600ms was measured, over three production runs.** Each asks 190
-Chronogolf course-days:
+**No spacing avoids the throttling — that was four runs' worth of
+learning.** Each asks 190 Chronogolf course-days:
 
-| spacing | what happened |
+| spacing | first refusal |
 |---|---|
-| ~19/sec | 429s from roughly the 57th request onward |
-| 300ms | 429s on day +3, 14 of them, then it adapted to 600ms |
-| 600ms | 38 further requests, two full days, none refused |
+| ~19/sec | request ~57 |
+| 300ms | request ~57, 14 refusals |
+| 600ms | request ~57, 16 refusals |
 
-That last row is also what ruled out a quota, which the first two rows
-looked like: both failed at about the same *request count* regardless of
-rate, which is the signature of a fixed budget per window. It isn't one.
-A quota would have kept refusing at any speed; a rate limit stops
-complaining once you're under it, and it did.
+Six times slower, same place. That is a **budget of requests per
+window**, not a rate, and spacing only decides how much of the run is
+spent discovering it. One run in the middle looked like 600ms had
+solved it — two days succeeded after the cooldowns — and the next run
+starting at 600ms was refused just as early and finished *worse*,
+because everything after the widening ran at 1200ms and missed the
+deadline.
+
+So the spacing is there to be polite and to stop five workers
+stampeding, not to dodge the limit. 300ms because it published the most
+days: 61/70/70/54 courses on days +3 to +6, against 59/62/50/50 at
+600ms.
+
+**What actually fixed the missing tee times is the per-course
+fallback.** A course this run couldn't reach — throttled, timed out, or
+cut off by the deadline — now serves its entry from the last good
+build, provided that copy has times and is under six hours old. The
+code for this had been there all along and could never fire: only
+non-fresh days were loaded from the published site, so a fresh day had
+nothing to fall back to. Every day is loaded now. Ten reads of our own
+JSON against a course looking closed for a week.
 
 Two wrong turns on the way, both worth keeping:
 
@@ -426,9 +442,9 @@ Two wrong turns on the way, both worth keeping:
   first minute went on relearning a known number. Start where the
   evidence is.
 
-Cost, from the simulator: 46.0s → 114.0s for a ten-day tick, inside the
-150s budget with nothing skipped. A scheduled near-tier tick (days 0–3,
-76 requests) is about 46s.
+Cost, from the simulator: 46.0s → 57.1s for a ten-day tick. Production
+runs bounded by GolfPay anyway, and courses the deadline cuts off now
+fall back rather than publishing an empty sheet.
 
 Two things came out of this worth keeping:
 

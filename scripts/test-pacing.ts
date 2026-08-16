@@ -127,10 +127,10 @@ async function neverExceedsTheCap(): Promise<void> {
   stub.restore();
 
   const [entry] = pacingReport().filter((h) => h.host === "relentless.test");
-  // 100 -> 200 -> 400 -> 800 -> 1600, clamped to the 1200ms cap.
+  // 100 -> 200 -> 400 -> 800, clamped to the 600ms cap.
   check(
     "the interval stops at the cap rather than growing without bound",
-    entry?.intervalMs === 1_200,
+    entry?.intervalMs === 600,
     `interval ${entry?.intervalMs}ms after ${entry?.refusals} refusals`
   );
 }
@@ -143,8 +143,8 @@ async function chronogolfStartsWider(): Promise<void> {
 
   const [entry] = pacingReport().filter((h) => h.host === "www.chronogolf.com");
   check(
-    "chronogolf starts at its measured 600ms",
-    entry?.intervalMs === 600,
+    "chronogolf starts at its own wider interval",
+    entry?.intervalMs === 300,
     `interval ${entry?.intervalMs}ms`
   );
 }

@@ -618,21 +618,34 @@ async function main() {
 
   let reused = 0;
   let undatedLinks = 0;
+  /** Courses served from the last good build because this one couldn't. */
+  let carriedCourses = 0;
 
   // Carried days first, and in parallel — they're reads of our own
   // published site, so there's nothing to be polite about, and doing
   // them up front means the answer is in hand if a fresh day later needs
   // to fall back to one.
+  //
+  // EVERY day is fetched here, including the ones being refreshed. The
+  // per-course fallback below has always been written to use these, and
+  // could never fire, because only non-fresh days were ever loaded — so
+  // a course that was throttled or cut off by the deadline on a fresh
+  // day published `error` and showed up in the app as a course with no
+  // tee times. Indistinguishable, to a golfer, from a course that's
+  // booked solid.
+  //
+  // Chronogolf spent four builds in that state on its far days. Ten
+  // reads of our own JSON is a rounding error against one course
+  // looking closed for a week.
   const carried = new Map<number, DayFile>();
   if (reuse) {
-    const wanted = dates.map((date, i) => ({ date, i })).filter(({ i }) => !fresh.has(i));
-    await Promise.all(
-      wanted.map(async ({ date, i }) => {
-        const file = await reuseDay(reuse, date);
-        if (file) carried.set(i, file);
-      })
+    const loaded = await Promise.all(
+      dates.map(async (date, i) => ({ i, file: await reuseDay(reuse, date) }))
     );
-    reused = carried.size;
+    for (const { i, file } of loaded) if (file) carried.set(i, file);
+    // Only days we're *not* refreshing count as reused; the rest are
+    // insurance, and saying otherwise would overstate what was carried.
+    reused = [...carried.keys()].filter((i) => !fresh.has(i)).length;
   }
 
   const started = Date.now();
@@ -680,10 +693,21 @@ async function main() {
           generatedAt: new Date().toISOString(),
           courses: COURSES.map((seed) => {
             const got = fetched.get(`${i}:${seed.slug}`);
-            if (got) return got;
+            if (got && !got.error) return got;
+
+            // Failed as well as missing. A 429 and a deadline skip leave
+            // the app in the same place — a course showing nothing —
+            // and the last good answer beats that in both cases. Only
+            // taken when the published copy actually has times: falling
+            // back to someone else's empty day helps nobody, and
+            // reuseDay already refuses anything over six hours old.
             const fallback = carried.get(i)?.courses.find((c) => c.slug === seed.slug);
+            if (fallback && !fallback.error && fallback.slots.length > 0) {
+              carriedCourses++;
+              return fallback;
+            }
             return (
-              fallback ?? {
+              got ?? {
                 id: `${seed.platform}:${seed.externalId}`,
                 name: seed.name,
                 slug: seed.slug,
@@ -776,6 +800,17 @@ async function main() {
     `Wrote ${dates.length} day file(s) to ${outDir}` +
       (reused ? ` (${reused} carried over, ${dates.length - reused} fetched)` : "")
   );
+
+  // Not a warning — this is the safety net doing its job. It's still
+  // worth a number, because a net that's catching hundreds every run
+  // means something upstream is broken and the app is quietly showing
+  // yesterday's tee sheet rather than today's.
+  if (carriedCourses) {
+    console.log(
+      `${carriedCourses} course-day(s) served from the last good build ` +
+        `(this run couldn't fetch them; the published copy had times and was under 6h old)`
+    );
+  }
 
   if (undatedLinks) {
     console.log(
