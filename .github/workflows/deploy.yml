@@ -118,14 +118,33 @@ jobs:
             next-${{ hashFiles('package-lock.json') }}-
             next-
 
-      # Which day ranges this tick owes a refresh. Days 1-4 every run;
+      # Which day ranges this tick owes a refresh. Days 1-4 most runs;
       # days 5-7 on the quarter hours; days 8-10 on the half hours. A push
       # or a manual run refreshes everything, so a deploy always starts
       # from a complete site.
       #
-      # The near tier gained a day and the far tiers slowed down, which
-      # together came out slightly cheaper than the old split — see the
-      # cost note at the top of this file.
+      # THE TIERS ARE EXCLUSIVE, and they used to be cumulative. That one
+      # word is why days 8-10 had no Chronogolf data to show and none to
+      # fall back on.
+      #
+      # Cumulative meant a half-hour tick fetched 0-3, then 4-6, then
+      # 7-9, in that order, in one run. Chronogolf refuses after roughly
+      # 57 requests per window — 19 courses, so three days' worth — and
+      # the near days spend that budget before the far ones are reached.
+      # The far days were therefore never fetched successfully, on any
+      # tick, for as long as the tiering has existed. The per-course
+      # fallback can only preserve an answer that was fetched at least
+      # once, so it had nothing to preserve: the run that introduced it
+      # carried 4 course-days where 57 needed it.
+      #
+      # Exclusive means a half-hour tick fetches 7-9 and nothing else, so
+      # those days get the quota to themselves. The far days keep exactly
+      # the cadence they had — 4-6 twice an hour, 7-9 twice an hour — and
+      # the cost is the near days refreshing on 8 ticks an hour instead
+      # of 12, a 10-minute gap rather than 5 on four of them. That is a
+      # real cost and worth stating plainly. It buys six days of the
+      # window existing at all, and the fallback now covers the near days
+      # across the wider gap.
       - name: Decide freshness tier
         id: tier
         run: |
@@ -133,15 +152,15 @@ jobs:
             echo "fresh=0-9" >> "$GITHUB_OUTPUT"
           else
             MINUTE=$(date -u +%-M)
-            FRESH="0-3"
             # Written as ifs rather than `[ ... ] && ...` because the
             # step runs under `bash -e`, where a false test in a && list
             # is a trap worth not setting.
-            if [ $((MINUTE % 15)) -eq 0 ]; then
-              FRESH="$FRESH,4-6"
-            fi
             if [ $((MINUTE % 30)) -eq 0 ]; then
-              FRESH="$FRESH,7-9"
+              FRESH="7-9"
+            elif [ $((MINUTE % 15)) -eq 0 ]; then
+              FRESH="4-6"
+            else
+              FRESH="0-3"
             fi
             echo "tier: minute=$MINUTE fresh=$FRESH"
             echo "fresh=$FRESH" >> "$GITHUB_OUTPUT"

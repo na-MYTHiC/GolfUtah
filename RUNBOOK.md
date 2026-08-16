@@ -339,17 +339,32 @@ Five minutes is the floor. GitHub won't schedule a workflow more often
 than that, so there is no version of this that polls every minute
 without moving off Pages entirely.
 
-Within that, the schedule is tiered:
+Within that, the schedule is tiered, and the tiers are **exclusive** —
+a tick refreshes one band, not that band plus everything nearer:
 
-| days | refreshed |
+| minute of the hour | days refreshed |
 |---|---|
-| today → +3 | every 5 minutes |
-| +4 → +6 | every 15 minutes |
-| +7 → +9 | every 30 minutes |
+| :00 and :30 | +7 → +9 |
+| :15 and :45 | +4 → +6 |
+| the other eight ticks | today → +3 |
 
-66 day-fetches an hour. Every course is asked exactly **once per day per
-run** — that number is what a course operator would care about, and none
-of the tuning below changes it.
+They used to be cumulative, and that quietly cost six days of the
+window. A half-hour tick fetched 0-3, then 4-6, then 7-9 in one run;
+Chronogolf refuses after roughly 57 requests, which is three days
+across its nineteen courses, so the near days spent the budget before
+the far ones were reached. **Days +7 to +9 were never fetched
+successfully on any tick, for as long as the tiering existed.** They
+weren't stale, they were empty — and the per-course fallback couldn't
+help, because it can only preserve an answer that was fetched at least
+once.
+
+The far bands keep the cadence they always had. The cost is the near
+days refreshing on 8 ticks an hour rather than 12 — a 10-minute gap
+instead of 5, four times an hour — which the fallback now covers.
+
+Every course is asked exactly **once per day per run**; that number is
+what a course operator would care about, and none of the tuning below
+changes it.
 
 ### What was actually slow
 
