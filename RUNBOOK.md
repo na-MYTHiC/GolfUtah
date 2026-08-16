@@ -393,15 +393,42 @@ reported success the whole time**, because a course that errors is
 counted and then skipped, and the count was a bare number in a log line.
 
 `politeFetch` now spaces requests per host, and the spacing adapts: a
-429 doubles the interval for the rest of the run (to a 2s cap) and
+429 doubles the interval for the rest of the run (to a 1200ms cap) and
 pauses every worker on that host at once, instead of each retrying into
-the same wall. Defaults are 100ms, and 300ms for Chronogolf — 100ms is
-roughly what ForeUp already ran at, so this deliberately doesn't change
-the platform that wasn't complaining.
+the same wall. Defaults are 100ms, and **600ms for Chronogolf** — 100ms
+is roughly what ForeUp already ran at, so this deliberately doesn't
+change the platform that wasn't complaining.
 
-Cost, from the simulator: 46.0s → 57.1s for a ten-day tick. In
-production it should be nothing, because GolfPay takes 69.2s on its
-own and Chronogolf's 57s now lands just under it.
+**600ms was measured, over three production runs.** Each asks 190
+Chronogolf course-days:
+
+| spacing | what happened |
+|---|---|
+| ~19/sec | 429s from roughly the 57th request onward |
+| 300ms | 429s on day +3, 14 of them, then it adapted to 600ms |
+| 600ms | 38 further requests, two full days, none refused |
+
+That last row is also what ruled out a quota, which the first two rows
+looked like: both failed at about the same *request count* regardless of
+rate, which is the signature of a fixed budget per window. It isn't one.
+A quota would have kept refusing at any speed; a rate limit stops
+complaining once you're under it, and it did.
+
+Two wrong turns on the way, both worth keeping:
+
+- **The limiter overreacted by exactly the concurrency.** Five workers
+  hit the wall in the same instant, each doubled the interval, and 300ms
+  became 9600ms from a single throttling. A run took 163s against the
+  150s budget and skipped 96 course-days. Refusals within 3s now count
+  as one episode and widen the interval once.
+- **Starting at 300ms and adapting still cost a run.** The widening only
+  happens *after* the refusals, and refusals bring 5s cooldowns, so the
+  first minute went on relearning a known number. Start where the
+  evidence is.
+
+Cost, from the simulator: 46.0s → 114.0s for a ten-day tick, inside the
+150s budget with nothing skipped. A scheduled near-tier tick (days 0–3,
+76 requests) is about 46s.
 
 Two things came out of this worth keeping:
 

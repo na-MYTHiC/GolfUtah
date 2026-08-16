@@ -131,19 +131,38 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * has told us, repeatedly, that 19 a second is too many.
  */
 const DEFAULT_INTERVAL_MS = 100;
-const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 300]];
+
+/**
+ * 600ms for Chronogolf is measured, not chosen.
+ *
+ * Three production runs, each asking 190 course-days:
+ *
+ *   ~19/sec   429s from roughly the 57th request on
+ *   300ms     429s on day +3, 14 of them
+ *   600ms     38 further requests, two full days, none refused
+ *
+ * That last line is also what rules out a quota. A fixed budget of
+ * requests per window would have kept refusing at any speed; a rate
+ * limit stops complaining once you're under it, which is what happened.
+ *
+ * Starting at 300 and adapting still cost a run: the widening only
+ * happens after the refusals, and the refusals bring 5s cooldowns with
+ * them, so the first minute went on learning something already known.
+ * 190 at 600ms is 114s, inside the workflow's 150s budget.
+ */
+const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 600]];
 
 /**
  * A 429 doubles the interval, up to here.
  *
- * 600ms is a budget decision, not a politeness one. Nineteen Chronogolf
- * courses over ten days is 190 requests; at 600ms that's 114s, inside
- * the 150s the workflow allows. The first version capped at 2000ms and
- * a run took 163s, blowing the deadline and skipping 96 course-days —
- * which trades one kind of missing data for another. Past this point
- * the answer is to ask for fewer days, not to ask more slowly.
+ * Room for one step past Chronogolf's measured 600ms, and no more. The
+ * first version capped at 2000ms; a run took 163s against a 150s
+ * deadline and skipped 96 course-days, which trades one kind of missing
+ * data for another. 190 requests at 1200ms is 228s — so reaching this
+ * cap means far days get dropped, and that is the intended shape: it's
+ * a signal to ask for fewer days, not a rate to settle at.
  */
-const MAX_INTERVAL_MS = 600;
+const MAX_INTERVAL_MS = 1_200;
 
 /** How long every worker on a host pauses when one of them is throttled. */
 const THROTTLE_COOLDOWN_MS = 5_000;
