@@ -86,18 +86,51 @@ async function widensAfter429(): Promise<void> {
   );
 }
 
-async function widensOnceMorePerRefusal(): Promise<void> {
+/**
+ * The bug that shipped in v61 and cost a production run.
+ *
+ * Five workers hit the wall in the same instant, each doubled the
+ * interval, and 300ms became 9600ms — clamped to the cap — from a
+ * single throttling. The log said "now 2000ms apart" and 96 course-days
+ * were skipped for missing the deadline.
+ *
+ * Refusals inside one episode must widen the interval once.
+ */
+async function concurrentRefusalsWidenOnce(): Promise<void> {
   resetPacing();
-  const stub = stubFetch((n) => (n < 2 ? { status: 429, headers: { "retry-after": "0" } } : { status: 200 }));
+  const stub = stubFetch(() => ({ status: 429, headers: { "retry-after": "0" } }));
 
-  await politeFetch("https://stubborn.test/tee-times", { retries: 2 });
+  await Promise.all(
+    Array.from({ length: 5 }, () =>
+      politeFetch("https://swarm.test/tee-times", { retries: 0 }).catch(() => {})
+    )
+  );
   stub.restore();
 
-  const [entry] = pacingReport().filter((h) => h.host === "stubborn.test");
+  const [entry] = pacingReport().filter((h) => h.host === "swarm.test");
   check(
-    "two refusals widen it twice",
-    entry?.intervalMs === 400,
-    `interval is now ${entry?.intervalMs}ms`
+    "five simultaneous refusals widen the interval once, not five times",
+    entry?.intervalMs === 200,
+    `interval ${entry?.intervalMs}ms after ${entry?.refusals} refusals (5x doubling would be 2000+)`
+  );
+}
+
+async function neverExceedsTheCap(): Promise<void> {
+  resetPacing();
+  const stub = stubFetch(() => ({ status: 429, headers: { "retry-after": "0" } }));
+
+  // Episodes well apart, so each one is allowed to widen.
+  for (let i = 0; i < 6; i++) {
+    await politeFetch("https://relentless.test/tee-times", { retries: 0 }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 3_100));
+  }
+  stub.restore();
+
+  const [entry] = pacingReport().filter((h) => h.host === "relentless.test");
+  check(
+    "the interval stops at the cap rather than growing without bound",
+    entry?.intervalMs === 600,
+    `interval ${entry?.intervalMs}ms after ${entry?.refusals} refusals`
   );
 }
 
@@ -129,7 +162,8 @@ async function nonThrottledStatusLeavesPacingAlone(): Promise<void> {
 async function main() {
   await spacesConcurrentRequests();
   await widensAfter429();
-  await widensOnceMorePerRefusal();
+  await concurrentRefusalsWidenOnce();
+  await neverExceedsTheCap();
   await chronogolfStartsWider();
   await nonThrottledStatusLeavesPacingAlone();
 

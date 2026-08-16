@@ -133,11 +133,34 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const DEFAULT_INTERVAL_MS = 100;
 const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 300]];
 
-/** A 429 doubles the interval, up to here. */
-const MAX_INTERVAL_MS = 2_000;
+/**
+ * A 429 doubles the interval, up to here.
+ *
+ * 600ms is a budget decision, not a politeness one. Nineteen Chronogolf
+ * courses over ten days is 190 requests; at 600ms that's 114s, inside
+ * the 150s the workflow allows. The first version capped at 2000ms and
+ * a run took 163s, blowing the deadline and skipping 96 course-days —
+ * which trades one kind of missing data for another. Past this point
+ * the answer is to ask for fewer days, not to ask more slowly.
+ */
+const MAX_INTERVAL_MS = 600;
 
 /** How long every worker on a host pauses when one of them is throttled. */
 const THROTTLE_COOLDOWN_MS = 5_000;
+
+/**
+ * Refusals this close together are one event, and widen the interval
+ * once between them.
+ *
+ * Without this the limiter overreacts by exactly the concurrency: five
+ * workers hit the wall in the same instant, each doubles, and 300ms
+ * becomes 9600ms from a single throttling. That happened on the first
+ * production run — the log said "now 2000ms apart", the cap, reached
+ * immediately rather than converged to. Widening per *episode* lets it
+ * step 300 -> 600 and find the rate instead of overshooting to the
+ * slowest thing it's allowed to be.
+ */
+const THROTTLE_EPISODE_MS = 3_000;
 
 interface HostState {
   /** Current minimum spacing, widened by each 429. */
@@ -146,6 +169,10 @@ interface HostState {
   initialMs: number;
   /** Earliest moment the next request to this host may start. */
   nextAt: number;
+  /** When the interval last grew, so one episode widens it once. */
+  widenedAt: number;
+  /** Refusals seen, for the build to report. */
+  refusals: number;
 }
 
 const hosts = new Map<string, HostState>();
@@ -163,7 +190,13 @@ function stateFor(url: string): HostState | null {
 
   const match = INTERVAL_BY_HOST.find(([pattern]) => pattern.test(host));
   const start = match?.[1] ?? DEFAULT_INTERVAL_MS;
-  const fresh: HostState = { intervalMs: start, initialMs: start, nextAt: 0 };
+  const fresh: HostState = {
+    intervalMs: start,
+    initialMs: start,
+    nextAt: 0,
+    widenedAt: 0,
+    refusals: 0,
+  };
   hosts.set(host, fresh);
   return fresh;
 }
@@ -192,15 +225,35 @@ async function takeSlot(state: HostState | null): Promise<void> {
  */
 function throttled(state: HostState | null, retryAfter: number | null): void {
   if (!state) return;
-  state.intervalMs = Math.min(MAX_INTERVAL_MS, state.intervalMs * 2);
+  const now = Date.now();
+  state.refusals++;
+
+  // Every refusal pauses the host — that part is per-request, because
+  // each one is a worker that needs to stop. Only the first of an
+  // episode widens the interval.
+  if (now - state.widenedAt > THROTTLE_EPISODE_MS) {
+    state.intervalMs = Math.min(MAX_INTERVAL_MS, state.intervalMs * 2);
+    state.widenedAt = now;
+  }
+
   const pause = Math.min(retryAfter ?? THROTTLE_COOLDOWN_MS, MAX_RETRY_AFTER_MS);
-  state.nextAt = Math.max(state.nextAt, Date.now() + pause);
+  state.nextAt = Math.max(state.nextAt, now + pause);
 }
 
 /** Per-host pacing, for the build to report. Test seam too. */
-export function pacingReport(): { host: string; intervalMs: number; initialMs: number }[] {
+export function pacingReport(): {
+  host: string;
+  intervalMs: number;
+  initialMs: number;
+  refusals: number;
+}[] {
   return [...hosts]
-    .map(([host, s]) => ({ host, intervalMs: s.intervalMs, initialMs: s.initialMs }))
+    .map(([host, s]) => ({
+      host,
+      intervalMs: s.intervalMs,
+      initialMs: s.initialMs,
+      refusals: s.refusals,
+    }))
     .sort((a, b) => b.intervalMs - a.intervalMs);
 }
 

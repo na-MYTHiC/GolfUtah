@@ -654,7 +654,12 @@ async function main() {
   const paced = pacingReport().filter((h) => h.intervalMs > h.initialMs);
   if (paced.length) {
     console.log(
-      `  throttled by: ${paced.map((h) => `${h.host} (now ${h.intervalMs}ms apart)`).join(", ")}`
+      `  throttled by: ${paced
+        .map(
+          (h) =>
+            `${h.host} (${h.initialMs}ms -> ${h.intervalMs}ms after ${h.refusals} refusal(s))`
+        )
+        .join(", ")}`
     );
   }
 
