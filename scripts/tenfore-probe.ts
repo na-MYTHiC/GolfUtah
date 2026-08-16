@@ -177,15 +177,26 @@ async function tryEndpoint(
   return null;
 }
 
-/** The first date booking-dates admits to selling, if it answered. */
+/**
+ * The first date booking-dates offers that hasn't already happened.
+ *
+ * Not `data[0]`. The list starts in the past — a run on the 16th got
+ * 2026-08-15 as its first entry — and feeding booking-times a past date
+ * would draw a 400 indistinguishable from the one this script exists to
+ * explain. Utah dates against a UTC clock, because the app's whole
+ * notion of "today" is America/Denver.
+ */
 function firstBookableDate(dates: unknown): string | null {
   const rows = (dates as { data?: { date?: string }[] } | null)?.data;
   if (!Array.isArray(rows)) return null;
-  for (const row of rows) {
-    const d = typeof row?.date === "string" ? row.date.slice(0, 10) : null;
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-  }
-  return null;
+
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" });
+  const valid = rows
+    .map((row) => (typeof row?.date === "string" ? row.date.slice(0, 10) : ""))
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort();
+
+  return valid.find((d) => d >= today) ?? valid[0] ?? null;
 }
 
 /**
