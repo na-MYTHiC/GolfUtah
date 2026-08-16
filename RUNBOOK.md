@@ -375,6 +375,47 @@ day, so there was never any waiting to eliminate. The pipelining was
 kept because it's the right shape, but the concurrency split is what
 actually did it.
 
+### Concurrency is not rate, and that cost seven days of Chronogolf
+
+The tuning above optimised the wrong number, and it took a build log to
+notice. Making each platform finish sooner means a fast-answering
+platform's slots turn over faster, so the **request rate** goes up even
+though the concurrency doesn't. Chronogolf was being asked 190 times in
+9.8 seconds — about 19 a second — and answered **429 to everything
+after roughly the first sixty**.
+
+The effect: all 19 Chronogolf courses returned nothing from day +3
+through +9. Every Salt Lake City municipal — Bonneville, Forest Dale,
+Glendale, Nibley Park, Rose Park, Mountain Dell — plus Riverbend,
+University of Utah, Meadow Brook and Mick Riley. Seven of the ten days,
+every run, for as long as the platform had been seeded. **The build
+reported success the whole time**, because a course that errors is
+counted and then skipped, and the count was a bare number in a log line.
+
+`politeFetch` now spaces requests per host, and the spacing adapts: a
+429 doubles the interval for the rest of the run (to a 2s cap) and
+pauses every worker on that host at once, instead of each retrying into
+the same wall. Defaults are 100ms, and 300ms for Chronogolf — 100ms is
+roughly what ForeUp already ran at, so this deliberately doesn't change
+the platform that wasn't complaining.
+
+Cost, from the simulator: 46.0s → 57.1s for a ten-day tick. In
+production it should be nothing, because GolfPay takes 69.2s on its
+own and Chronogolf's 57s now lands just under it.
+
+Two things came out of this worth keeping:
+
+- **Failures are grouped by message in the build log.** A count can't be
+  acted on; "19 courses, all saying HTTP 429" names the bug in one line.
+  That change is what found this, a single run after it shipped.
+- **A widened interval is reported too** (`throttled by: ...`), so the
+  next platform that starts pushing back is visible before it costs
+  anyone a week of tee times.
+
+`npx tsx scripts/test-pacing.ts` checks the spacing actually happens —
+a rate limiter that silently doesn't limit looks exactly like one that
+works.
+
 ### Re-measuring after a change
 
 ```

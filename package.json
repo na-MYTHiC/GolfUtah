@@ -33,7 +33,8 @@
     "golfpay:probe": "tsx scripts/golfpay-probe.ts",
     "osm:utah": "tsx scripts/osm-survey.ts",
     "membersports:probe": "tsx scripts/membersports-probe.ts",
-    "tenfore:probe": "tsx scripts/tenfore-probe.ts"
+    "tenfore:probe": "tsx scripts/tenfore-probe.ts",
+    "test:pacing": "tsx scripts/test-pacing.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

@@ -205,6 +205,19 @@ async function fetchSheet(
     },
   });
 
+  // 422 is the far end of the booking window, not a fault.
+  //
+  // The Barn answers normally for the first eight days and 422s for the
+  // ninth and tenth, every run, at the same distance out — which is a
+  // course that sells eight days ahead, not a course that's broken.
+  // Treating it as an error made two days of a working course read as a
+  // failure in the log and hid whatever a real GolfPay fault would look
+  // like behind it.
+  //
+  // Empty is the honest answer: the course has no times that day,
+  // because it hasn't opened it yet.
+  if (resp.status === 422) return [];
+
   if (!resp.ok) throw new Error(`GolfPay request failed: HTTP ${resp.status}`);
 
   const body = (await resp.json()) as RawResponse;

@@ -44,6 +44,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { COURSES } from "../lib/courses.data";
 import { getAdapter } from "../lib/adapters";
+import { pacingReport } from "../lib/adapters/http";
 import { getPlaceInfo, placesEnabled, type PlaceInfo } from "../lib/places";
 import { todayInUtah, addDays } from "../lib/format";
 import type { Course } from "@prisma/client";
@@ -645,6 +646,17 @@ async function main() {
   const fetched = await fetchAll(jobs, ratings, deadline);
   const elapsed = ((Date.now() - started) / 1000).toFixed(1);
   console.log(`Fetched in ${elapsed}s`);
+
+  // Any host we ended up slower against than we started is a host that
+  // told us to slow down. Worth one line: the Chronogolf throttling ran
+  // for as long as the platform had been seeded and was only ever
+  // visible as a failure count nobody had reason to read.
+  const paced = pacingReport().filter((h) => h.intervalMs > h.initialMs);
+  if (paced.length) {
+    console.log(
+      `  throttled by: ${paced.map((h) => `${h.host} (now ${h.intervalMs}ms apart)`).join(", ")}`
+    );
+  }
 
   // Kept so the cross-day summary can be computed from exactly what was
   // published, rather than re-reading the files back off disk.

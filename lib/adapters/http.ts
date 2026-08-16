@@ -28,6 +28,21 @@
  *    something worth blocking. It refreshes every few minutes, forever;
  *    being identifiable is the polite half of that bargain, and it means
  *    a course that wants it stopped can find out how.
+ *
+ * 5. NOT ASKING TOO FAST. Concurrency is not rate, and confusing the two
+ *    cost the app seven of its ten days on every Chronogolf course.
+ *    Scaling concurrency to course count made each platform finish
+ *    sooner; for a platform that answers quickly, that means the slots
+ *    turn over quickly and the *rate* climbs. Chronogolf was being asked
+ *    190 times in 9.8 seconds — about 19 requests a second — and
+ *    answered 429 to everything after roughly the first sixty. Nineteen
+ *    courses, including all six Salt Lake City municipals, listed
+ *    nothing from day +3 onward, and the build called it a success.
+ *
+ *    So requests to a host are spaced, and the spacing adapts: a 429
+ *    widens the interval for the rest of the run and pauses every worker
+ *    on that host at once, rather than each retrying into the same wall.
+ *    A guessed rate limit would be a guess; this lets the server say.
  */
 
 /** Identifies the aggregator and points at it. See note 4 above. */
@@ -108,6 +123,93 @@ function backoffMs(attempt: number): number {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * Minimum gap between requests to one host, before any 429 widens it.
+ *
+ * 100ms is roughly what ForeUp already runs at unthrottled — 350
+ * course-days in 33s — so it's deliberately not a change for the
+ * platform that isn't complaining. Chronogolf starts wider because it
+ * has told us, repeatedly, that 19 a second is too many.
+ */
+const DEFAULT_INTERVAL_MS = 100;
+const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 300]];
+
+/** A 429 doubles the interval, up to here. */
+const MAX_INTERVAL_MS = 2_000;
+
+/** How long every worker on a host pauses when one of them is throttled. */
+const THROTTLE_COOLDOWN_MS = 5_000;
+
+interface HostState {
+  /** Current minimum spacing, widened by each 429. */
+  intervalMs: number;
+  /** What it started at, so a caller can tell "widened" from "wide". */
+  initialMs: number;
+  /** Earliest moment the next request to this host may start. */
+  nextAt: number;
+}
+
+const hosts = new Map<string, HostState>();
+
+function stateFor(url: string): HostState | null {
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+
+  const existing = hosts.get(host);
+  if (existing) return existing;
+
+  const match = INTERVAL_BY_HOST.find(([pattern]) => pattern.test(host));
+  const start = match?.[1] ?? DEFAULT_INTERVAL_MS;
+  const fresh: HostState = { intervalMs: start, initialMs: start, nextAt: 0 };
+  hosts.set(host, fresh);
+  return fresh;
+}
+
+/**
+ * Claims the next slot in this host's queue and waits for it.
+ *
+ * Reserving `nextAt` before sleeping is what makes this work under
+ * concurrency: five workers arriving together take five consecutive
+ * slots rather than all seeing the same "now" and firing at once.
+ */
+async function takeSlot(state: HostState | null): Promise<void> {
+  if (!state) return;
+  const now = Date.now();
+  const at = Math.max(now, state.nextAt);
+  state.nextAt = at + state.intervalMs;
+  if (at > now) await sleep(at - now);
+}
+
+/**
+ * The server said we're going too fast. Believe it.
+ *
+ * Widening the interval is the part that lasts: the cooldown alone
+ * would drain and then let the same rate resume, which is how the
+ * retries were already failing.
+ */
+function throttled(state: HostState | null, retryAfter: number | null): void {
+  if (!state) return;
+  state.intervalMs = Math.min(MAX_INTERVAL_MS, state.intervalMs * 2);
+  const pause = Math.min(retryAfter ?? THROTTLE_COOLDOWN_MS, MAX_RETRY_AFTER_MS);
+  state.nextAt = Math.max(state.nextAt, Date.now() + pause);
+}
+
+/** Per-host pacing, for the build to report. Test seam too. */
+export function pacingReport(): { host: string; intervalMs: number; initialMs: number }[] {
+  return [...hosts]
+    .map(([host, s]) => ({ host, intervalMs: s.intervalMs, initialMs: s.initialMs }))
+    .sort((a, b) => b.intervalMs - a.intervalMs);
+}
+
+/** Only for tests — the map is module state and would leak between them. */
+export function resetPacing(): void {
+  hosts.clear();
+}
+
+/**
  * Fetch with a timeout, bounded retries, and a user-agent.
  *
  * Resolves with the Response on any non-retryable status — callers still
@@ -117,11 +219,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function politeFetch(url: string, init: PoliteInit = {}): Promise<Response> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, retries = DEFAULT_RETRIES, label = "request", ...rest } = init;
 
+  const state = stateFor(url);
   let lastError: Error | null = null;
   let timeouts = 0;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await sleep(backoffMs(attempt));
+    await takeSlot(state);
 
     try {
       const resp = await fetch(url, {
@@ -130,10 +234,15 @@ export async function politeFetch(url: string, init: PoliteInit = {}): Promise<R
         signal: AbortSignal.timeout(timeoutMs),
       });
 
+      // Slow down for the rest of the run whether or not this attempt is
+      // the last — the next course in the queue is about to ask the same
+      // host, and it's the one that benefits.
+      const asked = retryAfterMs(resp);
+      if (resp.status === 429) throttled(state, asked);
+
       if (!isTransient(resp.status) || attempt === retries) return resp;
 
       // Told how long to wait, and it's a wait worth taking.
-      const asked = retryAfterMs(resp);
       if (asked != null) {
         if (asked > MAX_RETRY_AFTER_MS) return resp;
         await sleep(asked);
