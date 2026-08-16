@@ -269,6 +269,68 @@ function arg(name: string, fallback: string): string {
  * is carried over. A malformed spec yields an empty set, which would
  * silently refresh nothing, so it throws instead.
  */
+/**
+ * The bands, and how often each *wants* refreshing.
+ *
+ * Targets, not promises. Which band a run picks is decided by which is
+ * furthest past its target, so these are ratios against each other more
+ * than they are absolute times.
+ */
+const BANDS: { label: string; from: number; to: number; targetMs: number }[] = [
+  { label: "0-3", from: 0, to: 3, targetMs: 5 * 60 * 1000 },
+  { label: "4-6", from: 4, to: 6, targetMs: 15 * 60 * 1000 },
+  { label: "7-9", from: 7, to: 9, targetMs: 30 * 60 * 1000 },
+];
+
+/**
+ * Picks the band that is furthest overdue, from what's actually
+ * published.
+ *
+ * WHY NOT THE CLOCK. The workflow used to choose by minute-of-hour, on
+ * the assumption that a 5-minute cron fires every 5 minutes. It
+ * doesn't. Measured over sixteen consecutive scheduled runs, GitHub
+ * fired this workflow every 11 to 26 minutes, averaging about 18 — and
+ * of those sixteen, exactly one landed on minute 0 and one on minute
+ * 15. Any rule of the form `MINUTE % 30 == 0` is therefore close to
+ * never, and the far bands would go hours without a refresh while the
+ * schedule looked fine.
+ *
+ * Staleness is the honest input: it's measured from the published
+ * files, so it self-corrects no matter when a tick actually lands. A
+ * band that got skipped becomes more overdue and wins the next one.
+ */
+function pickBand(published: Map<number, DayFile>, days: number): Set<number> {
+  const now = Date.now();
+  let best: { label: string; days: number[]; ratio: number } | null = null;
+
+  for (const band of BANDS) {
+    const indexes: number[] = [];
+    for (let i = band.from; i <= band.to && i < days; i++) indexes.push(i);
+    if (indexes.length === 0) continue;
+
+    // The stalest day in the band decides it — a band is only as fresh
+    // as its worst day, and a day never fetched has no file at all.
+    let oldest = 0;
+    for (const i of indexes) {
+      const at = published.get(i)?.generatedAt;
+      const age = at ? now - new Date(at).getTime() : Number.POSITIVE_INFINITY;
+      oldest = Math.max(oldest, Number.isFinite(age) ? age : Number.POSITIVE_INFINITY);
+    }
+
+    const ratio = oldest / band.targetMs;
+    if (!best || ratio > best.ratio) best = { label: band.label, days: indexes, ratio };
+  }
+
+  if (!best) return new Set([0]);
+  console.log(
+    `auto-fresh: refreshing ${best.label} — ` +
+      (Number.isFinite(best.ratio)
+        ? `${best.ratio.toFixed(1)}x its target age, the most overdue band`
+        : `never published`)
+  );
+  return new Set(best.days);
+}
+
 function parseFresh(spec: string, days: number): Set<number> {
   const out = new Set<number>();
   for (const part of spec.split(",").map((p) => p.trim()).filter(Boolean)) {
@@ -566,7 +628,11 @@ async function main() {
   // Defaults to every day, so a plain run refreshes everything and the
   // tiering only applies when a schedule asks for it.
   const near = Number(arg("near", String(days)));
-  const fresh = parseFresh(arg("fresh", `0-${near - 1}`), days);
+  // "auto" defers the choice until the published files have been read —
+  // see pickBand. Everything else is a literal range, as before.
+  const freshSpec = arg("fresh", `0-${near - 1}`);
+  const auto = freshSpec === "auto";
+  let fresh = auto ? new Set<number>() : parseFresh(freshSpec, days);
   const reuse = arg("reuse", "");
   const outDir = arg("out", "public/data");
   const today = todayInUtah();
@@ -611,11 +677,6 @@ async function main() {
     courseCount: COURSES.length,
   };
 
-  console.log(
-    `Fetching fresh: day(s) ${[...fresh].sort((a, b) => a - b).join(", ")} of ${days}` +
-      (reuse ? `; the rest carried over from ${reuse}` : "; no --reuse, so all days fetched")
-  );
-
   let reused = 0;
   let undatedLinks = 0;
   /** Courses served from the last good build because this one couldn't. */
@@ -643,10 +704,26 @@ async function main() {
       dates.map(async (date, i) => ({ i, file: await reuseDay(reuse, date) }))
     );
     for (const { i, file } of loaded) if (file) carried.set(i, file);
-    // Only days we're *not* refreshing count as reused; the rest are
-    // insurance, and saying otherwise would overstate what was carried.
-    reused = [...carried.keys()].filter((i) => !fresh.has(i)).length;
   }
+
+  // Which band to refresh, once the published state is known. `--fresh
+  // auto` needs those files to measure staleness, which is why the
+  // decision waits until here rather than being made by the caller.
+  if (auto) {
+    fresh = carried.size > 0 ? pickBand(carried, days) : parseFresh(`0-${days - 1}`, days);
+    if (carried.size === 0) {
+      console.log("auto-fresh: nothing published to compare against, so fetching every day");
+    }
+  }
+
+  // Only days we're *not* refreshing count as reused; the rest are
+  // insurance, and saying otherwise would overstate what was carried.
+  reused = [...carried.keys()].filter((i) => !fresh.has(i)).length;
+
+  console.log(
+    `Fetching fresh: day(s) ${[...fresh].sort((a, b) => a - b).join(", ")} of ${days}` +
+      (reuse ? `; the rest carried over from ${reuse}` : "; no --reuse, so all days fetched")
+  );
 
   const started = Date.now();
   const jobs: Job[] = dates.flatMap((date, dayIndex) =>

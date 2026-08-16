@@ -339,28 +339,44 @@ Five minutes is the floor. GitHub won't schedule a workflow more often
 than that, so there is no version of this that polls every minute
 without moving off Pages entirely.
 
-Within that, the schedule is tiered, and the tiers are **exclusive** —
-a tick refreshes one band, not that band plus everything nearer:
+**The 5-minute cron does not fire every 5 minutes.** Measured over
+sixteen consecutive scheduled runs, GitHub fired this workflow every 11
+to 26 minutes, averaging about 18. That is GitHub throttling a busy
+shared scheduler, not a bug here, and nothing in this repo can make it
+fire on time. It's the single most important number on this page,
+because every other freshness claim is downstream of it.
 
-| minute of the hour | days refreshed |
+Within that, each run refreshes **one band**, and picks which by
+staleness rather than by the clock:
+
+| band | target age |
 |---|---|
-| :00 and :30 | +7 → +9 |
-| :15 and :45 | +4 → +6 |
-| the other eight ticks | today → +3 |
+| today → +3 | 5 minutes |
+| +4 → +6 | 15 minutes |
+| +7 → +9 | 30 minutes |
 
-They used to be cumulative, and that quietly cost six days of the
-window. A half-hour tick fetched 0-3, then 4-6, then 7-9 in one run;
-Chronogolf refuses after roughly 57 requests, which is three days
-across its nineteen courses, so the near days spent the budget before
-the far ones were reached. **Days +7 to +9 were never fetched
-successfully on any tick, for as long as the tiering existed.** They
-weren't stale, they were empty — and the per-course fallback couldn't
-help, because it can only preserve an answer that was fetched at least
-once.
+Whichever band is furthest past its target wins the tick. A band that
+gets skipped becomes more overdue and wins the next one, whenever that
+arrives — which is what makes this survive a scheduler firing at
+unpredictable intervals.
 
-The far bands keep the cadence they always had. The cost is the near
-days refreshing on 8 ticks an hour rather than 12 — a 10-minute gap
-instead of 5, four times an hour — which the fallback now covers.
+Two earlier designs were wrong, in instructive ways:
+
+**Cumulative bands** (a half-hour tick fetching 0-3, then 4-6, then
+7-9, in one run) quietly cost six days of the window. Chronogolf
+refuses after roughly 57 requests — three days across its nineteen
+courses — so the near days spent the budget before the far ones were
+reached. **Days +7 to +9 were never fetched successfully on any tick,
+for as long as the tiering existed.** Not stale: empty. The per-course
+fallback couldn't help either, because it can only preserve an answer
+that was fetched at least once.
+
+**Exclusive bands chosen by minute-of-hour** fixed that on paper and
+would have been worse in practice. Of those sixteen scheduled runs, one
+landed on minute 0 and one on minute 15, so `MINUTE % 30 == 0` is close
+to never — the far bands would have gone hours without a refresh while
+the schedule looked healthy. This is the mistake worth remembering: a
+rule keyed to a clock nobody honours.
 
 Every course is asked exactly **once per day per run**; that number is
 what a course operator would care about, and none of the tuning below

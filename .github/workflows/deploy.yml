@@ -123,47 +123,39 @@ jobs:
       # or a manual run refreshes everything, so a deploy always starts
       # from a complete site.
       #
-      # THE TIERS ARE EXCLUSIVE, and they used to be cumulative. That one
-      # word is why days 8-10 had no Chronogolf data to show and none to
-      # fall back on.
+      # ONE BAND PER RUN, CHOSEN BY STALENESS — see pickBand in
+      # build-data.ts. Two things had to change here, and the second one
+      # is why this step no longer decides anything.
       #
-      # Cumulative meant a half-hour tick fetched 0-3, then 4-6, then
-      # 7-9, in that order, in one run. Chronogolf refuses after roughly
-      # 57 requests per window — 19 courses, so three days' worth — and
-      # the near days spend that budget before the far ones are reached.
-      # The far days were therefore never fetched successfully, on any
-      # tick, for as long as the tiering has existed. The per-course
-      # fallback can only preserve an answer that was fetched at least
-      # once, so it had nothing to preserve: the run that introduced it
-      # carried 4 course-days where 57 needed it.
+      # The bands used to be cumulative: a half-hour tick fetched 0-3,
+      # then 4-6, then 7-9, in one run. Chronogolf refuses after roughly
+      # 57 requests per window — 19 courses, three days' worth — so the
+      # near days spent the budget before the far ones were reached, and
+      # days 8-10 were never fetched successfully on any tick for as long
+      # as the tiering existed. Not stale: empty.
       #
-      # Exclusive means a half-hour tick fetches 7-9 and nothing else, so
-      # those days get the quota to themselves. The far days keep exactly
-      # the cadence they had — 4-6 twice an hour, 7-9 twice an hour — and
-      # the cost is the near days refreshing on 8 ticks an hour instead
-      # of 12, a 10-minute gap rather than 5 on four of them. That is a
-      # real cost and worth stating plainly. It buys six days of the
-      # window existing at all, and the fallback now covers the near days
-      # across the wider gap.
+      # Making them exclusive by minute-of-hour fixed that on paper and
+      # would have been worse in practice, because THE 5-MINUTE CRON DOES
+      # NOT FIRE EVERY 5 MINUTES. Measured over sixteen consecutive
+      # scheduled runs, GitHub fired this workflow every 11 to 26
+      # minutes, averaging about 18. Of those sixteen, one landed on
+      # minute 0 and one on minute 15 — so `MINUTE % 30 == 0` is close to
+      # never, and the far bands would have gone hours without a refresh
+      # while the schedule looked healthy.
+      #
+      # So the run picks its own band from the age of what's actually
+      # published: whichever is furthest past its target (5 min for the
+      # near days, 15 and 30 for the far ones) wins. A band that gets
+      # skipped becomes more overdue and wins the next tick, whenever
+      # that happens to arrive. A push still refreshes everything, so a
+      # deploy starts from a complete site.
       - name: Decide freshness tier
         id: tier
         run: |
           if [ "${{ github.event_name }}" != "schedule" ]; then
             echo "fresh=0-9" >> "$GITHUB_OUTPUT"
           else
-            MINUTE=$(date -u +%-M)
-            # Written as ifs rather than `[ ... ] && ...` because the
-            # step runs under `bash -e`, where a false test in a && list
-            # is a trap worth not setting.
-            if [ $((MINUTE % 30)) -eq 0 ]; then
-              FRESH="7-9"
-            elif [ $((MINUTE % 15)) -eq 0 ]; then
-              FRESH="4-6"
-            else
-              FRESH="0-3"
-            fi
-            echo "tier: minute=$MINUTE fresh=$FRESH"
-            echo "fresh=$FRESH" >> "$GITHUB_OUTPUT"
+            echo "fresh=auto" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Fetch tee times
