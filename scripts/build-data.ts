@@ -315,7 +315,7 @@ async function mapWithLimit<T, R>(
  * Saturday's tee time. So it's checked rather than trusted.
  *
  * Platforms spell the date differently — ISO for most, MM-DD-YYYY for
- * ForeUp — so both forms count.
+ * ForeUp, a unix timestamp for GolfPay — so all three forms count.
  */
 /**
  * Platforms whose booking page genuinely cannot be deep-linked to a day.
@@ -326,9 +326,42 @@ async function mapWithLimit<T, R>(
  */
 const PLATFORMS_WITHOUT_DATED_LINKS = new Set(["MEMBERSPORTS"]);
 
+/**
+ * A ten-digit run in the URL that lands on `date` when read as unix
+ * seconds.
+ *
+ * GolfPay's per-slot link carries no date at all — it carries
+ * `{"course_id":1466,"tee_time_ts":1786926600,"number_of_holes":"9"}`,
+ * URL-encoded. That timestamp names the exact slot, which is *better*
+ * than a date, but the textual check can't see it and reported The Barn
+ * as undated on every single day. A warning that cries wolf every run
+ * is worse than no warning, because the next real one gets skimmed
+ * past.
+ *
+ * Ten digits is narrow enough to be worth the small risk of a course id
+ * coincidentally matching: 1786926600 is a plausible timestamp, 1466 is
+ * not. Utah's day, since that's the day the golfer is booking.
+ */
+function carriesTimestamp(url: string, date: string): boolean {
+  let decoded = url;
+  try {
+    decoded = decodeURIComponent(url);
+  } catch {
+    // A malformed escape isn't worth failing over — search the raw form.
+  }
+  for (const digits of decoded.match(/\d{10}(?!\d)/g) ?? []) {
+    const when = new Date(Number(digits) * 1000);
+    if (Number.isNaN(when.getTime())) continue;
+    if (when.toLocaleDateString("en-CA", { timeZone: "America/Denver" }) === date) return true;
+  }
+  return false;
+}
+
 function carriesDate(url: string, date: string): boolean {
   const [year, month, day] = date.split("-");
-  return url.includes(date) || url.includes(`${month}-${day}-${year}`);
+  return (
+    url.includes(date) || url.includes(`${month}-${day}-${year}`) || carriesTimestamp(url, date)
+  );
 }
 
 async function fetchCourse(
@@ -655,7 +688,8 @@ async function main() {
     written.push(file);
 
     const slots = file.courses.reduce((n, c) => n + c.slots.length, 0);
-    const failed = file.courses.filter((c) => c.error).length;
+    const failures = file.courses.filter((c) => c.error);
+    const failed = failures.length;
 
     // A link that doesn't carry its date sends the golfer to the wrong
     // day at the checkout, which is worse than showing no link at all.
@@ -674,6 +708,27 @@ async function main() {
     );
     if (undated.length) {
       console.log(`  undated: ${undated.map((c) => c.name).join(", ")}`);
+    }
+
+    // Which ones, and why. A bare count can't be acted on: a run that
+    // says "19 failed" from day +3 outward reads identically whether
+    // nineteen courses simply don't sell that far ahead or an adapter
+    // broke. Grouping by message answers that in one line — a booking
+    // window is the same message across many courses, a broken adapter
+    // is one course saying something new.
+    if (failed) {
+      const byReason = new Map<string, string[]>();
+      for (const c of failures) {
+        const reason = (c.error ?? "unknown").split("\n")[0].slice(0, 90);
+        byReason.set(reason, [...(byReason.get(reason) ?? []), c.name]);
+      }
+      for (const [reason, names] of [...byReason].sort((a, b) => b[1].length - a[1].length)) {
+        const shown = names.slice(0, 6).join(", ");
+        console.log(
+          `  failed (${names.length}): ${shown}${names.length > 6 ? `, +${names.length - 6} more` : ""}` +
+            `\n    ${reason}`
+        );
+      }
     }
   }
 
