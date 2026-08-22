@@ -2,7 +2,14 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePriceSummary } from "@/lib/prices";
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { addDays } from "@/lib/format";
 import { CITIES, COUNTIES } from "@/lib/utah-places";
 
@@ -508,6 +515,9 @@ function Chip({
 type Coords = { lat: number; lon: number };
 const COORDS_KEY = "golfutah:coords";
 
+/** ~11 metres. Finer than that is GPS noise, not movement. */
+const round = (n: number) => Math.round(n * 1e4) / 1e4;
+
 /**
  * localStorage as an external store, so a saved location survives a
  * refresh without syncing through an effect. getSnapshot must return a
@@ -547,7 +557,15 @@ const coordsStore = {
   },
 
   save(coords: Coords) {
-    localStorage.setItem(COORDS_KEY, JSON.stringify(coords));
+    // Rounded to about 11 metres. A GPS fix jitters by a few metres
+    // while sitting still, and without this every refresh would write a
+    // new string and re-render the whole list to move a distance by
+    // 0.001 of a mile.
+    const next = { lat: round(coords.lat), lon: round(coords.lon) };
+    const raw = JSON.stringify(next);
+    if (raw === localStorage.getItem(COORDS_KEY)) return;
+
+    localStorage.setItem(COORDS_KEY, raw);
     coordsStore.listeners.forEach((listener) => listener());
   },
 
@@ -556,6 +574,32 @@ const coordsStore = {
     coordsStore.listeners.forEach((listener) => listener());
   },
 };
+
+/**
+ * Whether the browser will hand over a position without asking first.
+ *
+ * The whole point of checking: calling getCurrentPosition when
+ * permission hasn't been granted throws up the browser's permission
+ * prompt. Doing that on every app open, unprompted, is obnoxious — so
+ * the silent refresh only happens once the answer is already yes.
+ *
+ * Safari didn't ship the Permissions API for geolocation until 16, so
+ * when the query isn't available this falls back to "do we already have
+ * a saved position", which can only be true if permission was granted
+ * at some point.
+ */
+async function canLocateSilently(): Promise<boolean> {
+  if (!navigator.geolocation) return false;
+  try {
+    const status = await navigator.permissions?.query({
+      name: "geolocation" as PermissionName,
+    });
+    if (status) return status.state === "granted";
+  } catch {
+    // Fall through to the saved-position test below.
+  }
+  return coordsStore.getSnapshot() != null;
+}
 
 /** Browser geolocation, for distance sorting. Never leaves the device. */
 export function useGeolocation() {
@@ -574,6 +618,58 @@ export function useGeolocation() {
       },
       { maximumAge: 10 * 60 * 1000, timeout: 8000 }
     );
+  }, []);
+
+  /**
+   * Re-ask on open, so distances follow you.
+   *
+   * Without this the saved position is whatever the browser said the
+   * first time it was ever asked, and it never changes again — drive
+   * from Salt Lake to St. George, reopen the app, and every course is
+   * still measured from home. The stored value was doing double duty as
+   * both a cache and the answer; it's only the cache.
+   *
+   * It stays the cache, though: the saved position renders immediately
+   * so distances aren't blank while the fix arrives, and a fresh one
+   * replaces it a moment later. maximumAge lets the browser answer from
+   * its own recent fix rather than waking the GPS on every open.
+   */
+  useEffect(() => {
+    let live = true;
+    let lastAsk = 0;
+
+    async function refresh() {
+      // Installed to the home screen, the app is resumed rather than
+      // reloaded, so mounting is not the only moment that counts as
+      // "opening" it. visibilitychange is — and it fires often enough
+      // to be worth a floor between requests.
+      if (Date.now() - lastAsk < 60_000) return;
+      if (!(await canLocateSilently()) || !live) return;
+      lastAsk = Date.now();
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (live) coordsStore.save({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        },
+        () => {
+          // Moved out of coverage, or permission pulled between the
+          // check and the call. The saved position stays; it's stale
+          // rather than wrong, and "forget" is there for the user.
+        },
+        { maximumAge: 5 * 60 * 1000, timeout: 8000 }
+      );
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+
+    void refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const forget = useCallback(() => coordsStore.clear(), []);
