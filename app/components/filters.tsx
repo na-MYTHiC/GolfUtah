@@ -616,7 +616,10 @@ export function useGeolocation() {
       () => {
         // Denied or unavailable — distance sorting stays unavailable.
       },
-      { maximumAge: 10 * 60 * 1000, timeout: 8000 }
+      // Fresh here too. This is someone tapping Distance and expecting
+      // the list to reorder around where they are now; a ten-minute-old
+      // fix is the same complaint in a different place.
+      { maximumAge: 0, timeout: 8000 }
     );
   }, []);
 
@@ -631,21 +634,27 @@ export function useGeolocation() {
    *
    * It stays the cache, though: the saved position renders immediately
    * so distances aren't blank while the fix arrives, and a fresh one
-   * replaces it a moment later. maximumAge lets the browser answer from
-   * its own recent fix rather than waking the GPS on every open.
+   * replaces it a moment later.
+   *
+   * EVERY OPEN, AND A GENUINELY NEW FIX. `maximumAge: 0` forbids the
+   * browser from answering out of its own cache, which it otherwise
+   * will — a five-minute allowance meant backgrounding the app and
+   * coming straight back re-served the position you already had. There
+   * is no floor between requests either: a switch away and back is
+   * opening the app, and it should re-ask.
+   *
+   * The cost is real and worth knowing: a fresh fix wakes the GPS, so
+   * this is more battery than answering from cache, and the position
+   * can take a second or two to land on a cold start.
    */
   useEffect(() => {
     let live = true;
-    let lastAsk = 0;
 
     async function refresh() {
       // Installed to the home screen, the app is resumed rather than
       // reloaded, so mounting is not the only moment that counts as
-      // "opening" it. visibilitychange is — and it fires often enough
-      // to be worth a floor between requests.
-      if (Date.now() - lastAsk < 60_000) return;
+      // "opening" it. visibilitychange is.
       if (!(await canLocateSilently()) || !live) return;
-      lastAsk = Date.now();
 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -656,7 +665,7 @@ export function useGeolocation() {
           // check and the call. The saved position stays; it's stale
           // rather than wrong, and "forget" is there for the user.
         },
-        { maximumAge: 5 * 60 * 1000, timeout: 8000 }
+        { maximumAge: 0, timeout: 8000 }
       );
     }
 
