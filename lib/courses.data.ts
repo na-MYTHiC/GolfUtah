@@ -166,19 +166,14 @@ export const COURSES: CourseSeed[] = [
     latitude: 40.797,
     longitude: -111.939,
   },
-  {
-    name: "University of Utah Golf Club",
-    slug: "university-of-utah-golf-club",
-    county: "Salt Lake",
-    city: "Salt Lake City",
-    platform: "CHRONOGOLF",
-    externalId: "university-of-utah-golf-club:59546da1-0c26-419c-9621-c1974cf59d5b",
-    // The only one of these without a course website on file, so this
-    // points at its booking page rather than at a guessed address.
-    bookingUrl: "https://www.chronogolf.com/club/university-of-utah-golf-club",
-    latitude: 40.766,
-    longitude: -111.836,
-  },
+  // University of Utah Golf Club was seeded here and removed on the
+  // owner's call — its Chronogolf club resolves and answers, but never
+  // with tee times a golfer can actually book. A course that publishes
+  // an empty sheet every day is worse than absent: it takes up a row,
+  // and "nothing published" reads like the course is full.
+  //
+  // Its uuid, should it ever start selling again:
+  // university-of-utah-golf-club:59546da1-0c26-419c-9621-c1974cf59d5b
   {
     name: "Meadow Brook Golf Course",
     slug: "meadow-brook-golf-course",

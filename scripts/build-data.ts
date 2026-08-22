@@ -282,6 +282,25 @@ const BANDS: { label: string; from: number; to: number; targetMs: number }[] = [
   { label: "7-9", from: 7, to: 9, targetMs: 30 * 60 * 1000 },
 ];
 
+function rangeOf(band: { from: number; to: number }, days: number): number[] {
+  const out: number[] = [];
+  for (let i = band.from; i <= band.to && i < days; i++) out.push(i);
+  return out;
+}
+
+/**
+ * Platforms that refuse when asked for too much in one run.
+ *
+ * Only Chronogolf has ever done so — roughly 57 requests per window,
+ * three days across its nineteen courses. Everything else is asked for
+ * the near days every run regardless of which band won, because there
+ * is no reason to make them share a limit that isn't theirs.
+ *
+ * Add to this only on evidence: a platform that starts answering 429
+ * shows up in the build log's "throttled by:" line.
+ */
+const RATE_LIMITED_PLATFORMS = new Set<string>(["CHRONOGOLF"]);
+
 /**
  * Picks the band that is furthest overdue, from what's actually
  * published.
@@ -716,21 +735,44 @@ async function main() {
     }
   }
 
-  // Only days we're *not* refreshing count as reused; the rest are
-  // insurance, and saying otherwise would overstate what was carried.
-  reused = [...carried.keys()].filter((i) => !fresh.has(i)).length;
-
   console.log(
     `Fetching fresh: day(s) ${[...fresh].sort((a, b) => a - b).join(", ")} of ${days}` +
       (reuse ? `; the rest carried over from ${reuse}` : "; no --reuse, so all days fetched")
   );
 
+  // The band limit exists for one platform, so only that platform pays
+  // for it.
+  //
+  // Chronogolf refuses after roughly 57 requests, which is three days
+  // across its nineteen courses — that's the whole reason a run
+  // refreshes one band instead of all ten days. The other 51 courses
+  // have never refused anything, and making them share Chronogolf's
+  // budget cost the near days real freshness: simulated against the
+  // measured tick gaps, one-band-for-everyone refreshes today through
+  // +3 every ~33 minutes, where fetching them every tick is ~18.
+  //
+  // So the unlimited platforms always fetch the near band, plus the
+  // winning band when it's a different one. Chronogolf fetches the
+  // winning band alone. A day can therefore be part fresh and part
+  // carried, which the per-course fallback below already handles — it
+  // fills in any course this run didn't reach.
+  const nearBand = new Set(BANDS[0] ? rangeOf(BANDS[0], days) : [0]);
+  const daysFor = (platform: string): Set<number> =>
+    RATE_LIMITED_PLATFORMS.has(platform) ? fresh : new Set([...fresh, ...nearBand]);
+
   const started = Date.now();
   const jobs: Job[] = dates.flatMap((date, dayIndex) =>
-    fresh.has(dayIndex) || !carried.has(dayIndex)
-      ? COURSES.map((seed) => ({ seed, dayIndex, date }))
-      : []
+    COURSES.filter(
+      (seed) => daysFor(seed.platform).has(dayIndex) || !carried.has(dayIndex)
+    ).map((seed) => ({ seed, dayIndex, date }))
   );
+
+  /** Any day with work queued is assembled fresh rather than reused wholesale. */
+  const touched = new Set(jobs.map((j) => j.dayIndex));
+
+  // Only days nothing was queued for count as reused; the rest are
+  // insurance, and saying otherwise would overstate what was carried.
+  reused = [...carried.keys()].filter((i) => !touched.has(i)).length;
 
   console.log(`Fetching ${jobs.length} course-day(s)…`);
   const fetched = await fetchAll(jobs, ratings, deadline);
@@ -758,7 +800,11 @@ async function main() {
   const written: DayFile[] = [];
 
   for (const [i, date] of dates.entries()) {
-    const carriedOver = carried.has(i) && !fresh.has(i);
+    // `touched`, not `fresh`: a day can now have work queued for the
+    // unlimited platforms while Chronogolf sits this band out, and
+    // reusing that day wholesale would throw away everything this run
+    // just fetched for it.
+    const carriedOver = carried.has(i) && !touched.has(i);
 
     // A fresh day is assembled per course rather than wholesale, so a
     // course the deadline cut off falls back to its published entry on

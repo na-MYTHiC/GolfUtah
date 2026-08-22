@@ -53,7 +53,7 @@ export function Results({
   date: string;
 }) {
   const filters = useFilters(date);
-  const { coords, locate } = useGeolocation();
+  const { coords, locate, forget } = useGeolocation();
   const favorites = useFavorites();
   const now = useUtahNow();
   const priceSummary = usePriceSummary();
@@ -237,6 +237,21 @@ export function Results({
     return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
   }, [courses, filters, coords, favorites, date, fresh, playedOut, priceSummary]);
 
+  /**
+   * What the mileage on every row is measured from, said out loud.
+   *
+   * Deliberately mirrors the origin logic above rather than restating
+   * it: device coordinates win, a searched city is the fallback, and
+   * with neither there are no distances to explain. Only the device
+   * origin can be forgotten — a city origin is cleared by clearing the
+   * search box, which is already obvious.
+   */
+  const distanceOrigin = useMemo(() => {
+    if (coords) return { label: "distances from your location", canForget: true };
+    const city = findCity(filters.near || filters.q);
+    return city ? { label: `distances from ${city.name}`, canForget: false } : null;
+  }, [coords, filters.near, filters.q]);
+
   return (
     <>
       {/* The header rides with the controls rather than scrolling away
@@ -296,6 +311,28 @@ export function Results({
         <p className="mt-4 text-center text-[12px] text-text-3">
           {bookings.length} tee time{bookings.length === 1 ? "" : "s"} ·{" "}
           {coursesWithTimes} course{coursesWithTimes === 1 ? "" : "s"}
+          {/* Every row shows a distance, and until now nothing said what
+              it was measured from. "256mi" is a fair thing to be
+              confused by when the search box is empty and the origin is
+              a coordinate the browser handed over once and then kept. */}
+          {distanceOrigin && (
+            <>
+              {" · "}
+              {distanceOrigin.label}
+              {distanceOrigin.canForget && (
+                <>
+                  {" ("}
+                  <button
+                    onClick={forget}
+                    className="underline underline-offset-2 active:text-text-1"
+                  >
+                    forget
+                  </button>
+                  {")"}
+                </>
+              )}
+            </>
+          )}
         </p>
       )}
 

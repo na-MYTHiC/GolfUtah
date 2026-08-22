@@ -550,6 +550,11 @@ const coordsStore = {
     localStorage.setItem(COORDS_KEY, JSON.stringify(coords));
     coordsStore.listeners.forEach((listener) => listener());
   },
+
+  clear() {
+    localStorage.removeItem(COORDS_KEY);
+    coordsStore.listeners.forEach((listener) => listener());
+  },
 };
 
 /** Browser geolocation, for distance sorting. Never leaves the device. */
@@ -571,5 +576,7 @@ export function useGeolocation() {
     );
   }, []);
 
-  return { coords, locate };
+  const forget = useCallback(() => coordsStore.clear(), []);
+
+  return { coords, locate, forget };
 }
