@@ -9,21 +9,30 @@ name: Build and deploy GolfUtah
 # every 5-minute tick actually land, and spending it on the days that
 # move.
 #
-# The schedule is tiered, because the days aren't worth the same.
+# HOW OFTEN THIS ACTUALLY RUNS, measured rather than requested. Over 29
+# consecutive scheduled runs:
 #
-#   every 5 minutes    days 1-4   (today through three days out)
-#   every 15 minutes   days 5-7
-#   every 30 minutes   days 8-10
+#   min gap 16 min | median 28 | mean 32 | max 101
+#   about 1.9 runs an hour, against the 12 this cron asks for
 #
-# One cron fires every 5 minutes and works out from the clock which tiers
-# are due. Three separate crons would all land on :00 and, with
-# cancel-in-progress, spend the hour cancelling each other.
+# That is GitHub throttling a shared scheduler on free runners, and
+# nothing here can change it. Every freshness claim about this app is
+# downstream of that number, so it is worth re-measuring before believing
+# any of them.
 #
-# Cost, at 47 courses: 66 day-fetches an hour, against 72 under the
-# previous split — so the near tier gained a day *and* the total came
-# down, by slowing the far days nobody watches from every 15 minutes to
-# every 30. If a booking platform starts rate-limiting, this schedule is
-# still the first thing to look at.
+# Two consequences:
+#
+# The cron avoids :00. GitHub's own guidance is that the start of the
+# hour is its most congested minute, and '*/5' lands on it. Offsetting
+# costs nothing and can only help.
+#
+# And a run refreshes every day for every platform that allows it. Day
+# tiering was a sensible response to twelve ticks an hour; at two it just
+# leaves days stale for no reason, because each run has budget to spare.
+# Only Chronogolf still rotates through bands, because its limit is real
+# and has nothing to do with how often the cron fires — it refuses after
+# roughly 57 requests, three days across its nineteen courses. Which band
+# it takes is chosen by staleness, in build-data.ts.
 #
 # Concurrency is capped per platform and scaled to how many courses that
 # platform serves (see build-data.ts). Every course is still asked
@@ -49,7 +58,8 @@ name: Build and deploy GolfUtah
 # them, and Pages is only free for public repos too.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    # Every 5 minutes, offset off the hour boundary. See the note above.
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
   push:
     branches: [main]
   workflow_dispatch:

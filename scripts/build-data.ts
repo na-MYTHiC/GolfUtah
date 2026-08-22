@@ -282,12 +282,6 @@ const BANDS: { label: string; from: number; to: number; targetMs: number }[] = [
   { label: "7-9", from: 7, to: 9, targetMs: 30 * 60 * 1000 },
 ];
 
-function rangeOf(band: { from: number; to: number }, days: number): number[] {
-  const out: number[] = [];
-  for (let i = band.from; i <= band.to && i < days; i++) out.push(i);
-  return out;
-}
-
 /**
  * Platforms that refuse when asked for too much in one run.
  *
@@ -751,14 +745,28 @@ async function main() {
   // measured tick gaps, one-band-for-everyone refreshes today through
   // +3 every ~33 minutes, where fetching them every tick is ~18.
   //
-  // So the unlimited platforms always fetch the near band, plus the
-  // winning band when it's a different one. Chronogolf fetches the
-  // winning band alone. A day can therefore be part fresh and part
-  // carried, which the per-course fallback below already handles — it
-  // fills in any course this run didn't reach.
-  const nearBand = new Set(BANDS[0] ? rangeOf(BANDS[0], days) : [0]);
+  // So the unlimited platforms fetch EVERY day, every run, and only
+  // Chronogolf rotates through bands.
+  //
+  // Tiering at all was a response to a 5-minute cron. That cron does not
+  // exist: measured over 29 consecutive scheduled runs, GitHub delivered
+  // a median gap of 28 minutes, a mean of 32, one gap of 101, and about
+  // 1.9 runs an hour against the 12 requested. Rationing days across
+  // twelve ticks an hour is the right call; rationing them across two is
+  // just leaving days stale for no reason, because each run has budget
+  // to spare — 50 courses over ten days is ~500 requests, which the
+  // unlimited platforms clear well inside the 150s deadline.
+  //
+  // Chronogolf still rotates, because its limit is real and unrelated to
+  // how often the cron fires: it refuses after roughly 57 requests,
+  // which is three days across its nineteen courses.
+  //
+  // A day is therefore usually part fresh and part carried, which the
+  // per-course fallback below already handles — it fills in any course
+  // this run didn't reach.
+  const everyDay = new Set(dates.map((_, i) => i));
   const daysFor = (platform: string): Set<number> =>
-    RATE_LIMITED_PLATFORMS.has(platform) ? fresh : new Set([...fresh, ...nearBand]);
+    RATE_LIMITED_PLATFORMS.has(platform) ? fresh : everyDay;
 
   const started = Date.now();
   const jobs: Job[] = dates.flatMap((date, dayIndex) =>

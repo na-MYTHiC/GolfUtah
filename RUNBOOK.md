@@ -339,15 +339,32 @@ Five minutes is the floor. GitHub won't schedule a workflow more often
 than that, so there is no version of this that polls every minute
 without moving off Pages entirely.
 
-**The 5-minute cron does not fire every 5 minutes.** Measured over
-sixteen consecutive scheduled runs, GitHub fired this workflow every 11
-to 26 minutes, averaging about 18. That is GitHub throttling a busy
-shared scheduler, not a bug here, and nothing in this repo can make it
-fire on time. It's the single most important number on this page,
-because every other freshness claim is downstream of it.
+**The 5-minute cron does not fire every 5 minutes, and it is worse than
+first measured.** Over 29 consecutive scheduled runs:
 
-Within that, each run refreshes **one band**, and picks which by
-staleness rather than by the clock:
+| min gap | median | mean | max |
+|---|---|---|---|
+| 16 min | 28 min | 32 min | 101 min |
+
+About **1.9 runs an hour**, against the 12 the cron asks for. An earlier
+sample of sixteen runs gave 11–26 minutes and a mean of 18; the honest
+reading is that this varies a lot and the mean drifts, so re-measure
+before believing any freshness claim on this page. Everything else here
+is downstream of this number.
+
+Nothing in the repo can make GitHub fire on time. The one free lever is
+avoiding `:00`, which GitHub names as its most congested minute — the
+cron is offset to `:02, :07, :12 …` for that reason.
+
+**A run refreshes every day, for every platform except Chronogolf.**
+Tiering days across ticks was the right answer to twelve ticks an hour.
+At two, it just leaves days stale for no reason: one run is ~564
+course-days and finishes inside 70s against a 150s deadline, so there is
+budget going spare.
+
+Chronogolf still rotates, because its limit is real and unrelated to the
+cron — it refuses after roughly 57 requests, three days across its
+nineteen courses. Which band it takes is chosen **by staleness**:
 
 | band | target age |
 |---|---|
@@ -355,10 +372,11 @@ staleness rather than by the clock:
 | +4 → +6 | 15 minutes |
 | +7 → +9 | 30 minutes |
 
-Whichever band is furthest past its target wins the tick. A band that
-gets skipped becomes more overdue and wins the next one, whenever that
+Whichever is furthest past its target wins the tick. A band that gets
+skipped becomes more overdue and wins the next one, whenever that
 arrives — which is what makes this survive a scheduler firing at
-unpredictable intervals.
+unpredictable intervals. Picking by minute-of-hour instead does not
+survive it; see below.
 
 Two earlier designs were wrong, in instructive ways:
 
