@@ -110,14 +110,18 @@ export function Results({
     const flat: Booking[] = [];
     const needle = filters.q.trim().toLowerCase();
 
-    // Distances measure from the device when it's been shared, otherwise
-    // from a chosen city — useful when planning a round somewhere you
-    // aren't yet.
-    // Origin comes from the full Utah city list, not just cities with
-    // courses — searching "Bluffdale" should find courses near it even
+    // Where distances measure from.
+    //
+    // A place you asked for beats the device. Searching "St. George"
+    // and being told how far everything is from your sofa answers a
+    // question nobody asked — and the device used to win here, so
+    // planning a round somewhere else silently didn't work.
+    //
+    // Places come from the full Utah city list, not just cities with
+    // courses: searching "Bluffdale" should find courses near it even
     // though Bluffdale has none.
-    const city = findCity(filters.near || filters.q);
-    const origin = coords ? { lat: coords.lat, lon: coords.lon } : city;
+    const searchedPlace = findCity(filters.near || filters.q);
+    const origin = searchedPlace ?? (coords ? { lat: coords.lat, lon: coords.lon } : undefined);
 
     for (const course of courses) {
       const distance =
@@ -133,10 +137,25 @@ export function Results({
       if (filters.county) {
         if (course.county !== filters.county) continue;
       } else {
-        // A searched city acts as the radius origin, so text search is
-        // skipped once a radius is doing the narrowing — otherwise
-        // "Layton within 30 miles" would still only ever show Layton.
-        const narrowingByRadius = filters.radius != null && origin != null;
+        // Text search steps aside only when the text IS the place being
+        // measured from: "Layton within 30 miles" means near Layton, not
+        // named Layton.
+        //
+        // It used to step aside whenever *any* origin existed, which was
+        // fine while an origin almost always came from the search box.
+        // Once the device position started being read on every open, an
+        // origin was almost always present — so with a distance filter
+        // on, the search box did nothing at all. Typing a course name
+        // returned the identical list as typing nothing.
+        //
+        // The needle is only the origin when it named the place: either
+        // it was committed as `near`, or it resolves to a city on its
+        // own and nothing else was chosen.
+        const needleIsTheOrigin =
+          Boolean(needle) &&
+          (filters.near.trim().toLowerCase() === needle ||
+            (!filters.near && Boolean(findCity(filters.q))));
+        const narrowingByRadius = filters.radius != null && needleIsTheOrigin;
         if (needle && !narrowingByRadius) {
           const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
           if (!haystack.includes(needle)) continue;
@@ -240,16 +259,20 @@ export function Results({
   /**
    * What the mileage on every row is measured from, said out loud.
    *
-   * Deliberately mirrors the origin logic above rather than restating
-   * it: device coordinates win, a searched city is the fallback, and
-   * with neither there are no distances to explain. Only the device
-   * origin can be forgotten — a city origin is cleared by clearing the
-   * search box, which is already obvious.
+   * Mirrors the origin logic above, in the same order: a searched place
+   * wins, the device is the fallback, and with neither there are no
+   * distances to explain. The order matters — saying "from your
+   * location" while measuring from St. George is worse than saying
+   * nothing.
+   *
+   * Only the device origin offers "forget"; a place origin is cleared
+   * by clearing the search box, which is already obvious.
    */
   const distanceOrigin = useMemo(() => {
+    const place = findCity(filters.near || filters.q);
+    if (place) return { label: `distances from ${place.name}`, canForget: false };
     if (coords) return { label: "distances from your location", canForget: true };
-    const city = findCity(filters.near || filters.q);
-    return city ? { label: `distances from ${city.name}`, canForget: false } : null;
+    return null;
   }, [coords, filters.near, filters.q]);
 
   return (
