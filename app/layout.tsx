@@ -19,6 +19,19 @@ export const metadata: Metadata = {
     // than sitting on a white strip above the app.
     statusBarStyle: "black-translucent",
   },
+  other: {
+    // `appleWebApp.capable` emits only the modern
+    // `mobile-web-app-capable` in Next 16, not the Apple-prefixed tag it
+    // replaced. On iOS 16.4 and later that's fine — Safari reads
+    // `display: standalone` out of the manifest. Below that it isn't:
+    // Safari ignores the manifest for display mode, so Add to Home
+    // Screen produces a bookmark that opens in a Safari tab with the
+    // address bar showing. It looks like the install didn't take.
+    //
+    // Deprecated, harmless on new iOS, and the difference between an app
+    // and a bookmark on an older iPhone.
+    "apple-mobile-web-app-capable": "yes",
+  },
   icons: {
     icon: [
       { url: `${basePath}/icon-192.png`, sizes: "192x192", type: "image/png" },
