@@ -182,7 +182,11 @@ jobs:
         env:
           # Pages serves from /<repo>/, so assets need that prefix.
           BASE_PATH: /${{ github.event.repository.name }}
-        run: npx next build
+        # `npm run build`, not `npx next build`: the build also stamps the
+        # app version into out/sw.js, and without that the service worker
+        # is byte-identical every deploy, so a browser never sees a new
+        # one and an already-open app never updates.
+        run: npm run build
 
       - uses: actions/configure-pages@v5
 
