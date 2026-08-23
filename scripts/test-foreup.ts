@@ -72,6 +72,28 @@ function externalIds(): void {
     threw = true;
   }
   check("a bad id in the list is rejected rather than silently dropped", threw);
+
+  // The real Valley View shape: one sheet, two classes, one per round.
+  const twoClasses = parseExternalId("19501:1759:1208,1209");
+  check(
+    "a class list gives every class",
+    twoClasses.bookingClassIds.join(",") === "1208,1209" && twoClasses.bookingClassId === 1208,
+    `classes=[${twoClasses.bookingClassIds}]`
+  );
+
+  const noneAtAll = parseExternalId("19501:1759");
+  check(
+    "no class at all leaves the list empty rather than inventing one",
+    noneAtAll.bookingClassIds.length === 0 && noneAtAll.bookingClassId === undefined
+  );
+
+  let threwClass = false;
+  try {
+    parseExternalId("19501:1759:1208,oops");
+  } catch {
+    threwClass = true;
+  }
+  check("a bad class in the list is rejected too", threwClass);
 }
 
 function bookingLinks(): void {
@@ -100,6 +122,27 @@ function bookingLinks(): void {
   // have linked to 1759 — a sheet with no 7:10 nine on it.
   const wrong = foreUpBookingUrl(19501, 1759, { date: "2026-08-25", holes: 9 });
   check("the seeded-id link is the one that used to be wrong", wrong.includes("/19501/1759"));
+
+  // Valley View's nine comes back under class 1209 while 1208 is seeded
+  // first. The link has to carry the class the row actually belongs to,
+  // or it opens the 18-hole sheet with no such time on it.
+  const nineByClass = toNormalized(
+    row({
+      holes: 9,
+      booking_class_id: 1209,
+      available_spots_9: 4,
+      green_fee_9: 21,
+      cart_fee_9: 0,
+    }),
+    { courseId: 19501, scheduleId: 1759, bookingClassId: 1208 },
+    1759,
+    1209
+  );
+  check(
+    "a row from the second class links with that class, not the seeded one",
+    nineByClass[0]?.bookingUrl.includes("booking_class_id=1209"),
+    nineByClass[0]?.bookingUrl ?? "(none)"
+  );
 }
 
 function bothRounds(): void {

@@ -544,7 +544,17 @@ export const COURSES: CourseSeed[] = [
     // municipals sit on adjacent ForeUp installs, and behave the same
     // way: empty response without a booking class, full sheet with one.
     // Booking link goes straight to the tee sheet for the same reason.
-    externalId: "19501:1759:1208",
+    //
+    // TWO CLASSES, one sheet. A class sweep of 1190-1240 found exactly
+    // two that answer, and they split the course in half:
+    //
+    //   1208   24 rows, every one 18 holes
+    //   1209   67 rows, every one 9 holes
+    //
+    // Seeding 1208 alone published 24 of 91 daily slots and no nines,
+    // which is what "there are two sections, 18 and 9, and you're only
+    // scraping the 18" turned out to mean.
+    externalId: "19501:1759:1208,1209",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19501/1759#/teetimes",
     latitude: 41.073,
     longitude: -111.93,

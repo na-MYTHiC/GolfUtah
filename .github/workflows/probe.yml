@@ -24,6 +24,7 @@ on:
         options:
           - foreup:schedules
           - foreup:inspect
+          - foreup:audit
           - membersports:probe
           - tenfore:probe
           - golfpay:probe

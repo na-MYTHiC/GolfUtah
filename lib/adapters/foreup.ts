@@ -62,6 +62,8 @@ interface ForeUpIds {
   scheduleIds: number[];
   /** Optional — see parseExternalId. */
   bookingClassId?: number;
+  /** Every booking class to ask for; empty when none was captured. */
+  bookingClassIds: number[];
 }
 
 /**
@@ -82,6 +84,18 @@ interface ForeUpIds {
  * landed on the time.
  *
  * Every id is fetched and the rows merged.
+ *
+ * THE BOOKING CLASS TAKES A LIST TOO, and this is the one that bit.
+ * Valley View publishes its 18-hole round and its nine as two classes
+ * on one sheet:
+ *
+ *   19501:1759:1208   24 rows, all 18 holes
+ *   19501:1759:1209   67 rows, all 9 holes
+ *
+ * Seeding 1208 alone published 24 of 91 daily slots and no nines at
+ * all — and left a golfer comparing the app against the course's own
+ * page, which opens on a different class, wondering where the times
+ * came from. "19501:1759:1208,1209" asks for both.
  *
  * The booking class is left optional on purpose: courseId and scheduleId
  * are both readable straight from a course's booking URL, but the booking
@@ -126,12 +140,22 @@ export function parseExternalId(externalId: string): ForeUpIds {
     throw new Error(`Invalid ForeUp scheduleId in "${externalId}"`);
   }
 
-  const bookingClassId = bookingClass ? Number(bookingClass) : undefined;
-  if (bookingClass && !bookingClassId) {
+  const bookingClassIds = (bookingClass ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  if (bookingClass && bookingClass.split(",").length !== bookingClassIds.length) {
     throw new Error(`Invalid ForeUp bookingClassId in "${externalId}"`);
   }
 
-  return { courseId, scheduleId: scheduleIds[0], scheduleIds, bookingClassId };
+  return {
+    courseId,
+    scheduleId: scheduleIds[0],
+    scheduleIds,
+    bookingClassId: bookingClassIds[0],
+    bookingClassIds,
+  };
 }
 
 /** ForeUp wants MM-DD-YYYY in the query, unlike its own YYYY-MM-DD responses. */
@@ -252,7 +276,8 @@ function bookingPageUrl(courseId: number, scheduleId: number): string {
 async function fetchOneDate(
   ids: ForeUpIds,
   date: string,
-  scheduleId: number
+  scheduleId: number,
+  bookingClassId: number | undefined
 ): Promise<RawTeeTime[]> {
   // Built in ForeUp's own parameter order rather than alphabetically or
   // by convenience — matching the real request exactly costs nothing and
@@ -262,8 +287,8 @@ async function fetchOneDate(
   params.set("date", toForeUpDate(date));
   params.set("holes", "all");
   params.set("players", "0");
-  if (ids.bookingClassId !== undefined) {
-    params.set("booking_class", String(ids.bookingClassId));
+  if (bookingClassId !== undefined) {
+    params.set("booking_class", String(bookingClassId));
   }
   params.set("schedule_id", String(scheduleId));
   params.append("schedule_ids[]", String(scheduleId));
@@ -322,7 +347,9 @@ export function toNormalized(
   raw: RawTeeTime,
   ids: { courseId: number; scheduleId: number; bookingClassId?: number },
   /** The sheet this row was fetched from, for courses with several. */
-  fromSchedule?: number
+  fromSchedule?: number,
+  /** The class it was fetched under, likewise. */
+  fromClass?: number
 ): NormalizedTeeTime[] {
   const [date, time] = raw.time.split(" ");
   if (!date || !time) return [];
@@ -374,7 +401,11 @@ export function toNormalized(
       bookingUrl: foreUpBookingUrl(ids.courseId, raw.schedule_id || fromSchedule || ids.scheduleId, {
         date,
         holes: o.holes,
-        bookingClassId: ids.bookingClassId,
+        // The row's own class, for the same reason as the schedule: a
+        // course whose nine and eighteen are separate classes would
+        // otherwise send every link to whichever was seeded first, and
+        // land the golfer on a sheet without the time they tapped.
+        bookingClassId: raw.booking_class_id || fromClass || ids.bookingClassId,
       }),
     }));
 }
@@ -396,15 +427,21 @@ export const foreupAdapter: TeeTimeAdapter = {
     // for a golfer to tell those apart.
     const seen = new Set<string>();
 
+    // No class captured still means one request, with none sent.
+    const classes: (number | undefined)[] =
+      ids.bookingClassIds.length > 0 ? ids.bookingClassIds : [undefined];
+
     for (const date of dates) {
       for (const scheduleId of ids.scheduleIds) {
-        const raw = await fetchOneDate(ids, date, scheduleId);
-        for (const slot of raw) {
-          for (const normalized of toNormalized(slot, ids, scheduleId)) {
-            const key = `${normalized.time}|${normalized.holes}|${normalized.side ?? ""}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            results.push(normalized);
+        for (const bookingClassId of classes) {
+          const raw = await fetchOneDate(ids, date, scheduleId, bookingClassId);
+          for (const slot of raw) {
+            for (const normalized of toNormalized(slot, ids, scheduleId, bookingClassId)) {
+              const key = `${normalized.time}|${normalized.holes}|${normalized.side ?? ""}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              results.push(normalized);
+            }
           }
         }
       }
