@@ -56,14 +56,32 @@ interface RawTeeTime {
 
 interface ForeUpIds {
   courseId: number;
+  /** First schedule — the one whose booking page seeds the session. */
   scheduleId: number;
+  /** Every schedule for this course, `scheduleId` included. */
+  scheduleIds: number[];
   /** Optional — see parseExternalId. */
   bookingClassId?: number;
 }
 
 /**
  * Accepts "<courseId>:<scheduleId>" or
- * "<courseId>:<scheduleId>:<bookingClassId>".
+ * "<courseId>:<scheduleId>:<bookingClassId>", and the schedule part may
+ * be a comma-separated list: "19501:1759,1760:1208".
+ *
+ * A COURSE CAN HAVE MORE THAN ONE TEE SHEET, and one id only ever sees
+ * one of them. Valley View's booking page opens on a choice between 18
+ * holes and 9 holes; those are separate ForeUp schedules with separate
+ * ids, not two views of one sheet. Seeding a single id published half
+ * the course, with nothing to indicate the other half existed.
+ *
+ * That also explains a time appearing in the app that could not be
+ * found on the course's own site: the slot was real, on the sheet we
+ * were reading, while the site had opened on the other sheet. The
+ * per-slot link carried the right schedule, which is why following it
+ * landed on the time.
+ *
+ * Every id is fetched and the rows merged.
  *
  * The booking class is left optional on purpose: courseId and scheduleId
  * are both readable straight from a course's booking URL, but the booking
@@ -92,14 +110,20 @@ interface ForeUpIds {
 export function parseExternalId(externalId: string): ForeUpIds {
   const [course, schedule, bookingClass] = externalId.split(":");
   const courseId = Number(course);
-  const scheduleId = Number(schedule);
+  const scheduleIds = (schedule ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
 
-  if (!courseId || !scheduleId) {
+  if (!courseId || scheduleIds.length === 0) {
     throw new Error(
       `Invalid ForeUp externalId "${externalId}" — expected ` +
         `"<courseId>:<scheduleId>" or "<courseId>:<scheduleId>:<bookingClassId>", ` +
-        `e.g. "18895:578:177"`
+        `e.g. "18895:578:177". The schedule may be a list: "19501:1759,1760:1208"`
     );
+  }
+  if (schedule.split(",").length !== scheduleIds.length) {
+    throw new Error(`Invalid ForeUp scheduleId in "${externalId}"`);
   }
 
   const bookingClassId = bookingClass ? Number(bookingClass) : undefined;
@@ -107,7 +131,7 @@ export function parseExternalId(externalId: string): ForeUpIds {
     throw new Error(`Invalid ForeUp bookingClassId in "${externalId}"`);
   }
 
-  return { courseId, scheduleId, bookingClassId };
+  return { courseId, scheduleId: scheduleIds[0], scheduleIds, bookingClassId };
 }
 
 /** ForeUp wants MM-DD-YYYY in the query, unlike its own YYYY-MM-DD responses. */
@@ -178,22 +202,26 @@ const SESSION_TTL_MS = 20 * 60 * 1000;
  */
 const inFlight = new Map<string, Promise<string | undefined>>();
 
-async function getSession(ids: ForeUpIds): Promise<string | undefined> {
-  const key = `${ids.courseId}:${ids.scheduleId}`;
+async function getSession(ids: ForeUpIds, scheduleId: number): Promise<string | undefined> {
+  const key = `${ids.courseId}:${scheduleId}`;
   const hit = sessions.get(key);
   if (hit && Date.now() - hit.at < SESSION_TTL_MS) return hit.cookie;
 
   const pending = inFlight.get(key);
   if (pending) return pending;
 
-  const run = fetchSession(ids, key).finally(() => inFlight.delete(key));
+  const run = fetchSession(ids, scheduleId, key).finally(() => inFlight.delete(key));
   inFlight.set(key, run);
   return run;
 }
 
-async function fetchSession(ids: ForeUpIds, key: string): Promise<string | undefined> {
+async function fetchSession(
+  ids: ForeUpIds,
+  scheduleId: number,
+  key: string
+): Promise<string | undefined> {
   try {
-    const resp = await politeFetch(bookingPageUrl(ids.courseId, ids.scheduleId), {
+    const resp = await politeFetch(bookingPageUrl(ids.courseId, scheduleId), {
       label: "ForeUp session",
       headers: { accept: "text/html,application/xhtml+xml", "user-agent": UA },
     });
@@ -221,7 +249,11 @@ function bookingPageUrl(courseId: number, scheduleId: number): string {
   return `https://foreupsoftware.com/index.php/booking/${courseId}/${scheduleId}`;
 }
 
-async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]> {
+async function fetchOneDate(
+  ids: ForeUpIds,
+  date: string,
+  scheduleId: number
+): Promise<RawTeeTime[]> {
   // Built in ForeUp's own parameter order rather than alphabetically or
   // by convenience — matching the real request exactly costs nothing and
   // removes a variable when results disagree with the course's page.
@@ -233,12 +265,15 @@ async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]>
   if (ids.bookingClassId !== undefined) {
     params.set("booking_class", String(ids.bookingClassId));
   }
-  params.set("schedule_id", String(ids.scheduleId));
-  params.append("schedule_ids[]", String(ids.scheduleId));
+  params.set("schedule_id", String(scheduleId));
+  params.append("schedule_ids[]", String(scheduleId));
   params.set("specials_only", "0");
   params.set("api_key", "");
 
-  const cookie = await getSession(ids);
+  // Session is per course+schedule: the widget loads that schedule's own
+  // booking page before asking for its times, and booking-class selection
+  // is held against it server-side.
+  const cookie = await getSession(ids, scheduleId);
 
   const resp = await politeFetch(`${API_BASE}/times?${params}`, {
     label: "ForeUp",
@@ -248,7 +283,7 @@ async function fetchOneDate(ids: ForeUpIds, date: string): Promise<RawTeeTime[]>
       // ForeUp's widget sends this header empty; mirrored rather than
       // omitted in case its presence is what's checked.
       "api-key": "",
-      referer: bookingPageUrl(ids.courseId, ids.scheduleId),
+      referer: bookingPageUrl(ids.courseId, scheduleId),
       "user-agent": UA,
       "x-fu-golfer-location": "foreup",
       "x-requested-with": "XMLHttpRequest",
@@ -285,7 +320,9 @@ function sideOf(sheetName: string): string | undefined {
 
 export function toNormalized(
   raw: RawTeeTime,
-  ids: { courseId: number; scheduleId: number; bookingClassId?: number }
+  ids: { courseId: number; scheduleId: number; bookingClassId?: number },
+  /** The sheet this row was fetched from, for courses with several. */
+  fromSchedule?: number
 ): NormalizedTeeTime[] {
   const [date, time] = raw.time.split(" ");
   if (!date || !time) return [];
@@ -328,7 +365,13 @@ export function toNormalized(
       side: sideOf(raw.teesheet_side_name),
       // Each slot gets its own link so the golfer lands on the right day
       // with the right round preselected, rather than on today's sheet.
-      bookingUrl: foreUpBookingUrl(ids.courseId, ids.scheduleId, {
+      //
+      // The row's own schedule_id, not the seeded one. A course with a
+      // separate 9- and 18-hole sheet would otherwise send every link to
+      // whichever sheet happened to be listed first — landing the golfer
+      // on a day that genuinely has no such time, which is precisely the
+      // "the app shows it but the site doesn't" report.
+      bookingUrl: foreUpBookingUrl(ids.courseId, raw.schedule_id || fromSchedule || ids.scheduleId, {
         date,
         holes: o.holes,
         bookingClassId: ids.bookingClassId,
@@ -348,10 +391,22 @@ export const foreupAdapter: TeeTimeAdapter = {
     }
 
     const results: NormalizedTeeTime[] = [];
+    // Deduped across schedules. A course that lists the same slot on more
+    // than one sheet would otherwise show it twice, and there's no way
+    // for a golfer to tell those apart.
+    const seen = new Set<string>();
+
     for (const date of dates) {
-      const raw = await fetchOneDate(ids, date);
-      for (const slot of raw) {
-        results.push(...toNormalized(slot, ids));
+      for (const scheduleId of ids.scheduleIds) {
+        const raw = await fetchOneDate(ids, date, scheduleId);
+        for (const slot of raw) {
+          for (const normalized of toNormalized(slot, ids, scheduleId)) {
+            const key = `${normalized.time}|${normalized.holes}|${normalized.side ?? ""}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            results.push(normalized);
+          }
+        }
       }
     }
     return results;

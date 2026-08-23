@@ -34,7 +34,8 @@
     "osm:utah": "tsx scripts/osm-survey.ts",
     "membersports:probe": "tsx scripts/membersports-probe.ts",
     "tenfore:probe": "tsx scripts/tenfore-probe.ts",
-    "test:pacing": "tsx scripts/test-pacing.ts"
+    "test:pacing": "tsx scripts/test-pacing.ts",
+    "test:foreup": "tsx scripts/test-foreup.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
