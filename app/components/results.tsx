@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { usePriceSummary, dealAgainstTypical } from "@/lib/prices";
 import type { CourseView } from "./types";
 import { TeeTimeRow, type Booking } from "./tee-time-row";
 import {
@@ -56,7 +55,6 @@ export function Results({
   const { coords, locate, forget } = useGeolocation();
   const favorites = useFavorites();
   const now = useUtahNow();
-  const priceSummary = usePriceSummary();
 
   // Slots that have already teed off are pruned here rather than inside
   // the filter pass, so they're gone from the counts too — "12 of 40 tee
@@ -192,8 +190,6 @@ export function Results({
           sunset: course.weather?.sunset,
           date: slot.date ?? date,
           undatedLink: course.platform === "MEMBERSPORTS",
-          typical:
-            dealAgainstTypical(priceSummary, course.slug, slot.time, slot.price)?.median,
           isNew: fresh.has(slotKey(course.slug, slot.time, slot.holes, slot.side)),
         });
       }
@@ -254,7 +250,7 @@ export function Results({
       }));
 
     return { bookings: flat, coursesWithTimes: shown.size, quiet: quietCourses };
-  }, [courses, filters, coords, favorites, date, fresh, playedOut, priceSummary]);
+  }, [courses, filters, coords, favorites, date, fresh, playedOut]);
 
   /**
    * What the mileage on every row is measured from, said out loud.

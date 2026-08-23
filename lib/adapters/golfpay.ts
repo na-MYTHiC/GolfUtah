@@ -107,7 +107,7 @@ export function golfPayCourseUrl(slug: string, date?: string): string {
  * fee and the cart fee were all "1.0" — $1 golf, at the last slot of the
  * day, in both the 9 and 18 hole responses. That is a fixture, not a
  * price, and letting it through would make The Barn the cheapest course
- * in the app and fire the "usually $52" deal marker against it.
+ * in the app and drag its median down with it.
  *
  * Rather than invent a price floor — a guess about what a course may
  * charge — this checks the row against itself. A genuine row's price is
