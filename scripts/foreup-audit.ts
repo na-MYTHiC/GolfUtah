@@ -146,6 +146,16 @@ async function main() {
 
   const suspicious: typeof foreup = [];
   const findings: Finding[] = [];
+  /**
+   * Where to centre each course's class sweep.
+   *
+   * A course with no class seeded still gets one back: ForeUp stamps
+   * `booking_class_id` on every row it returns, whichever class it
+   * decided to serve. Without this, the eight courses seeded without a
+   * class had no number to sweep around and were skipped — including
+   * Cedar Ridge, which pass 1 flags as 9-hole-only.
+   */
+  const anchor = new Map<string, number>();
 
   // Pass 1 — one request per course, exactly as the adapter asks.
   for (const course of foreup) {
@@ -171,7 +181,12 @@ async function main() {
         `class ${cls ?? "(none)"}  ${flag}`
     );
 
-    if (flag && cls !== undefined) suspicious.push(course);
+    const observed = cls ?? rows.find((r) => r.booking_class_id)?.booking_class_id;
+    if (observed !== undefined) anchor.set(course.slug, observed);
+    if (flag && observed !== undefined) suspicious.push(course);
+    else if (flag) {
+      console.log(`      (no class to sweep around — nothing came back to name one)`);
+    }
   }
 
   if (suspicious.length === 0) {
@@ -185,7 +200,7 @@ async function main() {
   for (const course of suspicious) {
     const ids = parseExternalId(course.externalId);
     const seeded = new Set(ids.bookingClassIds);
-    const base = ids.bookingClassIds[0];
+    const base = anchor.get(course.slug)!;
     const cookie = await session(ids.courseId, ids.scheduleId);
     const extra: Finding["extra"] = [];
 

@@ -448,7 +448,18 @@ export const COURSES: CourseSeed[] = [
     // request without one with an empty array — so before 2094 was
     // captured from a browser's network tab, this course was showing no
     // tee times at all rather than a short sheet.
-    externalId: "19500:1757:2094",
+    //
+    // And 2094 alone was still only half the course, the same way Valley
+    // View's 1208 was. The audit found it:
+    //
+    //   2094   13 rows, every one 18 holes
+    //   2095   63 rows, every one 9 holes
+    //
+    // Both Davis County municipals split their rounds across classes.
+    // That is presumably one operator's convention rather than a
+    // coincidence, which is worth remembering for any course that turns
+    // up on the same install.
+    externalId: "19500:1757:2094,2095",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19500/1757#/teetimes",
     latitude: 41.035,
     longitude: -111.938,
