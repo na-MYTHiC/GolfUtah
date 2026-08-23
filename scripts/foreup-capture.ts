@@ -67,8 +67,18 @@ async function nudge(page: import("playwright").Page): Promise<void> {
   // Public deliberately, never Member: a member sheet is a different
   // (and often larger) set of times that a visitor cannot book, and
   // publishing those would be worse than publishing none.
+  //
+  // The public button is not always called "Public". The Ridge offers
+  // "General Public | Tuesday Senior League | Wednesday Veteran's
+  // League | ...", and an anchored /^public$/ matched none of them —
+  // so the run reported the widget never asked for times, with the
+  // answer sitting in the button list. Anchored variants rather than a
+  // loose /public/, which would also match a league whose name happens
+  // to contain the word.
   const labels = [
+    /^general\s+public$/i,
     /^public$/i,
+    /^public\s+golfer$/i,
     /^guest$/i,
     /non-?member/i,
     /18\s*holes?/i,

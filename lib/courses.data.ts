@@ -820,7 +820,12 @@ export const COURSES: CourseSeed[] = [
     city: "Beaver",
     platform: "FOREUP",
     // First course in Beaver County.
-    externalId: "21251:7447",
+    //
+    // Class 9284 came from the widget's own request, captured by
+    // scripts/foreup-capture.ts. Without it this install answered every
+    // day with an empty array — a sheet that says nothing, which from
+    // outside reads exactly like a course with no tee times.
+    externalId: "21251:7447:9284",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/21251/7447#/teetimes",
     latitude: 38.2789,
     longitude: -112.6067,
