@@ -118,11 +118,35 @@ async function main() {
     await page.waitForTimeout(WATCH_MS - 4000);
 
     if (seen.size === 0) {
-      console.log("The widget never asked for times.");
+      console.log("The widget never asked for times.\n");
+
+      // "It didn't ask" is not a diagnosis, and the page usually says
+      // why in plain English — closed for the season, pick a course,
+      // sign in. Printing it turns a dead end into something actionable
+      // without anyone opening a browser.
+      const title = await page.title().catch(() => "");
+      const text = await page
+        .locator("body")
+        .innerText()
+        .catch(() => "");
+      const visible = text.replace(/\s+/g, " ").trim().slice(0, 400);
+
+      console.log(`  page title: ${title || "(none)"}`);
+      console.log(`  page says:  ${visible || "(nothing rendered)"}`);
       console.log("");
-      console.log("Usually that means the page didn't get as far as a tee sheet — a");
-      console.log("course closed for the season, a booking URL that needs a schedule id,");
-      console.log("or a login. Try --headed to watch it, or open the page by hand.");
+
+      const buttons = await page
+        .getByRole("button")
+        .allInnerTexts()
+        .catch(() => [] as string[]);
+      const labels = buttons.map((b) => b.replace(/\s+/g, " ").trim()).filter(Boolean);
+      if (labels.length) {
+        console.log(`  buttons on the page: ${labels.slice(0, 12).join(" | ")}`);
+        console.log("  If one of those is the round or course chooser, it needs clicking");
+        console.log("  and nudge() doesn't recognise it yet.");
+      } else {
+        console.log("  No buttons rendered at all — the page didn't get as far as a widget.");
+      }
       return;
     }
 
