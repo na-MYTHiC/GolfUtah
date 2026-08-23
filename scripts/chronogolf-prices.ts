@@ -65,30 +65,54 @@ function parseExternalId(externalId: string): { slug: string; courseIds: string[
   };
 }
 
-/** One page is enough to characterise a sheet; this isn't a data load. */
+/** Guard against a pagination bug turning into an unbounded loop. */
+const MAX_PAGES = 20;
+
+/**
+ * Every page, like the adapter does.
+ *
+ * The first cut of this fetched page 1 only, and the numbers it produced
+ * were not comparable: "both" and "split" came back with different slot
+ * counts, so the percentages were measuring pagination as much as
+ * pricing. It showed up as almost every course reporting exactly 24
+ * priced rows — one page of 24 slots, each with one priced round.
+ */
 async function fetchTimes(
   courseIds: string[],
   date: string,
   holes: string
 ): Promise<RawTeeTime[] | string> {
-  const params = new URLSearchParams({
-    start_date: date,
-    course_ids: courseIds.join(","),
-    holes,
-    page: "1",
-  });
-  try {
-    const resp = await politeFetch(`${API}?${params}`, {
-      label: "Chronogolf",
-      headers: { accept: "application/json", referer: "https://www.chronogolf.com/" },
+  const out: RawTeeTime[] = [];
+  let seen = 0;
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      start_date: date,
+      course_ids: courseIds.join(","),
+      holes,
+      page: String(page),
     });
-    if (!resp.ok) return `HTTP ${resp.status}`;
-    const body = (await resp.json()) as { status: string; teetimes: RawTeeTime[] };
-    if (!Array.isArray(body.teetimes)) return `status ${body.status}`;
-    return body.teetimes.filter((t) => !t.frozen && t.max_player_size > 0);
-  } catch (err) {
-    return (err as Error).message;
+    try {
+      const resp = await politeFetch(`${API}?${params}`, {
+        label: "Chronogolf",
+        headers: { accept: "application/json", referer: "https://www.chronogolf.com/" },
+      });
+      if (!resp.ok) return `HTTP ${resp.status}`;
+      const body = (await resp.json()) as { status: string; teetimes: RawTeeTime[] };
+      if (!Array.isArray(body.teetimes)) return `status ${body.status}`;
+
+      out.push(...body.teetimes.filter((t) => !t.frozen && t.max_player_size > 0));
+      seen += body.teetimes.length;
+
+      const total = Number(resp.headers.get("total")) || 0;
+      const perPage = Number(resp.headers.get("per-page")) || 0;
+      if (body.teetimes.length === 0 || !perPage || seen >= total) break;
+    } catch (err) {
+      return (err as Error).message;
+    }
   }
+
+  return out;
 }
 
 /** The round lengths the adapter would emit rows for. */
@@ -143,22 +167,38 @@ async function main() {
         continue;
       }
 
-      // Split: ask for each round separately, and count a row as priced
-      // when the response for THAT round quotes it.
+      // Split: ask for each round on its own, then score against the
+      // SAME rows the adapter would emit today. Counting each response's
+      // own rows instead would compare two different sheets — a course
+      // whose split call simply returns fewer slots would score higher
+      // for publishing less, which is backwards.
       const nine = await fetchTimes(courseIds, date, "9");
       const eighteen = await fetchTimes(courseIds, date, "18");
 
+      const pricedIn = (got: RawTeeTime[] | string, holes: 9 | 18): Set<string> => {
+        const keys = new Set<string>();
+        if (typeof got === "string") return keys;
+        for (const t of got) {
+          if (t.default_price && t.default_price.bookable_holes === holes) {
+            keys.add(`${t.course.name}|${t.start_time}`);
+          }
+        }
+        return keys;
+      };
+      const nineHas = pricedIn(nine, 9);
+      const eighteenHas = pricedIn(eighteen, 18);
+
       let sRows = 0;
       let sPriced = 0;
-      for (const [holes, got] of [
-        [9, nine],
-        [18, eighteen],
-      ] as const) {
-        if (typeof got === "string") continue;
-        for (const t of got) {
-          if (!lengthsOf(t).includes(holes as 9 | 18)) continue;
+      for (const t of both) {
+        for (const holes of lengthsOf(t)) {
           sRows++;
-          if (t.default_price && t.default_price.bookable_holes === holes) sPriced++;
+          const key = `${t.course.name}|${t.start_time}`;
+          // Either request may supply it: the combined call already
+          // prices one round, and the split call may price the other.
+          const fromSplit = holes === 9 ? nineHas.has(key) : eighteenHas.has(key);
+          const fromBoth = t.default_price?.bookable_holes === holes;
+          if (fromSplit || fromBoth) sPriced++;
         }
       }
 
