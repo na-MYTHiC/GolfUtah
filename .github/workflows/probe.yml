@@ -23,6 +23,7 @@ on:
         type: choice
         options:
           - foreup:schedules
+          - foreup:inspect
           - membersports:probe
           - tenfore:probe
           - golfpay:probe

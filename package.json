@@ -35,7 +35,8 @@
     "membersports:probe": "tsx scripts/membersports-probe.ts",
     "tenfore:probe": "tsx scripts/tenfore-probe.ts",
     "test:pacing": "tsx scripts/test-pacing.ts",
-    "test:foreup": "tsx scripts/test-foreup.ts"
+    "test:foreup": "tsx scripts/test-foreup.ts",
+    "foreup:inspect": "tsx scripts/foreup-inspect.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
