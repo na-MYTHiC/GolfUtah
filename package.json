@@ -37,7 +37,8 @@
     "test:pacing": "tsx scripts/test-pacing.ts",
     "test:foreup": "tsx scripts/test-foreup.ts",
     "foreup:inspect": "tsx scripts/foreup-inspect.ts",
-    "foreup:audit": "tsx scripts/foreup-audit.ts"
+    "foreup:audit": "tsx scripts/foreup-audit.ts",
+    "foreup:capture": "tsx scripts/foreup-capture.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
