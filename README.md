@@ -294,22 +294,23 @@ behave like a person clicking through a directory. Don't parallelize it.
 
 ## Status
 
-All three platforms are implemented. Each was built against real captured
+All five platforms are implemented. Each was built against real captured
 traffic, and each response mapping is verified against that data.
 
-Seeded: 33 courses — 14 ForeUp, 14 Chronogolf, 5 MemberSports. That's
-every Chronogolf club known in Utah, including all of the Salt Lake City
-and Salt Lake County municipals.
+Seeded: 69 courses across 22 counties — 35 ForeUp, 18 Chronogolf, 11
+MemberSports, 4 TeeItUp, 1 GolfPay. That includes every Chronogolf club
+known in Utah, and all of the Salt Lake City and Salt Lake County
+municipals.
 
-The 25 still tracked in `scripts/courses.candidates.json` are stuck a
+Those still tracked in `scripts/courses.candidates.json` are stuck a
 step earlier: fetch-based detection couldn't reach their booking ids, so
-their platform is still unknown. Two of them (Glenwild, Promontory) are
-private clubs and may never be aggregable.
+their platform is still unknown. Some (Glenwild, Promontory) are private
+clubs and may never be aggregable.
 
-Outstanding validation: the scheduled build hasn't run in GitHub Actions
-yet. `scripts/probe.ts` confirms both adapters return real tee times, and
-the static build has been exercised end-to-end in a browser under a
-Pages-style sub-path, but the first live deploy is still ahead.
+Outstanding: four St. George MemberSports courses put availability behind
+a login, which no shared scraper can solve — see "Courses behind a login"
+above. Thanksgiving Point and The Ridge are correctly seeded but publish
+little or nothing anonymously.
 
 **Roadmap:** aggregation (read-only availability) first, hand off to the
 course's own checkout for now. Auto-booking is a later phase, once
