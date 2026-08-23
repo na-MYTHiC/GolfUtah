@@ -39,7 +39,8 @@
     "foreup:inspect": "tsx scripts/foreup-inspect.ts",
     "foreup:audit": "tsx scripts/foreup-audit.ts",
     "foreup:capture": "tsx scripts/foreup-capture.ts",
-    "chronogolf:prices": "tsx scripts/chronogolf-prices.ts"
+    "chronogolf:prices": "tsx scripts/chronogolf-prices.ts",
+    "chronogolf:capture": "tsx scripts/chronogolf-capture.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

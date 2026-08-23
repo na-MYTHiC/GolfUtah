@@ -27,6 +27,7 @@ on:
           - foreup:audit
           - foreup:capture
           - chronogolf:prices
+          - chronogolf:capture
           - membersports:probe
           - tenfore:probe
           - golfpay:probe
@@ -58,7 +59,7 @@ jobs:
       # Only foreup:schedules drives a browser; the others are plain HTTP
       # and shouldn't pay for a Chromium download.
       - name: Install Chromium
-        if: inputs.script == 'foreup:schedules' || inputs.script == 'foreup:capture'
+        if: inputs.script == 'foreup:schedules' || inputs.script == 'foreup:capture' || inputs.script == 'chronogolf:capture'
         run: npx playwright install --with-deps chromium
 
       - name: Run ${{ inputs.script }} ${{ inputs.args }}
