@@ -743,7 +743,15 @@ export const COURSES: CourseSeed[] = [
     county: "Tooele",
     city: "Tooele",
     platform: "FOREUP",
-    externalId: "22325:10403",
+    // Class 14289, captured from the widget. This install opens on a
+    // "Public | Member | Trackman" chooser and loads nothing until one
+    // is picked, so no plain HTTP probe could ever see its sheet — and
+    // the rows it did return carried booking_class_id 0, leaving
+    // nothing to sweep around either.
+    //
+    // Public, not Member: the member sheet is a larger set of times a
+    // visitor cannot book.
+    externalId: "22325:10403:14289",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/22325/10403#/teetimes",
     latitude: 40.545,
     longitude: -112.29,
