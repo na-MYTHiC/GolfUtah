@@ -175,6 +175,13 @@ interface StaticCourse {
  *
  * Separate file, like ratings, because it's identical for every day and
  * would otherwise be duplicated ten times over.
+ *
+ * NOTHING READS THIS RIGHT NOW. Both consumers were removed by request:
+ * the "usually $52" line under a price, and the cheapest-price figure on
+ * each date tile. It is still written because computing it is the hard
+ * part and the output is one small file — if either question becomes
+ * worth answering again, the data is already there. Delete this and
+ * summarize() together if that stops being true.
  */
 interface PriceSummary {
   generatedAt: string;
