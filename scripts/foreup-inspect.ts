@@ -19,6 +19,14 @@
  *
  *   npm run foreup:inspect -- 19501 1759 --class 1208
  *   npm run foreup:inspect -- 19501 1759 --class 1208 --days 3
+ *   npm run foreup:inspect -- 19501 1759 --classes 1195-1235
+ *
+ * --classes sweeps booking classes instead of days, which is what the
+ * Valley View answer turned out to need: sheet 1759 under class 1208
+ * returns 18-hole rows only, 24 of them on a good day and none at all
+ * on others. A course does not run like that. The rest of the sheet —
+ * the nine, and the times the course's own page shows — is under a
+ * class we hadn't found, and a class is a number like any other.
  *
  * Needs a machine that can reach foreupsoftware.com — or run it through
  * the Probe workflow.
@@ -122,20 +130,78 @@ function tally<T>(rows: T[], of: (r: T) => string): string {
     .join("   ");
 }
 
+/**
+ * Which booking classes this sheet answers to, and what each one shows.
+ *
+ * Bounded and sequential — one course's own rate classes, asked once
+ * each for a single day. The point is the holes column: a class that
+ * returns nines is the one the app should be seeded with.
+ */
+async function sweepClasses(
+  courseId: string,
+  scheduleId: string,
+  from: number,
+  to: number,
+  cookie: string | undefined
+): Promise<void> {
+  if (to - from > 60) {
+    console.error(`--classes range too wide (${to - from}); keep it under 60`);
+    process.exit(1);
+  }
+
+  // Tomorrow: today's sheet is half gone by definition, and an empty
+  // today would read as a dead class.
+  const date = foreupDate(1);
+  console.log(`Sweeping booking classes ${from}-${to} on ${date}\n`);
+
+  for (let cls = from; cls <= to; cls++) {
+    const rows = await times(courseId, scheduleId, String(cls), date, cookie);
+    if (typeof rows === "string") {
+      console.log(`  ${cls}   ${rows}`);
+      continue;
+    }
+    if (rows.length === 0) continue;
+
+    const nine = rows.filter((r) => r.available_spots_9 > 0).length;
+    const eighteen = rows.filter((r) => r.available_spots_18 > 0).length;
+    console.log(
+      `  ${cls}   ${String(rows.length).padStart(3)} row(s)  ` +
+        `holes: ${tally(rows, (r) => String(r.holes))}  ` +
+        `| 9-hole rows: ${nine}, 18-hole rows: ${eighteen}  ` +
+        `| ${rows[0].course_name}`
+    );
+  }
+  console.log("\nSeed the class that shows the sheet the course's own page shows.");
+}
+
 async function main() {
   const [courseId, scheduleId] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
   if (!courseId || !scheduleId) {
-    console.error("Usage: npm run foreup:inspect -- <courseId> <scheduleId> [--class 1208] [--days 3]");
+    console.error(
+      "Usage: npm run foreup:inspect -- <courseId> <scheduleId> [--class 1208] [--days 3]\n" +
+        "                                [--classes 1195-1235]"
+    );
     process.exit(1);
   }
   const bookingClass = arg("class");
   const days = Number(arg("days") ?? "3");
+  const classes = arg("classes");
 
   console.log(`ForeUp ${courseId}:${scheduleId}${bookingClass ? `:${bookingClass}` : ""}`);
   console.log(`Asking for ${days} day(s), holes=all\n`);
 
   const cookie = await session(courseId, scheduleId);
   console.log(cookie ? "session established" : "no session (continuing cold)");
+
+  if (classes) {
+    const m = /^(\d+)-(\d+)$/.exec(classes);
+    if (!m) {
+      console.error(`--classes wants a range like 1195-1235, got "${classes}"`);
+      process.exit(1);
+    }
+    await sweepClasses(courseId, scheduleId, Number(m[1]), Number(m[2]), cookie);
+    return;
+  }
 
   for (let d = 0; d < days; d++) {
     const date = foreupDate(d);
