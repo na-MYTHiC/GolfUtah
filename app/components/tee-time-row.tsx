@@ -25,8 +25,6 @@ export interface Booking {
   weather?: { temperatureF: number; windMph: number; icon: string };
   /** Course-local sunset, for the daylight check. */
   sunset?: string;
-  /** Cheapest slot matching the current filters. */
-  bestPrice?: boolean;
   /** The day this slot is on, for saving it as a round. */
   date?: string;
   /** True when the booking page can't be opened on a specific day. */
@@ -173,11 +171,7 @@ export function TeeTimeRow({
         </div>
 
         <div className="shrink-0 text-right leading-tight">
-          <div
-            className={`text-[15px] font-semibold tabular-nums ${
-              booking.bestPrice ? "text-crimson-bright" : "text-text-1"
-            }`}
-          >
+          <div className="text-[15px] font-semibold tabular-nums text-text-1">
             {formatPrice(booking.price)}
           </div>
           {/* Whether a cart is in that number, which platforms disagree

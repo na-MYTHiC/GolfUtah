@@ -26,6 +26,7 @@ on:
           - foreup:inspect
           - foreup:audit
           - foreup:capture
+          - chronogolf:prices
           - membersports:probe
           - tenfore:probe
           - golfpay:probe

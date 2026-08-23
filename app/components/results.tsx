@@ -208,19 +208,6 @@ export function Results({
       return da - db || a.time.localeCompare(b.time);
     });
 
-    // Mark the cheapest slots on offer. Worth calling out explicitly:
-    // scanning a right-hand column of prices for the smallest number is
-    // work the app can just do. Ties all get the badge — there's often a
-    // row of identical twilight rates and picking one arbitrarily would
-    // be misleading.
-    const cheapest = flat.reduce(
-      (min, b) => (b.price != null && b.price < min ? b.price : min),
-      Infinity
-    );
-    if (cheapest !== Infinity) {
-      for (const b of flat) if (b.price === cheapest) b.bestPrice = true;
-    }
-
     const shown = new Set(flat.map((b) => b.courseName));
 
     // Every tracked course should be accounted for. Dropping the empty
