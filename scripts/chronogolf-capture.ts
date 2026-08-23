@@ -36,6 +36,14 @@ const UA =
 
 const WATCH_MS = 20_000;
 
+/** How much of a dumped body to print. Enough to read a rate card. */
+const DUMP_CHARS = 6000;
+
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > -1 ? process.argv[i + 1] : undefined;
+}
+
 interface Seen {
   url: string;
   /** Price-shaped keys found in the response, with a sample value. */
@@ -173,6 +181,29 @@ async function main() {
         // Not parseable, or the body was already consumed. Skip.
       }
     });
+
+    // --dump <substring> prints the raw body of any matching response.
+    // The harvester is deliberately shallow, which is right for finding
+    // an endpoint and useless for reading one: the first run named
+    // /clubs/{id}/products as carrying both 9- and 18-hole entries and
+    // then showed none of their prices, because they sit deeper than it
+    // looks or under a key it slices past.
+    const dump = arg("dump");
+    if (dump) {
+      page.on("response", async (resp) => {
+        if (!resp.url().includes(dump)) return;
+        const type = resp.headers()["content-type"] ?? "";
+        if (!type.includes("json")) return;
+        try {
+          const body = await resp.json();
+          console.log(`\n=== ${new URL(resp.url()).pathname} ===`);
+          console.log(JSON.stringify(body, null, 2).slice(0, DUMP_CHARS));
+          console.log("=== end ===\n");
+        } catch {
+          // Body already consumed or not JSON.
+        }
+      });
+    }
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await page.waitForTimeout(5000);
