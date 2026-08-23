@@ -212,7 +212,21 @@ async function main() {
       continue;
     }
     if (rows.length === 0) {
-      console.log(`\n${date}: EMPTY ARRAY — this install wants a booking class it didn't get`);
+      // An empty array means two different things and the difference
+      // matters. Asked without a class, it usually means the install
+      // requires one — that is how Valley View and Davis Park read.
+      // Asked *with* one, the class is being honoured and the day is
+      // simply sold out; Thanksgiving Point returns 3, 0, 1, 0, 0, 0,
+      // 13 rows across a week at $93-$127 a round, which is a busy
+      // resort course, not a broken seed. Saying "wants a booking
+      // class" there sends the next reader hunting for a number that
+      // is already correct.
+      console.log(
+        `\n${date}: EMPTY ARRAY — ` +
+          (bookingClass
+            ? `nothing available under class ${bookingClass} (sold out, or closed that day)`
+            : `this install wants a booking class it didn't get`)
+      );
       continue;
     }
 
