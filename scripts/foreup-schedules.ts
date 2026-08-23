@@ -174,6 +174,22 @@ async function sessionFor(courseId: number, scheduleId: number): Promise<string 
  * afternoon still has next Tuesday, and an empty response can't name
  * itself. Falls back to today if that's empty too.
  */
+/**
+ * Optional booking class, from --class.
+ *
+ * Some installs return an EMPTY ARRAY without one — Davis Park and
+ * Valley View both do — so a sweep that doesn't send it cannot see
+ * those courses' sheets at all. A scan of 1745-1775 under Valley View
+ * (19501) found eleven sheets, every one belonging to a different
+ * course, and missed 19501's own: its rows only exist for
+ * booking_class=1208.
+ */
+let bookingClass: string | undefined;
+
+export function setBookingClass(value: string | undefined): void {
+  bookingClass = value;
+}
+
 async function identify(scheduleId: number, courseId: number): Promise<Partial<Sheet>> {
   const cold = await probe(scheduleId, courseId, undefined);
   if (cold.courseName) return cold;
@@ -202,6 +218,7 @@ async function probe(
       "schedule_ids[]": String(scheduleId),
       specials_only: "0",
       api_key: "",
+      ...(bookingClass ? { booking_class: bookingClass } : {}),
     });
 
     try {
@@ -364,13 +381,19 @@ async function main() {
   if (args.length === 0) {
     console.error(
       "Usage: npm run foreup:schedules -- <courseId | booking URL>\n" +
-        "         [--ids 1258,1259] [--scan 1250-1275] [--headed]"
+        "         [--ids 1258,1259] [--scan 1250-1275] [--class 1208] [--headed]"
     );
     process.exit(1);
   }
 
   const { courseId, scheduleId } = parseTarget(args[0]);
-  console.log(`ForeUp course ${courseId} — looking for its tee sheets\n`);
+
+  // Without this, an install that requires a booking class answers every
+  // probe with an empty array and looks like it has no sheets at all.
+  const cls = arg("class");
+  setBookingClass(cls);
+  console.log(`ForeUp course ${courseId} — looking for its tee sheets`);
+  console.log(cls ? `Asking as booking class ${cls}\n` : "");
 
   /**
    * A bounded sweep of neighbouring schedule ids.
