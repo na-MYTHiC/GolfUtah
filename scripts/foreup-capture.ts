@@ -59,7 +59,23 @@ function parseTarget(args: string[]): { courseId: string; scheduleId: string } {
  * worth pressing rather than just waiting.
  */
 async function nudge(page: import("playwright").Page): Promise<void> {
-  const labels = [/18\s*holes?/i, /9\s*holes?/i, /book\s*now/i, /tee\s*times?/i];
+  // Order matters. Oquirrh Hills opens on "Public | Member | Trackman"
+  // and loads nothing until a golfer type is chosen; the round chooser,
+  // where a per-round class comes from, only appears after that. So the
+  // identity buttons go first and the round buttons second.
+  //
+  // Public deliberately, never Member: a member sheet is a different
+  // (and often larger) set of times that a visitor cannot book, and
+  // publishing those would be worse than publishing none.
+  const labels = [
+    /^public$/i,
+    /^guest$/i,
+    /non-?member/i,
+    /18\s*holes?/i,
+    /9\s*holes?/i,
+    /book\s*now/i,
+    /tee\s*times?/i,
+  ];
   for (const label of labels) {
     const button = page.getByRole("button", { name: label }).first();
     try {
