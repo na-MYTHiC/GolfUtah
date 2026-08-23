@@ -1,0 +1,61 @@
+# A hand-run probe, for questions that need a machine which can reach the
+# booking systems.
+#
+# The development sandbox can't reach foreupsoftware.com or any other
+# booking host, which is why RUNBOOK.md is full of "run this and paste
+# the output". This workflow closes that loop: the same scripts, run on a
+# GitHub runner, with the answer in the job log.
+#
+# Deliberately separate from the deploy workflow. It never touches Pages,
+# so it can't cancel or be cancelled by a data refresh, and a probe that
+# fails costs nothing.
+#
+# Run it from Actions -> Probe -> Run workflow.
+name: Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: Which probe to run
+        required: true
+        default: foreup:schedules
+        type: choice
+        options:
+          - foreup:schedules
+          - membersports:probe
+          - tenfore:probe
+          - golfpay:probe
+      args:
+        description: 'Arguments, e.g. a ForeUp course id like 19501'
+        required: false
+        default: ''
+        type: string
+
+# One probe at a time; a queued second run waits rather than racing.
+concurrency:
+  group: probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Only foreup:schedules drives a browser; the others are plain HTTP
+      # and shouldn't pay for a Chromium download.
+      - name: Install Chromium
+        if: inputs.script == 'foreup:schedules'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run ${{ inputs.script }} ${{ inputs.args }}
+        run: npm run ${{ inputs.script }} -- ${{ inputs.args }}
