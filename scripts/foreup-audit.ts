@@ -43,11 +43,13 @@ const UA =
 const THIN_ROWS = 30;
 
 interface Row {
+  time: string;
   holes: number | string;
   booking_class_id: number;
   course_name: string;
   available_spots_9: number;
   available_spots_18: number;
+  teesheet_side_name: string;
 }
 
 function arg(name: string): string | undefined {
@@ -129,7 +131,12 @@ interface Finding {
   name: string;
   externalId: string;
   seeded: string;
-  extra: { cls: number; rows: number; nine: number; eighteen: number }[];
+  extra: { cls: number; rows: number; fresh: number; nine: number; eighteen: number }[];
+}
+
+/** One tee time, regardless of which rate class is quoting it. */
+function slotKey(r: Row): string {
+  return `${r.time}|${r.holes}|${r.teesheet_side_name ?? ""}`;
 }
 
 async function main() {
@@ -156,14 +163,58 @@ async function main() {
    * Cedar Ridge, which pass 1 flags as 9-hole-only.
    */
   const anchor = new Map<string, number>();
+  /**
+   * The tee times pass 1 already publishes, per course.
+   *
+   * Pass 2 counts rows, and rows are not times. Mulligans answers eight
+   * neighbouring classes with the same 85 slots, Oquirrh Hills six with
+   * the same 21, Cedar Ridge seven with the same 11 — those are
+   * duplicate rate classes quoting one sheet, and the audit was
+   * recommending we seed all of them. Following that advice would have
+   * meant eight times the requests for no new golf. So compare slots,
+   * not counts, and say plainly when a class adds nothing.
+   */
+  const published = new Map<string, Set<string>>();
 
-  // Pass 1 — one request per course, exactly as the adapter asks.
+  // Pass 1 — ask exactly as the adapter asks, which since v75 means
+  // every seeded class, not just the first.
+  //
+  // Asking with only bookingClassIds[0] made this permanently blind to
+  // its own fixes: Valley View is seeded 1208,1209 and the adapter
+  // merges both, but asking 1208 alone returns 24 rows of 18-hole golf
+  // and reports "one-sided" — the exact symptom the seed was changed to
+  // cure. Davis Park read the same way. So the audit would have gone on
+  // flagging two courses that are correct, and could never have caught
+  // the second class going bad.
   for (const course of foreup) {
     const ids = parseExternalId(course.externalId);
     const cookie = await session(ids.courseId, ids.scheduleId);
-    const cls = ids.bookingClassIds[0];
-    const rows = await times(ids.courseId, ids.scheduleId, cls, date, cookie);
-    await sleep(150);
+    const asked: (number | undefined)[] =
+      ids.bookingClassIds.length > 0 ? ids.bookingClassIds : [undefined];
+    const cls = ids.bookingClassIds.join(",") || undefined;
+
+    const merged: Row[] = [];
+    const seenRow = new Set<string>();
+    let failure: string | undefined;
+    for (const one of asked) {
+      const got = await times(ids.courseId, ids.scheduleId, one, date, cookie);
+      await sleep(150);
+      if (typeof got === "string") {
+        failure ??= got;
+        continue;
+      }
+      for (const r of got) {
+        // Same slot offered under two classes is one tee time, not two.
+        const key = slotKey(r);
+        if (seenRow.has(key)) continue;
+        seenRow.add(key);
+        merged.push(r);
+      }
+    }
+
+    // Only a total failure is a failure: if one class errored and
+    // another answered, the course is reachable and the rows are real.
+    const rows: Row[] | string = merged.length > 0 ? merged : (failure ?? merged);
 
     if (typeof rows === "string") {
       console.log(`  ${course.name.padEnd(32)} ${rows}`);
@@ -181,7 +232,10 @@ async function main() {
         `class ${cls ?? "(none)"}  ${flag}`
     );
 
-    const observed = cls ?? rows.find((r) => r.booking_class_id)?.booking_class_id;
+    published.set(course.slug, seenRow);
+
+    const observed =
+      ids.bookingClassIds[0] ?? rows.find((r) => r.booking_class_id)?.booking_class_id;
     if (observed !== undefined) anchor.set(course.slug, observed);
     if (flag && observed !== undefined) suspicious.push(course);
     else if (flag) {
@@ -202,7 +256,9 @@ async function main() {
     const seeded = new Set(ids.bookingClassIds);
     const base = anchor.get(course.slug)!;
     const cookie = await session(ids.courseId, ids.scheduleId);
+    const already = published.get(course.slug) ?? new Set<string>();
     const extra: Finding["extra"] = [];
+    let duplicates = 0;
 
     for (let cls = base - span; cls <= base + span; cls++) {
       if (cls <= 0 || seeded.has(cls)) continue;
@@ -213,11 +269,27 @@ async function main() {
       // someone else's install is not a find.
       if (!rows.some((r) => r.course_name === course.name)) continue;
 
-      const { nine, eighteen } = rounds(rows);
-      extra.push({ cls, rows: rows.length, nine, eighteen });
+      // How many of these are tee times we don't already have? A class
+      // that answers with the same sheet at a different price is a rate
+      // card, not a missing half of the course.
+      const fresh = rows.filter((r) => !already.has(slotKey(r)));
+      if (fresh.length === 0) {
+        duplicates++;
+        continue;
+      }
+
+      const { nine, eighteen } = rounds(fresh);
+      extra.push({ cls, rows: rows.length, fresh: fresh.length, nine, eighteen });
       console.log(
-        `  ${course.name.padEnd(32)} class ${cls}  ${String(rows.length).padStart(3)} rows  ` +
+        `  ${course.name.padEnd(32)} class ${cls}  ${String(fresh.length).padStart(3)} new  ` +
+          `(of ${String(rows.length).padStart(3)})  ` +
           `9:${String(nine).padStart(3)}  18:${String(eighteen).padStart(3)}`
+      );
+    }
+
+    if (duplicates) {
+      console.log(
+        `  ${course.name.padEnd(32)} ${duplicates} class(es) return only times we already have`
       );
     }
 
@@ -233,7 +305,8 @@ async function main() {
 
   console.log("");
   if (findings.length === 0) {
-    console.log("No extra classes found. The flagged courses look genuinely one-sided.");
+    console.log("No class adds a tee time we don't already publish.");
+    console.log("The flagged courses are genuinely that shape.");
     return;
   }
 
@@ -245,7 +318,10 @@ async function main() {
     console.log(`    now:  "${f.externalId}"`);
     console.log(`    ->    "${course}:${schedule}:${all}"`);
     for (const e of f.extra) {
-      console.log(`          class ${e.cls} adds ${e.rows} rows (9:${e.nine}, 18:${e.eighteen})`);
+      console.log(
+        `          class ${e.cls} adds ${e.fresh} tee time(s) we don't have ` +
+          `(9:${e.nine}, 18:${e.eighteen})`
+      );
     }
   }
 }
