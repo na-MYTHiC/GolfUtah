@@ -793,7 +793,14 @@ export const COURSES: CourseSeed[] = [
     city: "Cedar City",
     platform: "FOREUP",
     // First course in Iron County.
-    externalId: "19680:2165",
+    //
+    // Class 49361 came from the booking widget's own request, captured
+    // by scripts/foreup-capture.ts. Without it this install answered
+    // with 11 rows, every one a nine and no eighteen at all — a shape
+    // no full course has. It reported booking_class_id 0 on those rows,
+    // so there was nothing to sweep around either; watching the page
+    // ask was the only way to learn the number.
+    externalId: "19680:2165:49361",
     bookingUrl: "https://foreupsoftware.com/index.php/booking/19680/2165#/teetimes",
     latitude: 37.6955,
     longitude: -113.055,
