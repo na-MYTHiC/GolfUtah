@@ -188,12 +188,29 @@ export const COUNTY_CENTERS: Record<string, { lat: number; lon: number }> = {
   Weber: { lat: 41.27, lon: -111.91 },
 };
 
+/**
+ * Lowercased name -> place, built once.
+ *
+ * Both lookups below are exact-match-ignoring-case, and both used to do
+ * it by scanning the list and lowercasing every entry on the way past.
+ * That is 117 allocations per call, and these are called from the filter
+ * pass and from the search box's suggestion list — so on a keystroke,
+ * repeatedly. A Map does it once at module load.
+ *
+ * First spelling wins on a duplicate, which matches what `find` did.
+ */
+const CITY_BY_NAME = new Map<string, Place>();
+for (const city of CITIES) {
+  const key = city.name.toLowerCase();
+  if (!CITY_BY_NAME.has(key)) CITY_BY_NAME.set(key, city);
+}
+
+const COUNTY_NAMES = new Set(COUNTIES.map((c) => c.toLowerCase()));
+
 export function findCity(name: string): Place | undefined {
-  const needle = name.trim().toLowerCase();
-  return CITIES.find((c) => c.name.toLowerCase() === needle);
+  return CITY_BY_NAME.get(name.trim().toLowerCase());
 }
 
 export function isCounty(name: string): boolean {
-  const needle = name.trim().toLowerCase();
-  return COUNTIES.some((c) => c.toLowerCase() === needle);
+  return COUNTY_NAMES.has(name.trim().toLowerCase());
 }

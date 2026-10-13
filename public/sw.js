@@ -7,10 +7,14 @@
 // Silently serving a stale build is the worst possible failure for an app
 // whose whole job is showing current information.
 //
-// So: network first for everything, falling back to cache only when the
-// network is unavailable. That costs a round trip on launch and buys
-// never being wrong on purpose. The cache exists for the case that
-// actually matters on a phone — no signal at the course.
+// So: network first for the things that can go stale, falling back to
+// cache only when the network is unavailable. That costs a round trip on
+// launch and buys never being wrong on purpose. The cache exists for the
+// case that actually matters on a phone — no signal at the course.
+//
+// Content-hashed assets are the exception, and are served cache-first:
+// see immutable() below. A file whose name changes whenever its bytes do
+// cannot be stale, so re-fetching it is pure latency.
 
 // Stamped with the app version at build time by scripts/stamp-sw.ts.
 //
@@ -56,8 +60,49 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // weather, course sites
 
-  event.respondWith(networkFirst(request));
+  event.respondWith(immutable(url) ? cacheFirst(request) : networkFirst(request));
 });
+
+/**
+ * Whether this URL can never change without its name changing.
+ *
+ * Everything Next emits under `_next/static/` carries a content hash in
+ * its filename — chunks, CSS, fonts. A new build produces new filenames,
+ * so a cached copy of one of these cannot be stale. There is nothing to
+ * re-validate and no way to be wrong.
+ *
+ * Matched by substring rather than prefix because Pages serves the site
+ * from /GolfUtah/, so the path is /GolfUtah/_next/static/... — and
+ * locally it's /_next/static/...
+ *
+ * Deliberately NOT the document, sw.js, or anything under /data/: those
+ * keep their own names across deploys, so a cached copy of any of them
+ * can be last week's. They stay network-first.
+ */
+function immutable(url) {
+  return url.pathname.includes('/_next/static/');
+}
+
+/**
+ * Serve from cache without touching the network, and only fetch on a
+ * miss.
+ *
+ * This is what the note below about content hashes always claimed was
+ * happening, and wasn't: every launch still went to the network for all
+ * of it. networkFirst's `fetch` doesn't become free just because the
+ * response will match — a cold radio at a course still has to complete
+ * eight requests before the app renders. Now a repeat launch spends
+ * zero.
+ */
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  const fresh = await fetch(request);
+  if (fresh.ok) cache.put(request, fresh.clone());
+  return fresh;
+}
 
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
@@ -81,9 +126,12 @@ async function networkFirst(request) {
 // all. The document is the one file that decides which build runs, so it
 // asks past the HTTP cache.
 //
-// Only the document. Next's JS and CSS carry content hashes in their
-// filenames, so a stale one is impossible and re-validating them every
-// launch would spend a round trip to be told nothing changed.
+// Only the document. The other thing networkFirst still handles is
+// /data/*.json, which must reach the network but is already asked with
+// `cache: "no-store"` and a cache-busting query by its caller — see
+// loadDay() in lib/static-data.ts.
+//
+// Content-hashed assets never get here at all; they go to cacheFirst.
 //
 // A Request cannot be reconstructed with mode 'navigate', hence going by
 // url rather than `new Request(request, ...)`.

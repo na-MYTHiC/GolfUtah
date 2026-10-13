@@ -34,8 +34,6 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
-const WATCH_MS = 20_000;
-
 /** How much of a dumped body to print. Enough to read a rate card. */
 const DUMP_CHARS = 6000;
 

@@ -121,13 +121,42 @@ export function Results({
     const searchedPlace = findCity(filters.near || filters.q);
     const origin = searchedPlace ?? (coords ? { lat: coords.lat, lon: coords.lon } : undefined);
 
+    // Whether the text in the box is the place being measured from, which
+    // decides if the text search applies at all.
+    //
+    // Computed once. It reads only the filters — no course is involved —
+    // but it used to sit inside the loop below, so findCity() ran a
+    // 117-city scan for every course on every render, and again on every
+    // keystroke. Same answer 69 times.
+    //
+    // "Layton within 30 miles" means near Layton, not named Layton. The
+    // needle is only the origin when it named the place: either it was
+    // committed as `near`, or it resolves to a city on its own and
+    // nothing else was chosen.
+    //
+    // It used to step aside whenever *any* origin existed, which was fine
+    // while an origin almost always came from the search box. Once the
+    // device position started being read on every open, an origin was
+    // almost always present — so with a distance filter on, the search
+    // box did nothing at all. Typing a course name returned the identical
+    // list as typing nothing.
+    const needleIsTheOrigin =
+      Boolean(needle) &&
+      (filters.near.trim().toLowerCase() === needle ||
+        (!filters.near && Boolean(findCity(filters.q))));
+    const narrowingByRadius = filters.radius != null && needleIsTheOrigin;
+    const applyTextSearch = Boolean(needle) && !narrowingByRadius;
+
+    // Membership test rather than a linear scan per course.
+    const starred = filters.starred ? new Set(favorites) : null;
+
     for (const course of courses) {
       const distance =
         origin && course.latitude != null && course.longitude != null
           ? distanceMiles(origin.lat, origin.lon, course.latitude, course.longitude)
           : undefined;
 
-      if (filters.starred && !favorites.includes(course.slug)) continue;
+      if (starred && !starred.has(course.slug)) continue;
 
       // A county is a boundary, so it filters directly and the text
       // search steps aside — "Salt Lake" the county shouldn't also have
@@ -135,26 +164,7 @@ export function Results({
       if (filters.county) {
         if (course.county !== filters.county) continue;
       } else {
-        // Text search steps aside only when the text IS the place being
-        // measured from: "Layton within 30 miles" means near Layton, not
-        // named Layton.
-        //
-        // It used to step aside whenever *any* origin existed, which was
-        // fine while an origin almost always came from the search box.
-        // Once the device position started being read on every open, an
-        // origin was almost always present — so with a distance filter
-        // on, the search box did nothing at all. Typing a course name
-        // returned the identical list as typing nothing.
-        //
-        // The needle is only the origin when it named the place: either
-        // it was committed as `near`, or it resolves to a city on its
-        // own and nothing else was chosen.
-        const needleIsTheOrigin =
-          Boolean(needle) &&
-          (filters.near.trim().toLowerCase() === needle ||
-            (!filters.near && Boolean(findCity(filters.q))));
-        const narrowingByRadius = filters.radius != null && needleIsTheOrigin;
-        if (needle && !narrowingByRadius) {
+        if (applyTextSearch) {
           const haystack = `${course.name} ${course.city ?? ""}`.toLowerCase();
           if (!haystack.includes(needle)) continue;
         }

@@ -40,7 +40,9 @@
     "foreup:audit": "tsx scripts/foreup-audit.ts",
     "foreup:capture": "tsx scripts/foreup-capture.ts",
     "chronogolf:prices": "tsx scripts/chronogolf-prices.ts",
-    "chronogolf:capture": "tsx scripts/chronogolf-capture.ts"
+    "chronogolf:capture": "tsx scripts/chronogolf-capture.ts",
+    "test:sw": "tsx scripts/test-sw.ts",
+    "test": "tsx scripts/test-foreup.ts && tsx scripts/test-chronogolf.ts && tsx scripts/test-teeitup.ts && tsx scripts/test-pacing.ts && tsx scripts/test-sw.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -49,8 +51,7 @@
     "prisma": "^6.19.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tsx": "^4.23.12",
-    "zod": "^4.4.3"
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
