@@ -198,6 +198,81 @@ async function audit(courseIds: string, date: string, limit: number): Promise<vo
   }
 }
 
+/**
+ * Can the list's own `holes` filter tell us what's bookable?
+ *
+ * The cheap-signal hypothesis, and the last one standing. Asking
+ * holes=9,18 returns every slot the course could sell either round at,
+ * which is why the adapter over-reports. If asking holes=18 instead
+ * returns only the slots where 18 is actually on offer to the public,
+ * then availability costs one extra list request per club per day —
+ * affordable — instead of one per slot, which is not.
+ *
+ * Checked against the per-slot endpoint, which is the only thing that
+ * states the truth outright.
+ */
+async function holesFilter(courseIds: string, date: string, limit: number): Promise<void> {
+  const ask = async (holes: string) => {
+    const got = await getJson(
+      `${API}?${new URLSearchParams({ start_date: date, course_ids: courseIds, holes, page: "1" })}`
+    );
+    if (typeof got === "string") return null;
+    return ((got as { teetimes?: RawTeeTime[] }).teetimes ?? []).filter(
+      (t) => !t.frozen && t.max_player_size > 0
+    );
+  };
+
+  const both = await ask("9,18");
+  const only18 = await ask("18");
+  const only9 = await ask("9");
+  if (!both || !only18 || !only9) {
+    console.error("a list request failed");
+    return;
+  }
+
+  const ids18 = new Set(only18.map((t) => t.uuid));
+  const ids9 = new Set(only9.map((t) => t.uuid));
+  console.log(
+    `  page 1 slot counts:  holes=9,18 -> ${both.length}   ` +
+      `holes=9 -> ${only9.length}   holes=18 -> ${only18.length}\n`
+  );
+
+  if (ids18.size === both.length && ids9.size === both.length) {
+    console.log("  Both filters return every slot, so the filter is not a");
+    console.log("  availability signal. Nothing cheap left to try.\n");
+  }
+
+  // Score the filter against the truth, on a spread of slots.
+  const step = Math.max(1, Math.floor(both.length / limit));
+  const sample = both.filter((_, i) => i % step === 0).slice(0, limit);
+
+  let right = 0;
+  let wrong = 0;
+  for (const slot of sample) {
+    const detail = await getJson(`${API}/${slot.uuid}`);
+    if (typeof detail === "string") continue;
+    const bookable = publiclyBookable(detail);
+    const truth18 = bookable.includes(18);
+    const filterSays18 = ids18.has(slot.uuid);
+    const ok = truth18 === filterSays18;
+    if (ok) right++;
+    else wrong++;
+    console.log(
+      `  ${slot.start_time.padStart(5)}  ${ok ? "ok      " : "MISMATCH"}  ` +
+        `holes=18 ${filterSays18 ? "includes" : "excludes"} it, ` +
+        `public can book ${bookable.join("+") || "nothing"}`
+    );
+  }
+
+  console.log(`\n  ${right} correct, ${wrong} wrong, of ${right + wrong} sampled`);
+  if (wrong === 0 && right > 0) {
+    console.log("  holes=18 IS an availability filter. One list request per club");
+    console.log("  per round is enough to stop publishing unbookable rounds.");
+  } else {
+    console.log("  holes=18 does not track what the public can book.");
+  }
+}
+
 async function main() {
   const wanted = process.argv.slice(2).filter((a) => !a.startsWith("--"))[0];
   const raw = process.argv.includes("--raw");
@@ -225,6 +300,12 @@ async function main() {
   const auditN = arg("audit");
   if (auditN !== undefined) {
     await audit(courseIds, date, Number(auditN) || 6);
+    return;
+  }
+
+  const filterN = arg("holes-filter");
+  if (filterN !== undefined) {
+    await holesFilter(courseIds, date, Number(filterN) || 6);
     return;
   }
 
