@@ -28,6 +28,7 @@ on:
           - foreup:capture
           - chronogolf:prices
           - chronogolf:capture
+          - chronogolf:slot
           - membersports:probe
           - tenfore:probe
           - golfpay:probe

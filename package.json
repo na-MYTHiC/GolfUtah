@@ -42,7 +42,8 @@
     "chronogolf:prices": "tsx scripts/chronogolf-prices.ts",
     "chronogolf:capture": "tsx scripts/chronogolf-capture.ts",
     "test:sw": "tsx scripts/test-sw.ts",
-    "test": "tsx scripts/test-foreup.ts && tsx scripts/test-chronogolf.ts && tsx scripts/test-teeitup.ts && tsx scripts/test-pacing.ts && tsx scripts/test-sw.ts"
+    "test": "tsx scripts/test-foreup.ts && tsx scripts/test-chronogolf.ts && tsx scripts/test-teeitup.ts && tsx scripts/test-pacing.ts && tsx scripts/test-sw.ts",
+    "chronogolf:slot": "tsx scripts/chronogolf-slot.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
