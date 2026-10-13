@@ -108,6 +108,96 @@ async function getJson(url: string): Promise<unknown | string> {
   }
 }
 
+interface Availability {
+  type: string;
+  bookable_holes: { hole: number; affiliation_types: unknown[] }[];
+}
+
+/** Rounds the public can actually book at this slot, per the slot itself. */
+function publiclyBookable(detail: unknown): number[] {
+  const groups =
+    ((detail as Record<string, unknown>)?.affiliation_types_availability as Availability[]) ?? [];
+  const pub = groups.find((g) => g.type === "public") ?? groups[0];
+  return (pub?.bookable_holes ?? [])
+    .filter((b) => Array.isArray(b.affiliation_types) && b.affiliation_types.length > 0)
+    .map((b) => b.hole);
+}
+
+/**
+ * Does `default_price.bookable_holes` name exactly the rounds the public
+ * can book?
+ *
+ * This is the rule the fix rests on, and it decides whether rows get
+ * DROPPED — so getting it wrong hides real tee times, which is worse
+ * than the blank price it replaces. One slot agreeing is an anecdote.
+ *
+ * For each sampled slot: ask the per-slot endpoint for the truth, and
+ * compare. Any disagreement is printed in full, because a single
+ * counter-example sinks the rule.
+ */
+async function audit(courseIds: string, date: string, limit: number): Promise<void> {
+  const list = await getJson(
+    `${API}?${new URLSearchParams({ start_date: date, course_ids: courseIds, holes: "9,18", page: "1" })}`
+  );
+  if (typeof list === "string") {
+    console.error(`list request failed: ${list}`);
+    return;
+  }
+  const times = ((list as { teetimes?: RawTeeTime[] }).teetimes ?? []).filter(
+    (t) => !t.frozen && t.max_player_size > 0
+  );
+
+  // Spread the sample across the day rather than taking the first N:
+  // morning and twilight are different rate windows, and a rule that
+  // only holds at 7am is not a rule.
+  const step = Math.max(1, Math.floor(times.length / limit));
+  const sample = times.filter((_, i) => i % step === 0).slice(0, limit);
+
+  let agree = 0;
+  let disagree = 0;
+  let noPrice = 0;
+
+  for (const slot of sample) {
+    const detail = await getJson(`${API}/${slot.uuid}`);
+    if (typeof detail === "string") {
+      console.log(`  ${slot.start_time}  slot request failed: ${detail}`);
+      continue;
+    }
+
+    const bookable = publiclyBookable(detail).sort((a, b) => a - b);
+    const quoted = slot.default_price?.bookable_holes;
+    const listSays = lengthsOf(slot).sort((a, b) => a - b);
+
+    if (quoted == null) {
+      noPrice++;
+      console.log(
+        `  ${slot.start_time.padStart(5)}  no default_price   ` +
+          `list offers ${listSays.join("+")}  public can book ${bookable.join("+") || "nothing"}`
+      );
+      continue;
+    }
+
+    const matches = bookable.length === 1 && bookable[0] === quoted;
+    if (matches) agree++;
+    else disagree++;
+
+    console.log(
+      `  ${slot.start_time.padStart(5)}  ${matches ? "agree   " : "DISAGREE"}  ` +
+        `priced for ${quoted}  list offers ${listSays.join("+")}  ` +
+        `public can book ${bookable.join("+") || "nothing"}`
+    );
+  }
+
+  console.log(
+    `\n  ${agree} agree, ${disagree} disagree, ${noPrice} with no price, of ${sample.length} sampled`
+  );
+  if (disagree === 0 && noPrice === 0 && agree > 0) {
+    console.log("  default_price.bookable_holes names the publicly bookable round.");
+  } else {
+    console.log("  The rule does not hold here. Read the disagreements above.");
+  }
+}
+
 async function main() {
   const wanted = process.argv.slice(2).filter((a) => !a.startsWith("--"))[0];
   const raw = process.argv.includes("--raw");
@@ -129,6 +219,14 @@ async function main() {
   const date = arg("date") ?? tomorrow();
 
   console.log(`${course.name}  ${date}\n`);
+
+  // --audit cross-checks the rule on a spread of slots rather than
+  // demonstrating it on one.
+  const auditN = arg("audit");
+  if (auditN !== undefined) {
+    await audit(courseIds, date, Number(auditN) || 6);
+    return;
+  }
 
   const list = await getJson(
     `${API}?${new URLSearchParams({
