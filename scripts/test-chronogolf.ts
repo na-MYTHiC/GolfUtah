@@ -99,7 +99,15 @@ function check(label: string, actual: unknown, expected: unknown) {
 
 const SLUG = "riverbend-slco";
 const url = chronogolfBookingUrl(SLUG, "2026-08-12");
-const slots = CAPTURE.teetimes.flatMap((t) => toNormalized(t as never, SLUG, url));
+// The adapter now asks per round, so the capture is replayed the way it
+// would be fetched: once as the 9-hole sheet, once as the 18. Both
+// filters returning every slot is the pessimistic case — the real API
+// filters, so this over-counts rather than hiding anything.
+const slots = [
+  ...CAPTURE.teetimes.flatMap((t) => toNormalized(t as never, SLUG, url, 9)),
+  ...CAPTURE.teetimes.flatMap((t) => toNormalized(t as never, SLUG, url, 18)),
+];
+const ninesOnly = CAPTURE.teetimes.flatMap((t) => toNormalized(t as never, SLUG, url, 9));
 
 console.log("padTime");
 check("unpadded hour", padTime("8:20"), "08:20");
@@ -122,8 +130,16 @@ check("back nine course", sideOf("Riverbend back 9"), "Back");
 check("main course", sideOf("Riverbend"), undefined);
 
 console.log("\nmapping the capture");
-// 3 back-nine slots (9 only) + 7 main-course slots (9 and 18) = 17 rows.
-check("row count", slots.length, 17);
+// One row per slot per round asked for: 10 slots x 2 = 20. The old
+// shape expanded by course.bookable_holes and produced 17, three of
+// which were back-nine eighteens nobody could book.
+check("row count", slots.length, 20);
+check("one row per slot when only the nine is asked for", ninesOnly.length, 10);
+check(
+  "the round asked for is the round reported",
+  new Set(ninesOnly.map((s) => s.holes)),
+  new Set([9])
+);
 check("all on the captured date", new Set(slots.map((s) => s.date)).size, 1);
 
 const first = slots[0];
@@ -152,7 +168,7 @@ check("slots with 2 open", two.map((s) => `${s.time}/${s.holes}`), ["10:10/9", "
 // default_price is the 9-hole rate, so the 18-hole row goes out unpriced
 // rather than carrying a made-up number.
 const eighteen = slots.filter((s) => s.holes === 18);
-check("18-hole rows", eighteen.length, 7);
+check("18-hole rows", eighteen.length, 10);
 check("18-hole rows unpriced", new Set(eighteen.map((s) => s.price)), new Set([undefined]));
 check("9-hole rows all $21", new Set(slots.filter((s) => s.holes === 9).map((s) => s.price)), new Set([2100]));
 // The cart is quoted separately here, so the headline price stays
@@ -166,7 +182,7 @@ check("price is not cart-inclusive", slots[0].priceIncludesCart, undefined);
 check("last slot is evening, not next morning", slots[slots.length - 1].time, "17:10");
 
 console.log("\nfilters");
-const drop = (patch: object) => toNormalized({ ...CAPTURE.teetimes[0], ...patch } as never, SLUG, url).length;
+const drop = (patch: object) => toNormalized({ ...CAPTURE.teetimes[0], ...patch } as never, SLUG, url, 9).length;
 check("frozen dropped", drop({ frozen: true }), 0);
 check("full slot dropped", drop({ max_player_size: 0 }), 0);
 check("unparseable time dropped", drop({ start_time: "" }), 0);
@@ -187,7 +203,7 @@ check(
   true
 );
 // A slot with no uuid still has to go somewhere useful.
-const noUuid = toNormalized({ ...CAPTURE.teetimes[0], uuid: "" } as never, SLUG, url);
+const noUuid = toNormalized({ ...CAPTURE.teetimes[0], uuid: "" } as never, SLUG, url, 9);
 check("uuid-less slot falls back to the day sheet", noUuid[0].bookingUrl, url);
 
 /**
@@ -227,17 +243,29 @@ async function checkRequests() {
       { from: "2026-08-12", to: "2026-08-13" }
     );
 
-    check("two days, two pages each", calls.length, 4);
-    check("all 30 slots per day kept", slots.length, 60);
+    check("two days, two rounds, two pages each", calls.length, 8);
+    check("all 30 slots per round per day kept", slots.length, 120);
 
     const first = new URL(calls[0]);
     check("endpoint", `${first.origin}${first.pathname}`, "https://www.chronogolf.com/marketplace/v2/teetimes");
     check("start_date", first.searchParams.get("start_date"), "2026-08-12");
     check("course_ids joined", first.searchParams.get("course_ids"), "aaa,bbb");
-    check("holes", first.searchParams.get("holes"), "9,18");
+    // Per round, because holes is an availability filter: holes=18 returns
+  // only the slots where the public can book eighteen. Asking 9,18 is
+  // what published unbookable rounds.
+  check("holes asked per round", first.searchParams.get("holes"), "9");
+  check(
+    "both rounds asked for each day",
+    calls.slice(0, 4).map((c) => new URL(c).searchParams.get("holes")),
+    ["9", "9", "18", "18"]
+  );
     check("commas encoded as %2C, like the capture", first.search.includes("%2C"), true);
-    check("second day requested", new URL(calls[2]).searchParams.get("start_date"), "2026-08-13");
+    check("second day requested", new URL(calls[4]).searchParams.get("start_date"), "2026-08-13");
     check("pages walked in order", calls.map((c) => new URL(c).searchParams.get("page")), [
+      "1",
+      "2",
+      "1",
+      "2",
       "1",
       "2",
       "1",
@@ -263,7 +291,10 @@ async function checkRequests() {
       { name: "x", externalId: "x:aaa", platform: "CHRONOGOLF" } as never,
       { from: "2026-08-12", to: "2026-08-12" }
     );
-    check("empty page stops the loop", spinCalls.length, 1);
+    // One day, one empty page per round. Two requests rather than one
+    // because the rounds are now asked for separately; what matters is
+    // that neither spins past its empty page despite total saying 9999.
+    check("empty page stops the loop, once per round", spinCalls.length, 2);
   } finally {
     globalThis.fetch = realFetch;
   }

@@ -42,8 +42,16 @@ import { politeFetch } from "./http";
 const API = "https://www.chronogolf.com/marketplace/v2/teetimes";
 const BOOKING_BASE = "https://www.chronogolf.com/club";
 
-/** The widget's own value — asks for both round lengths in one request. */
-const HOLES_PARAM = "9,18";
+/**
+ * The rounds to ask for, one request each.
+ *
+ * The widget sends holes=9,18 in a single call, and copying it is what
+ * made the adapter over-report: that response carries every slot the
+ * course could sell either round at, with no indication of which rounds
+ * are actually on sale at each. Asking per round narrows it to what the
+ * public can book.
+ */
+const ROUNDS: readonly (9 | 18)[] = [9, 18];
 
 /** Guard against a pagination bug turning into an unbounded loop. */
 const MAX_PAGES = 20;
@@ -143,12 +151,13 @@ function sideOf(courseName: string): string | undefined {
 async function fetchPage(
   courseIds: string[],
   date: string,
-  page: number
+  page: number,
+  holes: string
 ): Promise<{ body: RawResponse; total: number; perPage: number }> {
   const params = new URLSearchParams({
     start_date: date,
     course_ids: courseIds.join(","),
-    holes: HOLES_PARAM,
+    holes,
     page: String(page),
   });
 
@@ -171,7 +180,13 @@ async function fetchPage(
   };
 }
 
-function toNormalized(raw: RawTeeTime, slug: string, dayUrl: string): NormalizedTeeTime[] {
+function toNormalized(
+  raw: RawTeeTime,
+  slug: string,
+  dayUrl: string,
+  /** The round this response was filtered to, and so the only one on offer. */
+  holes: 9 | 18
+): NormalizedTeeTime[] {
   // starts_at is UTC ("2026-08-12T14:20:00Z") for a slot the course calls
   // 8:20am. Reading the wrong one of these two fields is exactly the bug
   // that made Sun Hills show times that didn't exist — take the local one
@@ -195,36 +210,42 @@ function toNormalized(raw: RawTeeTime, slug: string, dayUrl: string): Normalized
     ? chronogolfTeeTimeUrl(slug, raw.date, raw.uuid)
     : dayUrl;
 
-  // bookable_holes is per-slot: the 18-hole course sells both 9 and 18 at
-  // the same time, which is two different rounds, so it's two rows.
-  const lengths = (
-    raw.course.bookable_holes?.length ? raw.course.bookable_holes : [raw.course.holes]
-  ).filter((h): h is 9 | 18 => h === 9 || h === 18);
-
-  return lengths.map((holes) => ({
-    date: raw.date,
-    time,
-    holes,
-    playersOpen: spots,
-    // default_price carries its own `bookable_holes` saying which round
-    // it's the rate for — $21 for 9 at Riverbend, with the 18-hole rate
-    // not sent at all. Pricing the 18 from it would be inventing a
-    // number; an unpriced slot shows "—" and is excluded by a price
-    // filter, which is the honest outcome.
-    price:
-      raw.default_price && raw.default_price.bookable_holes === holes
-        ? Math.round(raw.default_price.green_fee * 100)
-        : undefined,
-    // half_cart is a share of a cart between two players, which is what
-    // a single golfer actually pays when riding.
-    cartFee:
-      raw.default_price?.half_cart != null && raw.default_price.bookable_holes === holes
-        ? Math.round(raw.default_price.half_cart * 100)
-        : undefined,
-    rateName: raw.default_price?.affiliation_type,
-    side,
-    bookingUrl,
-  }));
+  // One row, for the round that was asked for.
+  //
+  // This used to expand each slot by raw.course.bookable_holes, which is
+  // the course's capability rather than the slot's offer — and so
+  // invented a row for every round the course *can* sell, bookable or
+  // not. The caller now asks per round and the response is already
+  // filtered to what is on sale, so the round is known rather than
+  // guessed.
+  return [
+    {
+      date: raw.date,
+      time,
+      holes,
+      playersOpen: spots,
+      // default_price carries its own `bookable_holes` saying which round
+      // it's the rate for, and it is not always the round asked for: a
+      // course whose default product is its nine quotes the nine even in
+      // an 18-hole response. Pricing the eighteen from it would be
+      // inventing a number, so an unpriced row shows "—" and a price
+      // filter excludes it. That is now the only reason a price is
+      // missing — the unbookable rounds are gone.
+      price:
+        raw.default_price && raw.default_price.bookable_holes === holes
+          ? Math.round(raw.default_price.green_fee * 100)
+          : undefined,
+      // half_cart is a share of a cart between two players, which is what
+      // a single golfer actually pays when riding.
+      cartFee:
+        raw.default_price?.half_cart != null && raw.default_price.bookable_holes === holes
+          ? Math.round(raw.default_price.half_cart * 100)
+          : undefined,
+      rateName: raw.default_price?.affiliation_type,
+      side,
+      bookingUrl,
+    },
+  ];
 }
 
 /**
@@ -303,27 +324,45 @@ export const chronogolfAdapter: TeeTimeAdapter = {
       // slot itself.
       const dayUrl = chronogolfBookingUrl(slug, date);
 
-      // The parameter is `start_date`, which hints a range might be
-      // accepted, but only a single-day request has been observed — so
-      // one request per day, like the other two adapters.
-      let page = 1;
-      let seen = 0;
+      // Once per round, not once for both.
+      //
+      // `holes` is an availability filter, not a hint: holes=18 returns
+      // only the slots where the public can actually book eighteen.
+      // Verified against affiliation_types_availability on the per-slot
+      // endpoint, 8 of 8 — see scripts/chronogolf-slot.ts --holes-filter.
+      //
+      // Asking holes=9,18 and expanding each slot by course.bookable_holes
+      // was publishing rounds nobody could book. Old Mill offers 9 and 18
+      // on paper, and at 7:50 the eighteen had an empty public
+      // affiliation_types list: not a missing price, a round that is not
+      // on sale. A tee time that fails when tapped is the worst thing
+      // this app can show, and it was showing one for roughly half of
+      // every dual-round sheet.
+      //
+      // Costs two list requests per course-day instead of one. That is
+      // real against a host that starts refusing around 57 — which is why
+      // build-data.ts narrows Chronogolf's day band to match. Staler and
+      // right beats fresher and wrong.
+      for (const holes of ROUNDS) {
+        let page = 1;
+        let seen = 0;
 
-      for (;;) {
-        const { body, total, perPage } = await fetchPage(courseIds, date, page);
-        if (body.status !== "open" || !Array.isArray(body.teetimes)) break;
+        for (;;) {
+          const { body, total, perPage } = await fetchPage(courseIds, date, page, String(holes));
+          if (body.status !== "open" || !Array.isArray(body.teetimes)) break;
 
-        for (const raw of body.teetimes) {
-          results.push(...toNormalized(raw, slug, dayUrl));
+          for (const raw of body.teetimes) {
+            results.push(...toNormalized(raw, slug, dayUrl, holes));
+          }
+
+          seen += body.teetimes.length;
+          // Stop on a short page even when the headers disagree — a wrong
+          // total shouldn't spin, and an empty page never has a next one.
+          if (body.teetimes.length === 0) break;
+          if (perPage > 0 && body.teetimes.length < perPage) break;
+          if (total > 0 && seen >= total) break;
+          if (++page > MAX_PAGES) break;
         }
-
-        seen += body.teetimes.length;
-        // Stop on a short page even when the headers disagree — a wrong
-        // total shouldn't spin, and an empty page never has a next one.
-        if (body.teetimes.length === 0) break;
-        if (perPage > 0 && body.teetimes.length < perPage) break;
-        if (total > 0 && seen >= total) break;
-        if (++page > MAX_PAGES) break;
       }
     }
 

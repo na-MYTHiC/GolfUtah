@@ -284,10 +284,42 @@ function arg(name: string, fallback: string): string {
  * than they are absolute times.
  */
 const BANDS: { label: string; from: number; to: number; targetMs: number }[] = [
-  { label: "0-3", from: 0, to: 3, targetMs: 5 * 60 * 1000 },
-  { label: "4-6", from: 4, to: 6, targetMs: 15 * 60 * 1000 },
-  { label: "7-9", from: 7, to: 9, targetMs: 30 * 60 * 1000 },
+  { label: "0-1", from: 0, to: 1, targetMs: 5 * 60 * 1000 },
+  { label: "2-3", from: 2, to: 3, targetMs: 10 * 60 * 1000 },
+  { label: "4-6", from: 4, to: 6, targetMs: 20 * 60 * 1000 },
+  { label: "7-9", from: 7, to: 9, targetMs: 40 * 60 * 1000 },
 ];
+
+/**
+ * What a band actually costs Chronogolf, stated rather than assumed.
+ *
+ * The bands used to be three wide on the reasoning that "57 requests is
+ * three days across nineteen courses". Two things were wrong with that.
+ * The first band was four days, not three, so it was already asking for
+ * ~25% more than the budget it was sized against. And the adapter now
+ * asks once per ROUND rather than once per day — the only way to tell a
+ * bookable eighteen from an unbookable one, see lib/adapters/chronogolf.ts
+ * — which doubles every number here.
+ *
+ * So the arithmetic is in the code, where it can be checked:
+ *
+ *   18 courses x 2 rounds           = 36 requests per day
+ *   budget 57 / 36                  = 1.58, so 1-2 days per band
+ *
+ * Hence bands of two at the near end. That is less fresh than before
+ * per run, and deliberately so: the days this drops were being refreshed
+ * with rounds nobody could book in them. A correct sheet that is twenty
+ * minutes old beats a current one with phantom tee times, which is the
+ * complaint that started this.
+ *
+ * If this is ever retuned, measure the refusal point again rather than
+ * trusting the number below — it came from observed 429s, not from
+ * anything Chronogolf documents.
+ */
+const CHRONOGOLF_REQUEST_BUDGET = 57;
+
+/** Must match ROUNDS in lib/adapters/chronogolf.ts. */
+const ROUNDS_PER_DAY = 2;
 
 /**
  * Platforms that refuse when asked for too much in one run.
@@ -740,6 +772,27 @@ async function main() {
     `Fetching fresh: day(s) ${[...fresh].sort((a, b) => a - b).join(", ")} of ${days}` +
       (reuse ? `; the rest carried over from ${reuse}` : "; no --reuse, so all days fetched")
   );
+
+  // Say what this run is about to ask Chronogolf for, and complain if it
+  // is over budget.
+  //
+  // The old sizing was a comment that had quietly stopped matching the
+  // bands next to it, and the only symptom was nineteen courses
+  // returning nothing for most days while the build logged success. A
+  // number that checks itself cannot drift like that.
+  const chronogolfCourses = COURSES.filter((c) => c.platform === "CHRONOGOLF").length;
+  const chronogolfRequests = chronogolfCourses * ROUNDS_PER_DAY * fresh.size;
+  console.log(
+    `Chronogolf: ${chronogolfCourses} course(s) x ${ROUNDS_PER_DAY} round(s) x ` +
+      `${fresh.size} day(s) = ${chronogolfRequests} request(s), ` +
+      `budget ${CHRONOGOLF_REQUEST_BUDGET}`
+  );
+  if (chronogolfRequests > CHRONOGOLF_REQUEST_BUDGET) {
+    console.warn(
+      `  WARNING: over budget by ${chronogolfRequests - CHRONOGOLF_REQUEST_BUDGET}. ` +
+        `Expect 429s and carried-over days; narrow BANDS.`
+    );
+  }
 
   // The band limit exists for one platform, so only that platform pays
   // for it.
