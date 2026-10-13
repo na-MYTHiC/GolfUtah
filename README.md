@@ -139,6 +139,17 @@ npm run dev            # http://localhost:3000
 page has no tee times to show. Re-run it whenever you want fresher data
 locally.
 
+```bash
+npm test               # every suite; no network needed
+```
+
+The suites cover the places where a mistake is invisible rather than
+loud: each adapter's response mapping, the request pacing that keeps
+Chronogolf from rate-limiting us, and which URLs the service worker is
+allowed to answer from cache. They run against stubbed or captured
+responses, so they work anywhere — unlike the discovery scripts further
+down, which need to reach the booking systems.
+
 To deploy, push to `main` — the workflow builds and publishes to Pages.
 Enable it once under **Settings → Pages → Source: GitHub Actions**.
 
