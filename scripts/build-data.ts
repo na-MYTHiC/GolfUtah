@@ -291,32 +291,35 @@ const BANDS: { label: string; from: number; to: number; targetMs: number }[] = [
 ];
 
 /**
- * What a band actually costs Chronogolf, stated rather than assumed.
+ * How many days Chronogolf is asked for, however many the run wants.
  *
- * The bands used to be three wide on the reasoning that "57 requests is
- * three days across nineteen courses". Two things were wrong with that.
- * The first band was four days, not three, so it was already asking for
- * ~25% more than the budget it was sized against. And the adapter now
- * asks once per ROUND rather than once per day — the only way to tell a
- * bookable eighteen from an unbookable one, see lib/adapters/chronogolf.ts
- * — which doubles every number here.
+ * A cap rather than a request count, because the request count was the
+ * wrong model and saying so cost a run. The old reasoning was "57
+ * requests per window, three days across nineteen courses", and the
+ * first band was four days wide — already over the budget it cited. I
+ * then doubled every request by asking per round, and a push run (which
+ * passes --fresh 0-9 and so never consults BANDS at all) went out at
+ * 360 requests:
  *
- * So the arithmetic is in the code, where it can be checked:
+ *   CHRONOGOLF: 115 course-day(s) skipped — past the deadline
+ *   throttled by: www.chronogolf.com (300ms -> 600ms after 15 refusals)
+ *   2026-10-19: failed (18): Riverbend, Mountain Dell, Bonneville, ...
  *
- *   18 courses x 2 rounds           = 36 requests per day
- *   budget 57 / 36                  = 1.58, so 1-2 days per band
+ * Days 0-5 came back healthy and 6-9 lost all eighteen Chronogolf
+ * courses. So 57 was too pessimistic as a refusal ceiling — ~130
+ * requests went through with 15 refusals and the pacing absorbed them —
+ * and the real wall is the per-platform time deadline, not a count.
  *
- * Hence bands of two at the near end. That is less fresh than before
- * per run, and deliberately so: the days this drops were being refreshed
- * with rounds nobody could book in them. A correct sheet that is twenty
- * minutes old beats a current one with phantom tee times, which is the
- * complaint that started this.
+ * Measured from that run: 65 course-days finished in 153.6s at five
+ * concurrent, which is ~2.4s per course-day. Against the 150s budget
+ * that is ~62 course-days, or 3.4 days across 18 courses. Hence three.
  *
- * If this is ever retuned, measure the refusal point again rather than
- * trusting the number below — it came from observed 429s, not from
- * anything Chronogolf documents.
+ * The nearest days, because those are the ones people book; the rest
+ * carry over from the previous run, which is what the per-course
+ * fallback exists for. Re-measure from a build log before changing it —
+ * the numbers above are observations, not anything Chronogolf documents.
  */
-const CHRONOGOLF_REQUEST_BUDGET = 57;
+const CHRONOGOLF_MAX_DAYS = 3;
 
 /** Must match ROUNDS in lib/adapters/chronogolf.ts. */
 const ROUNDS_PER_DAY = 2;
@@ -773,26 +776,29 @@ async function main() {
       (reuse ? `; the rest carried over from ${reuse}` : "; no --reuse, so all days fetched")
   );
 
-  // Say what this run is about to ask Chronogolf for, and complain if it
-  // is over budget.
+  // Chronogolf takes the nearest few days of whatever this run wants,
+  // and no more.
   //
-  // The old sizing was a comment that had quietly stopped matching the
-  // bands next to it, and the only symptom was nineteen courses
-  // returning nothing for most days while the build logged success. A
-  // number that checks itself cannot drift like that.
+  // Capped here rather than left to --fresh, because --fresh is a flag
+  // for the other four platforms and a push run sets it to every day.
+  // That is how 360 requests went out and days 6-9 came back with all
+  // eighteen Chronogolf courses failed: the band logic that was supposed
+  // to protect it is only consulted when --fresh is "auto", so on a push
+  // it was never consulted at all. A limit that one caller can bypass is
+  // not a limit.
   const chronogolfCourses = COURSES.filter((c) => c.platform === "CHRONOGOLF").length;
-  const chronogolfRequests = chronogolfCourses * ROUNDS_PER_DAY * fresh.size;
-  console.log(
-    `Chronogolf: ${chronogolfCourses} course(s) x ${ROUNDS_PER_DAY} round(s) x ` +
-      `${fresh.size} day(s) = ${chronogolfRequests} request(s), ` +
-      `budget ${CHRONOGOLF_REQUEST_BUDGET}`
+  const chronogolfDays = new Set(
+    [...fresh].sort((a, b) => a - b).slice(0, CHRONOGOLF_MAX_DAYS)
   );
-  if (chronogolfRequests > CHRONOGOLF_REQUEST_BUDGET) {
-    console.warn(
-      `  WARNING: over budget by ${chronogolfRequests - CHRONOGOLF_REQUEST_BUDGET}. ` +
-        `Expect 429s and carried-over days; narrow BANDS.`
-    );
-  }
+  console.log(
+    `Chronogolf: day(s) ${[...chronogolfDays].join(", ")} — ` +
+      `${chronogolfCourses} course(s) x ${ROUNDS_PER_DAY} round(s) x ` +
+      `${chronogolfDays.size} day(s) = ` +
+      `${chronogolfCourses * ROUNDS_PER_DAY * chronogolfDays.size} request(s)` +
+      (fresh.size > chronogolfDays.size
+        ? `; its other ${fresh.size - chronogolfDays.size} day(s) carry over`
+        : "")
+  );
 
   // The band limit exists for one platform, so only that platform pays
   // for it.
@@ -826,7 +832,7 @@ async function main() {
   // this run didn't reach.
   const everyDay = new Set(dates.map((_, i) => i));
   const daysFor = (platform: string): Set<number> =>
-    RATE_LIMITED_PLATFORMS.has(platform) ? fresh : everyDay;
+    RATE_LIMITED_PLATFORMS.has(platform) ? chronogolfDays : everyDay;
 
   const started = Date.now();
   const jobs: Job[] = dates.flatMap((date, dayIndex) =>
