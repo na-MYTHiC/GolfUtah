@@ -174,6 +174,24 @@ async function main() {
   console.log(`the app shows "—" for its ${missing}-hole row`);
   console.log(`uuid ${split.uuid}\n`);
 
+  // Does the LIST entry already carry per-round availability, or only the
+  // single-slot response? This decides whether the adapter can fix itself
+  // from the data it already has, or needs a request per slot — 553 of
+  // them a day, which the build has no budget for.
+  if (process.argv.includes("--list-raw")) {
+    console.log("=== this slot, as the LIST returned it ===");
+    console.log(JSON.stringify(split, null, 2).slice(0, 8000));
+    console.log("=== end ===\n");
+    const availability = (split as unknown as Record<string, unknown>)
+      .affiliation_types_availability;
+    console.log(
+      availability
+        ? "The list DOES carry affiliation_types_availability — no extra request needed."
+        : "The list does NOT carry it; only the per-slot endpoint does."
+    );
+    return;
+  }
+
   const detail = await getJson(`${API}/${split.uuid}`);
   if (typeof detail === "string") {
     console.error(`slot request failed: ${detail}`);
