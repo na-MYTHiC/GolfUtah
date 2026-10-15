@@ -5,15 +5,14 @@ import type { CourseView } from "./types";
 import { TeeTimeRow, type Booking } from "./tee-time-row";
 import {
   DateStrip,
-  FilterChips,
   SearchBar,
-  ViewToggle,
   useFilters,
   useGeolocation,
   type FilterState,
 } from "./filters";
 import { distanceMiles } from "@/lib/format";
 import { AppHeader } from "./app-header";
+import { ActiveFilters, FilterButton } from "./filter-sheet";
 import { findCity } from "@/lib/utah-places";
 import { favoritesStore } from "@/lib/favorites";
 import { markSeen, slotKey } from "@/lib/seen";
@@ -285,7 +284,7 @@ export function Results({
           position is the true top of the screen, which on an iPhone is
           behind the clock. */}
       <div
-        className="sticky top-0 z-20 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-2 backdrop-blur-lg"
+        className="sticky top-0 z-20 -mx-4 border-b border-line bg-surface-0/95 px-4 pb-3 backdrop-blur-lg"
         style={{ paddingTop: "calc(0.5rem + var(--safe-top))" }}
       >
         <AppHeader />
@@ -294,14 +293,15 @@ export function Results({
           <div className="min-w-0 flex-1">
             <SearchBar value={filters.q} courses={courseNames} />
           </div>
-          <ViewToggle view={filters.view} />
+          <FilterButton
+            filters={filters}
+            scope="list"
+            matching={bookings.length}
+            hasOrigin={hasOrigin}
+            onLocate={locate}
+          />
         </div>
-        <FilterChips
-          filters={filters}
-          hasOrigin={hasOrigin}
-          onLocate={locate}
-          view={filters.view}
-        />
+        <ActiveFilters filters={filters} scope="list" />
       </div>
 
       <div className="pt-3" />
@@ -610,7 +610,7 @@ function EmptyState({
       )}
       {reasons.length > 0 && (
         <p className="mt-2 text-xs text-text-3">
-          Widen a filter above, or tap Clear to start over.
+          Widen a filter, or tap Clear under the search box to start over.
         </p>
       )}
     </div>

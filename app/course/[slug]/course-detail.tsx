@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadDay, loadCourseInfo, type StaticCourse, type CourseInfo } from "@/lib/static-data";
 import { getProfile } from "@/lib/course-profiles";
-import { FilterChips, useFilters } from "@/app/components/filters";
+import { useFilters } from "@/app/components/filters";
+import { ActiveFilters, FilterButton } from "@/app/components/filter-sheet";
 import { TeeTimeRow, windClass, type Booking } from "@/app/components/tee-time-row";
 import { favoritesStore } from "@/lib/favorites";
 import { useSyncExternalStore } from "react";
@@ -156,12 +157,10 @@ export function CourseDetail({
 
         <Stats slug={slug} />
 
-        <FilterChips
-          filters={filters}
-          hasOrigin={false}
-          onLocate={() => {}}
-          view="time"
-        />
+        <div className="mt-4 flex items-center gap-3">
+          <FilterButton filters={filters} scope="course" matching={visible.length} />
+          <ActiveFilters filters={filters} scope="course" className="min-w-0 flex-1" />
+        </div>
 
         {weather && <Conditions weather={weather} date={date} today={today} />}
 
