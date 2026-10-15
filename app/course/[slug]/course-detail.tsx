@@ -120,7 +120,7 @@ export function CourseDetail({
       >
         <a
           href={back}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-2"
+          className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-text-2"
         >
           <span aria-hidden>←</span> All courses
         </a>
@@ -137,7 +137,7 @@ export function CourseDetail({
 
         <header className="mt-3 flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-[26px] font-bold leading-tight tracking-tight text-text-1">
+            <h1 className="text-[1.625rem] font-bold leading-tight tracking-tight text-text-1">
               {name}
             </h1>
             <p className="mt-1 text-sm text-text-2">
@@ -169,7 +169,7 @@ export function CourseDetail({
           {course === undefined ? (
             <ul className="flex animate-pulse flex-col gap-2" aria-hidden>
               {Array.from({ length: 5 }).map((_, i) => (
-                <li key={i} className="h-[68px] rounded-2xl bg-surface-1 ring-1 ring-line" />
+                <li key={i} className="h-[4.25rem] rounded-2xl bg-surface-1 ring-1 ring-line" />
               ))}
             </ul>
           ) : course === null ? (
@@ -187,7 +187,7 @@ export function CourseDetail({
           ) : (
             <>
               <div className="mb-2 flex items-baseline justify-between px-0.5">
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
+                <h2 className="text-[0.6875rem] font-semibold uppercase tracking-wider text-text-3">
                   {visible.length === remaining.length
                     ? `${visible.length} tee times`
                     : `${visible.length} of ${remaining.length} tee times`}
@@ -251,7 +251,7 @@ export function CourseDetail({
           Course website
         </a>
 
-        <p className="mt-6 text-center text-[11px] text-text-3">
+        <p className="mt-6 text-center text-[0.6875rem] text-text-3">
           {formatDateLabel(date, today)} · times change by the minute, confirm on the
           course&apos;s page
         </p>
@@ -281,7 +281,7 @@ function Conditions({
   return (
     <section className="mt-4 rounded-2xl bg-surface-1 p-4 ring-1 ring-line">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-3">
+        <h2 className="text-[0.6875rem] font-semibold uppercase tracking-wider text-text-3">
           {formatDateLabel(date, today)}
         </h2>
         <p className="text-sm text-text-2">
@@ -295,13 +295,13 @@ function Conditions({
       <div className="mt-3 flex justify-between gap-1">
         {hours.map((h) => (
           <div key={h.time} className="min-w-0 flex-1 text-center">
-            <div className="text-[10px] text-text-3">{formatTime(h.time).replace(":00", "")}</div>
+            <div className="text-[0.625rem] text-text-3">{formatTime(h.time).replace(":00", "")}</div>
             <div className="mt-0.5 text-base">{describeWeather(h.weatherCode).icon}</div>
-            <div className="mt-0.5 text-[13px] font-medium text-text-1 tabular-nums">
+            <div className="mt-0.5 text-[0.8125rem] font-medium text-text-1 tabular-nums">
               {h.temperatureF}°
             </div>
             <div
-              className={`text-[10px] tabular-nums ${
+              className={`text-[0.625rem] tabular-nums ${
                 // The same three bands as the tee-time rows. Two rules
                 // for one number meant 11mph read grey here and amber
                 // three inches further down the same screen.
@@ -363,7 +363,7 @@ function DateStrip({
                 : "bg-surface-2 text-text-2 active:bg-surface-3"
             }`}
           >
-            <span className="text-[10px] font-medium uppercase tracking-wide opacity-75">
+            <span className="text-[0.625rem] font-medium uppercase tracking-wide opacity-75">
               {date === today ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}
             </span>
             <span className="text-base font-semibold leading-tight tabular-nums">
@@ -417,10 +417,10 @@ function Stats({ slug }: { slug: string }) {
     >
       {cells.map((cell) => (
         <div key={cell.label} className="bg-surface-1 px-3 py-2.5">
-          <dt className="text-[10px] font-medium uppercase tracking-wide text-text-3">
+          <dt className="text-[0.625rem] font-medium uppercase tracking-wide text-text-3">
             {cell.label}
           </dt>
-          <dd className="mt-0.5 truncate text-[14px] font-semibold text-text-1">{cell.value}</dd>
+          <dd className="mt-0.5 truncate text-[0.875rem] font-semibold text-text-1">{cell.value}</dd>
         </div>
       ))}
     </dl>
@@ -474,14 +474,14 @@ function About({
   return (
     <section className="mt-5 flex flex-col gap-2 rounded-2xl bg-surface-1 px-4 py-3.5 ring-1 ring-line">
       {(profile?.designer || profile?.opened) && (
-        <p className="text-[12px] text-text-3">
+        <p className="text-[0.75rem] text-text-3">
           {[profile.designer, profile.opened && `est. ${profile.opened}`]
             .filter(Boolean)
             .join(" · ")}
         </p>
       )}
 
-      {blurb && <p className="text-[13px] leading-relaxed text-text-2">{blurb}</p>}
+      {blurb && <p className="text-[0.8125rem] leading-relaxed text-text-2">{blurb}</p>}
 
       {/* Reviews without an API key. Google Maps' URL scheme is public
           and free to link to, so when Places isn't configured the app
@@ -493,7 +493,7 @@ function About({
           )}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-2 py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-2 py-2.5 text-[0.8125rem] font-medium text-text-1 active:bg-surface-3"
         >
           Reviews &amp; photos on Google Maps
           <span aria-hidden className="text-text-3">↗</span>
@@ -504,7 +504,7 @@ function About({
         <div className="border-t border-line pt-3">
           <ul className="flex flex-col gap-3">
             {info.reviews.map((r, i) => (
-              <li key={i} className="text-[13px] leading-relaxed">
+              <li key={i} className="text-[0.8125rem] leading-relaxed">
                 <p className="text-text-2">
                   <span className="text-crimson-bright">
                     {"★".repeat(Math.round(r.rating))}
@@ -520,7 +520,7 @@ function About({
             ))}
           </ul>
           {/* Google's terms require reviews be attributed and link back. */}
-          <p className="mt-3 text-[11px] text-text-3">
+          <p className="mt-3 text-[0.6875rem] text-text-3">
             Reviews from Google
             {info.mapsUrl && (
               <>
@@ -561,7 +561,7 @@ function Freshness({ generatedAt }: { generatedAt: string | null }) {
     : null;
 
   return (
-    <p className="text-[11px] text-text-3">
+    <p className="text-[0.6875rem] text-text-3">
       {clock ? `Updated ${clock}` : "Loading…"}
     </p>
   );

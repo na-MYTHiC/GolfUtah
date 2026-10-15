@@ -1,10 +1,11 @@
 import { APP_VERSION } from "@/lib/version";
 import { RoundsButton } from "./rounds-sheet";
+import { TextSizeButton } from "./text-size";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 /**
- * The wordmark and the rounds button.
+ * The wordmark, the text size button and the rounds button.
  *
  * The build number tucks under the wordmark rather than sitting beside
  * it as a chip: it's there to answer "am I on the latest?" once in a
@@ -19,16 +20,19 @@ export function AppHeader({ subtitle }: { subtitle?: string }) {
             the usual way out of a search narrowed too far. */}
         <a
           href={basePath ? `${basePath}/` : "/"}
-          className="flex items-baseline gap-1.5 text-[22px] font-bold leading-none tracking-tight text-text-1"
+          className="flex items-baseline gap-1.5 text-[1.375rem] font-bold leading-none tracking-tight text-text-1"
         >
           Golf<span className="-ml-1.5 text-crimson-bright">Utah</span>
-          <span className="font-mono text-[9px] font-normal leading-none text-text-3">
+          <span className="font-mono text-[0.5625rem] font-normal leading-none text-text-3">
             {APP_VERSION}
           </span>
         </a>
-        {subtitle && <p className="mt-0.5 truncate text-[12px] text-text-3">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 truncate text-[0.75rem] text-text-3">{subtitle}</p>}
       </div>
-      <RoundsButton />
+      <div className="flex shrink-0 items-center gap-2">
+        <TextSizeButton />
+        <RoundsButton />
+      </div>
     </header>
   );
 }

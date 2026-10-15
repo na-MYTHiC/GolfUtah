@@ -182,7 +182,10 @@ export function SearchBar({ value, courses }: { value: string; courses: string[]
           // Delayed so a tap on a suggestion registers before it closes.
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Search course or city"
-          className="w-full rounded-full bg-surface-2 py-2 pl-9 pr-3 text-[15px] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
+          // An ellipsis when the field is narrower than the words, which
+          // a larger text size makes likely on a small phone. Without it
+          // the placeholder is cut mid-letter: "Search course or c".
+          className="w-full text-ellipsis rounded-full bg-surface-2 py-2 pl-9 pr-3 text-[0.9375rem] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
         />
       </form>
 
@@ -199,13 +202,13 @@ export function SearchBar({ value, courses }: { value: string; courses: string[]
                   inputRef.current?.blur();
                   commit(s.label, s.kind);
                 }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[15px] text-text-1 active:bg-surface-2"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[0.9375rem] text-text-1 active:bg-surface-2"
               >
                 <span className="text-text-3">
                   {s.kind === "course" ? "⛳" : s.kind === "county" ? "▨" : "◎"}
                 </span>
                 <span className="truncate">{s.label}</span>
-                <span className="ml-auto shrink-0 text-[11px] text-text-3">
+                <span className="ml-auto shrink-0 text-[0.6875rem] text-text-3">
                   {s.kind === "county"
                     ? "county"
                     : s.kind === "city"
@@ -284,7 +287,7 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
                 : "bg-surface-2 text-text-2 active:bg-surface-3"
             }`}
           >
-            <span className="text-[10px] font-medium uppercase tracking-wide opacity-75">
+            <span className="text-[0.625rem] font-medium uppercase tracking-wide opacity-75">
               {isToday ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}
             </span>
             <span className="text-base font-semibold leading-tight tabular-nums">

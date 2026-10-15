@@ -107,31 +107,45 @@ export function TeeTimeRow({
           <div className="text-lg font-semibold leading-tight tracking-tight text-text-1 tabular-nums">
             {display}
           </div>
-          <div className="text-[10px] font-medium uppercase tracking-wide text-text-3">
+          <div className="text-[0.625rem] font-medium uppercase tracking-wide text-text-3">
             {period}
           </div>
         </div>
 
         <div className="min-w-0 flex-1">
           {!hideCourse && (
-            <div className="truncate text-[15px] font-medium leading-tight text-text-1">
+            <div className="truncate text-[0.9375rem] font-medium leading-tight text-text-1">
               {booking.courseName}
             </div>
           )}
+          {/* One line, and when it runs out of room it drops whole items
+              rather than cutting through one. The items wrap, and the box
+              is one line tall, so anything that would have been clipped
+              mid-word ("4 ope", "4m") lands on a second line nobody sees.
+
+              That matters more now the whole app can be drawn larger:
+              Spacious on a 360px phone is where a row with a side and a
+              distance stops fitting. Each optional item carries its own
+              separator dot, so it leaves without stranding one.
+
+              Order is priority, because once one item wraps everything
+              after it goes too. The after-dark warning sits ahead of the
+              distance for that reason: a safety note should outlast a
+              mileage. */}
           <div
-            className={`flex items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-text-2 ${
-              hideCourse ? "text-[13px]" : "mt-1 text-xs"
+            className={`flex h-[1lh] flex-wrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-text-2 ${
+              hideCourse ? "text-[0.8125rem]" : "mt-1 text-xs"
             }`}
           >
             {/* Times go fast here, so what changed since the last look
                 is more useful than what exists. */}
             {booking.isNew && (
-              <>
-                <span className="rounded bg-crimson/20 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-crimson-bright">
+              <Item>
+                <span className="rounded bg-crimson/20 px-1 py-px text-[0.625rem] font-semibold uppercase tracking-wide text-crimson-bright">
                   New
                 </span>
                 <Dot />
-              </>
+              </Item>
             )}
             {/* Spelled out where it fits. Moving conditions into their
                 own column bought back the room for the word — but a row
@@ -142,36 +156,38 @@ export function TeeTimeRow({
               {sideLabel ? "h" : " holes"}
             </span>
             {sideLabel && (
-              <>
+              <Item>
                 <Dot />
                 <span>{sideLabel}</span>
-              </>
+              </Item>
             )}
-            <Dot />
-            <span>{booking.playersOpen} open</span>
-            {booking.distanceMiles != null && (
-              <>
-                <Dot />
-                <span className="text-text-3">{booking.distanceMiles.toFixed(0)}mi</span>
-              </>
-            )}
+            <Item>
+              <Dot />
+              <span>{booking.playersOpen} open</span>
+            </Item>
             {/* No separator dot and a size down: the glyph is distinct
                 enough to stand alone, and the pair of them was the last
                 thing pushing a nested row over its width. */}
             {light?.short && (
               <span
-                className="shrink-0 text-[10px] leading-none"
+                className="shrink-0 text-[0.625rem] leading-none"
                 aria-label="Finishes after dark"
                 title={`Sunset ${to12h(booking.sunset!)} · ${booking.holes} holes finishes about ${to12h(light.finishesAt)}`}
               >
                 🌙
               </span>
             )}
+            {booking.distanceMiles != null && (
+              <Item>
+                <Dot />
+                <span className="text-text-3">{booking.distanceMiles.toFixed(0)}mi</span>
+              </Item>
+            )}
           </div>
         </div>
 
         <div className="shrink-0 text-right leading-tight">
-          <div className="text-[15px] font-semibold tabular-nums text-text-1">
+          <div className="text-[0.9375rem] font-semibold tabular-nums text-text-1">
             {formatPrice(booking.price)}
           </div>
           {/* Whether a cart is in that number, which platforms disagree
@@ -179,17 +195,17 @@ export function TeeTimeRow({
               cart apart, TeeItUp quotes one figure with the cart in it.
               Without this the app silently compares the two. */}
           {booking.cart != null ? (
-            <div className="text-[10px] text-text-3 tabular-nums">
+            <div className="text-[0.625rem] text-text-3 tabular-nums">
               +{formatPrice(booking.cart)} cart
             </div>
           ) : booking.withCart ? (
-            <div className="text-[10px] text-text-3">with cart</div>
+            <div className="text-[0.625rem] text-text-3">with cart</div>
           ) : null}
           {/* Conditions live here rather than in the meta line, which
               couldn't hold them at 360px without clipping something —
               and the thing being clipped was the wind. */}
           {booking.weather && (
-            <div className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-[11px]">
+            <div className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-[0.6875rem]">
               <span className="text-text-3" title={`${booking.weather.temperatureF}°F`}>
                 {booking.weather.icon} {booking.weather.temperatureF}°
               </span>
@@ -229,6 +245,14 @@ export function windClass(mph: number): string {
 function to12h(time: string): string {
   const [h, m] = time.split(":").map(Number);
   return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
+/**
+ * One entry on the meta line, with its separator, kept together so that
+ * when the line runs out of room they wrap away as a pair.
+ */
+function Item({ children }: { children: React.ReactNode }) {
+  return <span className="flex items-center gap-x-1.5">{children}</span>;
 }
 
 function Dot() {

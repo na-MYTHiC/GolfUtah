@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
+import { useState, useSyncExternalStore } from "react";
 import { roundsStore, type Round } from "@/lib/rounds";
 import { formatPrice, formatTime, todayInUtah, formatDateLabel } from "@/lib/format";
+import { BottomSheet } from "./sheet";
 
 /**
  * The rounds button and the panel it opens.
@@ -31,49 +31,20 @@ export function RoundsButton() {
       <button
         onClick={() => setOpen(true)}
         aria-label={`Rounds (${upcoming.length} upcoming)`}
-        className="relative flex items-center gap-1.5 rounded-full bg-surface-2 py-1.5 pl-3 pr-3.5 text-[13px] font-medium text-text-1 active:bg-surface-3"
+        className="relative flex items-center gap-1.5 rounded-full bg-surface-2 py-1.5 pl-3 pr-3.5 text-[0.8125rem] font-medium text-text-1 active:bg-surface-3"
       >
         <TeeIcon />
         Rounds
         {upcoming.length > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-crimson px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-crimson px-1 text-[0.625rem] font-bold text-white">
             {upcoming.length}
           </span>
         )}
       </button>
 
-      {open && <SheetPortal rounds={rounds} today={today} onClose={() => setOpen(false)} />}
+      {open && <Sheet rounds={rounds} today={today} onClose={() => setOpen(false)} />}
     </>
   );
-}
-
-/**
- * Renders the sheet at the end of <body> rather than where the button
- * lives.
- *
- * The button sits in the sticky header, and that header has a
- * backdrop-blur. A backdrop-filter establishes a containing block for
- * fixed-position descendants — so `fixed inset-0` stopped meaning "the
- * viewport" and started meaning "the header", which clipped the sheet to
- * a strip at the top of the screen. A portal steps out of that
- * ancestor's stacking context entirely, which is the only fix that
- * doesn't involve giving up the blur.
- *
- * No mounted guard needed: this only renders once the button has been
- * pressed, which cannot happen during a static prerender, so `document`
- * is always there by the time it runs.
- */
-function SheetPortal(props: { rounds: Round[]; today: string; onClose: () => void }) {
-  // Body scroll would otherwise run on underneath the open sheet.
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
-
-  return createPortal(<Sheet {...props} />, document.body);
 }
 
 function Sheet({
@@ -93,45 +64,26 @@ function Sheet({
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <button
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-      />
-
-      <div
-        className="relative max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-surface-1 ring-1 ring-line"
-        style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
-      >
-        <div className="sticky top-0 flex items-center justify-between border-b border-line bg-surface-1 px-4 py-3">
-          <div>
-            <h2 className="text-[17px] font-semibold text-text-1">Your rounds</h2>
-            <p className="text-[11px] text-text-3">
-              Saved when you open a tee time — booking happens on the course&apos;s site
-            </p>
-          </div>
-          <button onClick={onClose} className="-m-2 p-2 text-lg text-text-3">
-            ✕
-          </button>
+    <BottomSheet
+      title="Your rounds"
+      subtitle={<>Saved when you open a tee time — booking happens on the course&apos;s site</>}
+      onClose={onClose}
+    >
+      {rounds.length === 0 ? (
+        <div className="px-6 py-12 text-center">
+          <p className="text-2xl">⛳</p>
+          <p className="mt-2 font-medium text-text-1">Nothing saved yet</p>
+          <p className="mt-1 text-sm text-text-2">
+            Tap a tee time and it&apos;s kept here so you can find it again.
+          </p>
         </div>
-
-        {rounds.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-2xl">⛳</p>
-            <p className="mt-2 font-medium text-text-1">Nothing saved yet</p>
-            <p className="mt-1 text-sm text-text-2">
-              Tap a tee time and it&apos;s kept here so you can find it again.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-5 px-4 pt-4">
-            {upcoming.length > 0 && <Group title="Coming up" rounds={upcoming} today={today} />}
-            {past.length > 0 && <Group title="Past" rounds={past} today={today} muted />}
-          </div>
-        )}
-      </div>
-    </div>
+      ) : (
+        <div className="flex flex-col gap-5 px-4 pt-4">
+          {upcoming.length > 0 && <Group title="Coming up" rounds={upcoming} today={today} />}
+          {past.length > 0 && <Group title="Past" rounds={past} today={today} muted />}
+        </div>
+      )}
+    </BottomSheet>
   );
 }
 
@@ -148,7 +100,7 @@ function Group({
 }) {
   return (
     <section>
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-text-3">
+      <h3 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-text-3">
         {title} <span className="font-normal normal-case">{rounds.length}</span>
       </h3>
       <ul className={`flex flex-col gap-2 ${muted ? "opacity-60" : ""}`}>
@@ -166,10 +118,10 @@ function RoundCard({ round, today }: { round: Round; today: string }) {
 
   return (
     <li className="rounded-2xl bg-surface-2 px-3.5 py-3">
-      <p className="truncate text-[15px] font-medium leading-tight text-text-1">
+      <p className="truncate text-[0.9375rem] font-medium leading-tight text-text-1">
         {round.courseName}
       </p>
-      <p className="mt-1 text-[13px] text-text-2">
+      <p className="mt-1 text-[0.8125rem] text-text-2">
         {formatDateLabel(round.date, today)} · {formatTime(round.time)} · {round.holes} holes
         {round.price != null && ` · ${formatPrice(round.price)}`}
       </p>
@@ -183,14 +135,14 @@ function RoundCard({ round, today }: { round: Round; today: string }) {
             type="time"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            className="rounded-lg bg-surface-3 px-2.5 py-1.5 text-[13px] text-text-1"
+            className="rounded-lg bg-surface-3 px-2.5 py-1.5 text-[0.8125rem] text-text-1"
           />
           <button
             onClick={() => {
               roundsStore.setTime(round.id, draft);
               setEditing(false);
             }}
-            className="rounded-full bg-crimson px-3 py-1.5 text-[13px] font-medium text-white"
+            className="rounded-full bg-crimson px-3 py-1.5 text-[0.8125rem] font-medium text-white"
           >
             Save
           </button>
@@ -199,7 +151,7 @@ function RoundCard({ round, today }: { round: Round; today: string }) {
               setDraft(round.time);
               setEditing(false);
             }}
-            className="rounded-full bg-surface-3 px-3 py-1.5 text-[13px] font-medium text-text-2"
+            className="rounded-full bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-medium text-text-2"
           >
             Cancel
           </button>
@@ -209,7 +161,7 @@ function RoundCard({ round, today }: { round: Round; today: string }) {
           <button
             onClick={() => roundsStore.setBooked(round.id, !round.booked)}
             aria-pressed={round.booked}
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition ${
+            className={`rounded-full px-3 py-1.5 text-[0.8125rem] font-medium transition ${
               round.booked ? "bg-crimson text-white" : "bg-surface-3 text-text-1"
             }`}
           >
@@ -217,13 +169,13 @@ function RoundCard({ round, today }: { round: Round; today: string }) {
           </button>
           <button
             onClick={() => setEditing(true)}
-            className="rounded-full bg-surface-3 px-3 py-1.5 text-[13px] font-medium text-text-2"
+            className="rounded-full bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-medium text-text-2"
           >
             Change
           </button>
           <button
             onClick={() => roundsStore.remove(round.id)}
-            className="rounded-full bg-surface-3 px-3 py-1.5 text-[13px] font-medium text-text-2"
+            className="rounded-full bg-surface-3 px-3 py-1.5 text-[0.8125rem] font-medium text-text-2"
           >
             Delete
           </button>
@@ -231,7 +183,7 @@ function RoundCard({ round, today }: { round: Round; today: string }) {
             href={round.bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-auto text-[13px] font-medium text-crimson-bright"
+            className="ml-auto text-[0.8125rem] font-medium text-crimson-bright"
           >
             Open ↗
           </a>

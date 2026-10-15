@@ -324,7 +324,7 @@ export function Results({
       )}
 
       {bookings.length > 0 && (
-        <p className="mt-4 text-center text-[12px] text-text-3">
+        <p className="mt-4 text-center text-[0.75rem] text-text-3">
           {bookings.length} tee time{bookings.length === 1 ? "" : "s"} ·{" "}
           {coursesWithTimes} course{coursesWithTimes === 1 ? "" : "s"}
           {/* Every row shows a distance, and until now nothing said what
@@ -447,10 +447,10 @@ function TimeSections({
               <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
                 <FavoriteStar slug={slug} />
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-[14px] font-semibold leading-tight text-text-1">
+                  <h2 className="truncate text-[0.875rem] font-semibold leading-tight text-text-1">
                     {name}
                   </h2>
-                  <p className="truncate text-[11px] text-text-3">
+                  <p className="truncate text-[0.6875rem] text-text-3">
                     {[
                       items[0].courseCity,
                       items[0].distanceMiles != null &&
@@ -463,8 +463,8 @@ function TimeSections({
                 </div>
                 {cheapest !== Infinity && (
                   <div className="shrink-0 text-right">
-                    <div className="text-[11px] leading-none text-text-3">from</div>
-                    <div className="text-[15px] font-semibold leading-tight text-crimson-bright">
+                    <div className="text-[0.6875rem] leading-none text-text-3">from</div>
+                    <div className="text-[0.9375rem] font-semibold leading-tight text-crimson-bright">
                       ${(cheapest / 100).toFixed(0)}
                     </div>
                   </div>
@@ -482,7 +482,7 @@ function TimeSections({
                   scanning, not for deciding. */}
               <a
                 href={`${basePath}/course/${slug}/?${new URLSearchParams({ date })}`}
-                className="flex items-center justify-center gap-1 border-t border-line py-2.5 text-[13px] font-medium text-text-1 active:bg-surface-2"
+                className="flex items-center justify-center gap-1 border-t border-line py-2.5 text-[0.8125rem] font-medium text-text-1 active:bg-surface-2"
               >
                 {rest > 0 ? `See all ${items.length} times` : "Course details"}
                 <span aria-hidden className="text-text-3">→</span>
@@ -517,7 +517,7 @@ function TimeSections({
     <div className="flex flex-col gap-5">
       {groups.map((group) => (
         <section key={group.key}>
-          <h2 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-text-3">
+          <h2 className="mb-2 px-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-text-3">
             {group.label}
             <span className="ml-1.5 font-normal normal-case tracking-normal text-text-3">
               {group.items.length}
@@ -639,7 +639,7 @@ function QuietCourses({
       </button>
 
       {open && (
-        <div className="mt-3 flex flex-col gap-3 text-[13px]">
+        <div className="mt-3 flex flex-col gap-3 text-[0.8125rem]">
           <QuietGroup label="Have times, but not matching your filters" items={filtered} />
           <QuietGroup label="Today's times have all gone out" items={played} />
           <QuietGroup label="Nothing published for this day" items={none} />

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorker } from "./components/service-worker";
+import { DENSITY_BOOT_SCRIPT } from "@/lib/density";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -57,7 +58,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The boot script below sets the chosen text size on this element
+      // before React arrives, so the server's copy and the browser's
+      // legitimately differ by those two attributes.
+      suppressHydrationWarning
     >
+      <head>
+        {/* Before first paint, so a chosen text size is there from the
+            first frame instead of arriving as a jump after hydration.
+            See lib/density.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: DENSITY_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <ServiceWorker />

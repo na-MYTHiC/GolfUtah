@@ -18,7 +18,7 @@ export default function Home() {
           <AppShell />
         </Suspense>
 
-        <footer className="mt-10 text-[11px] leading-relaxed text-text-3">
+        <footer className="mt-10 text-[0.6875rem] leading-relaxed text-text-3">
           <p>
             Times come from each course&apos;s own booking system and change by the minute —
             confirm on the course&apos;s page. Booking and payment happen there.

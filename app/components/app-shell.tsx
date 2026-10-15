@@ -173,7 +173,7 @@ function ResultsSkeleton() {
       <div className="mb-3 h-9 rounded-full bg-surface-2" />
       <div className="flex flex-col gap-2">
         {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="h-[68px] rounded-2xl bg-surface-1 ring-1 ring-line" />
+          <div key={i} className="h-[4.25rem] rounded-2xl bg-surface-1 ring-1 ring-line" />
         ))}
       </div>
     </div>
