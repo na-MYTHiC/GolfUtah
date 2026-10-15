@@ -290,7 +290,7 @@ export function Results({
       >
         <AppHeader />
         <DateStrip today={today} active={date} />
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2.5 pt-3">
           <div className="min-w-0 flex-1">
             <SearchBar value={filters.q} courses={courseNames} />
           </div>
@@ -548,7 +548,7 @@ function FavoriteStar({ slug }: { slug: string }) {
       onClick={() => favoritesStore.toggle(slug)}
       aria-label={on ? "Remove from starred courses" : "Star this course"}
       aria-pressed={on}
-      className={`-m-1 shrink-0 p-1 text-sm leading-none transition ${
+      className={`-m-2.5 shrink-0 p-2.5 text-sm leading-none transition ${
         on ? "text-crimson-bright" : "text-text-3"
       }`}
     >

@@ -31,7 +31,7 @@ export function RoundsButton() {
       <button
         onClick={() => setOpen(true)}
         aria-label={`Rounds (${upcoming.length} upcoming)`}
-        className="relative flex items-center gap-1.5 rounded-full bg-surface-2 py-1.5 pl-3 pr-3.5 text-[0.8125rem] font-medium text-text-1 active:bg-surface-3"
+        className="relative flex h-10 items-center gap-1.5 rounded-full bg-surface-2 pl-3.5 pr-4 text-[0.875rem] font-medium text-text-1 active:bg-surface-3"
       >
         <TeeIcon />
         Rounds

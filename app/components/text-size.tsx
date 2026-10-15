@@ -22,10 +22,10 @@ export function TextSizeButton() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Text size"
-        className="flex items-center rounded-full bg-surface-2 px-3 py-1.5 text-[0.8125rem] font-semibold text-text-1 active:bg-surface-3"
+        className="flex h-10 min-w-10 items-center justify-center rounded-full bg-surface-2 px-3.5 text-[0.875rem] font-semibold text-text-1 active:bg-surface-3"
       >
         <span aria-hidden>
-          A<span className="text-[0.6875rem]">a</span>
+          A<span className="text-[0.75rem]">a</span>
         </span>
       </button>
 

@@ -114,13 +114,13 @@ export function CourseDetail({
       <main
         className="mx-auto max-w-2xl px-4"
         style={{
-          paddingTop: "calc(1rem + var(--safe-top))",
+          paddingTop: "calc(0.5rem + var(--safe-top))",
           paddingBottom: "calc(4rem + var(--safe-bottom))",
         }}
       >
         <a
           href={back}
-          className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-text-2"
+          className="-ml-1 inline-flex h-11 items-center gap-1.5 pl-1 pr-4 text-[0.875rem] font-medium text-text-2"
         >
           <span aria-hidden>←</span> All courses
         </a>
@@ -349,7 +349,7 @@ function DateStrip({
   const dates = Array.from({ length: 10 }, (_, i) => addDays(today, i));
 
   return (
-    <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {dates.map((date) => {
         const d = new Date(`${date}T12:00:00`);
         const isActive = date === active;
@@ -441,7 +441,7 @@ function FavoriteStar({ slug }: { slug: string }) {
       onClick={() => favoritesStore.toggle(slug)}
       aria-label={on ? "Remove from starred courses" : "Star this course"}
       aria-pressed={on}
-      className={`shrink-0 rounded-full bg-surface-2 px-3 py-2 text-lg leading-none ${
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg leading-none ${
         on ? "text-crimson-bright" : "text-text-3"
       }`}
     >

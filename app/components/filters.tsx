@@ -162,7 +162,7 @@ export function SearchBar({ value, courses }: { value: string; courses: string[]
         <svg
           aria-hidden
           viewBox="0 0 20 20"
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-3"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-3"
         >
           <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
           <path d="M13.5 13.5 17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -181,11 +181,14 @@ export function SearchBar({ value, courses }: { value: string; courses: string[]
           onFocus={() => setOpen(true)}
           // Delayed so a tap on a suggestion registers before it closes.
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="Search course or city"
+          // Without "Search": the magnifier already says it, and the
+          // Course/Time toggle beside this grew to a full-size tap target,
+          // which left "Search course or city" cut to "Search course …".
+          placeholder="Course or city"
           // An ellipsis when the field is narrower than the words, which
           // a larger text size makes likely on a small phone. Without it
           // the placeholder is cut mid-letter: "Search course or c".
-          className="w-full text-ellipsis rounded-full bg-surface-2 py-2 pl-9 pr-3 text-[0.9375rem] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
+          className="h-11 w-full text-ellipsis rounded-full bg-surface-2 pl-10 pr-3.5 text-[0.9375rem] text-text-1 placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-crimson/50"
         />
       </form>
 
@@ -238,12 +241,12 @@ export function ViewToggle({ view }: { view: FilterState["view"] }) {
   };
 
   return (
-    <div className="flex shrink-0 rounded-full bg-surface-2 p-0.5">
+    <div className="flex h-11 shrink-0 rounded-full bg-surface-2 p-1">
       {(["course", "time"] as const).map((option) => (
         <button
           key={option}
           onClick={() => set(option)}
-          className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+          className={`flex items-center rounded-full px-3 text-[0.8125rem] font-medium transition ${
             view === option
               ? "bg-surface-3 text-text-1"
               : "text-text-2"
@@ -340,11 +343,11 @@ export function FilterChips({
   }, [params, router, pathname]);
 
   return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <button
         onClick={() => update("starred", filters.starred ? "" : "1")}
         aria-pressed={filters.starred}
-        className={`flex shrink-0 items-center gap-1 rounded-full py-1.5 pl-3 pr-3.5 text-sm font-medium transition ${
+        className={`flex h-9 shrink-0 items-center gap-1 rounded-full pl-3 pr-3.5 text-sm font-medium transition ${
           filters.starred ? "bg-crimson text-white" : "bg-surface-2 text-text-2"
         }`}
       >
@@ -433,7 +436,7 @@ export function FilterChips({
       {activeCount > 0 && (
         <button
           onClick={clearAll}
-          className="shrink-0 rounded-full bg-surface-2 px-3.5 py-1.5 text-sm font-medium text-text-2 active:bg-surface-3"
+          className="h-9 shrink-0 rounded-full bg-surface-2 px-3.5 text-sm font-medium text-text-2 active:bg-surface-3"
         >
           Clear {activeCount}
         </button>
@@ -463,7 +466,7 @@ function Chip({
         onChange={(e) => onChange(e.target.value)}
         // Native select: on a phone this opens the OS picker, which is
         // faster and more accessible than any custom dropdown.
-        className={`appearance-none rounded-full py-1.5 pl-3.5 pr-7 text-sm font-medium transition ${
+        className={`h-9 appearance-none rounded-full pl-3.5 pr-7 text-sm font-medium transition ${
           active
             ? "bg-crimson text-white"
             : "bg-surface-2 text-text-2"
