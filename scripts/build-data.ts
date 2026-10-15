@@ -415,21 +415,36 @@ export function pickChronogolfDays(
   const targetOf = (day: number) =>
     BANDS.find((b) => day >= b.from && day <= b.to)?.targetMs ?? BANDS[BANDS.length - 1].targetMs;
 
+  const chronogolfCount = COURSES.filter((c) => c.platform === "CHRONOGOLF").length;
+
   const scored = Array.from({ length: days }, (_, day) => {
     const courses = carried.get(day)?.courses.filter((c) => c.platform === "CHRONOGOLF") ?? [];
     let age = 0;
+    // Courses with nothing usable: errored, never stamped, or absent.
+    let broken = Math.max(0, chronogolfCount - courses.length);
     if (courses.length === 0) age = Number.POSITIVE_INFINITY;
     for (const c of courses) {
       const at = c.error || !c.fetchedAt ? Number.NaN : new Date(c.fetchedAt).getTime();
+      if (!Number.isFinite(at)) broken++;
       age = Math.max(age, Number.isFinite(at) ? now - at : Number.POSITIVE_INFINITY);
     }
-    return { day, age, overdue: age / targetOf(day) };
+    return { day, age, broken, overdue: age / targetOf(day) };
   });
 
-  // Descending by a key, nearer day first on a tie. Spelled out because
-  // Infinity - Infinity is NaN, which would make the sort arbitrary.
+  // Descending by a key; on a tie, the day with more broken courses, then
+  // the nearer day.
+  //
+  // The broken count matters because "infinitely overdue" is a tie. On
+  // v88's first run, two courses on day 3 had fallen back to copies from
+  // before fetchedAt existed — infinite by the rule above — and that tied
+  // with days 5-9, where all eighteen were missing. Nearer won, so the
+  // run spent a slot topping up two courses while next week stayed empty.
+  // More people are missing more tee times on the emptier day.
+  //
+  // Comparisons spelled out because Infinity - Infinity is NaN, which
+  // would make the sort arbitrary.
   const by = (key: "age" | "overdue") => (a: (typeof scored)[number], b: (typeof scored)[number]) =>
-    a[key] === b[key] ? a.day - b.day : b[key] > a[key] ? 1 : -1;
+    a[key] !== b[key] ? (b[key] > a[key] ? 1 : -1) : b.broken - a.broken || a.day - b.day;
 
   const picked = [...scored].sort(by("overdue")).slice(0, Math.max(0, max - 1));
   const oldest = [...scored].sort(by("age")).find((s) => !picked.includes(s));

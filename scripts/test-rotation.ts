@@ -92,6 +92,27 @@ check("nothing published: the nearest days first", pick(new Map()).join() === "0
   check("fresh files don't hide stale Chronogolf data", !got.includes(0) && !got.includes(1), got.join());
 }
 
+{
+  // v88's live case: day 3 has two stragglers from before fetchedAt
+  // existed, days 5-9 lost every course. The empty week must come first.
+  const carried = new Map(
+    Array.from({ length: DAYS }, (_, i) => [
+      i,
+      i === 3
+        ? day([10, 10, 10, "never", "never"])
+        : i >= 5
+          ? day(["error", "error", "error", "error", "error"])
+          : day([10, 10, 10, 10, 10]),
+    ])
+  );
+  const got = pick(carried);
+  check(
+    "a day missing every course outranks one with two stragglers",
+    got.includes(5) && got.includes(6),
+    got.join()
+  );
+}
+
 console.log("\na day of runs");
 {
   // Every day starts in the state production was found in: near days
