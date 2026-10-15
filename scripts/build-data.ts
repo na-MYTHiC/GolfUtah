@@ -146,6 +146,14 @@ interface StaticCourse {
    * incomplete and the UI says so.
    */
   partial?: boolean;
+  /**
+   * When this course's times were actually fetched — not when the file
+   * was written. A carried-over course keeps its old stamp, which is the
+   * point: it's how a rate-limited platform can tell which of its days
+   * are going stale. The day file's own generatedAt can't, because every
+   * file is rewritten every run.
+   */
+  fetchedAt?: string;
 }
 
 /**
@@ -323,6 +331,75 @@ const CHRONOGOLF_MAX_DAYS = 3;
 
 /** Must match ROUNDS in lib/adapters/chronogolf.ts. */
 const ROUNDS_PER_DAY = 2;
+
+/**
+ * Which days Chronogolf fetches this run: the ones whose Chronogolf data
+ * is most overdue, judged by when each course was last actually fetched.
+ *
+ * WHY IT NEEDS ITS OWN. Chronogolf used to take whichever band pickBand
+ * chose, and pickBand judges staleness by each day file's generatedAt.
+ * But every day file is rewritten on every run — the other four
+ * platforms refresh all ten days each time — so every band looks equally
+ * fresh, and the band with the shortest target, days 0-1, wins every
+ * single run. Scheduled runs only ever gave Chronogolf two days.
+ *
+ * That was hidden while push runs fetched all ten days for it. v85
+ * capped those at three, and nothing refreshed days 2-9 again. Worse, a
+ * far day whose last fetch had errored could never recover: the
+ * carry-over refuses an errored entry, and nothing re-fetched it. The
+ * result, measured on the live build:
+ *
+ *   2026-10-19 onward: failed (18): Riverbend, Mountain Dell, ...
+ *
+ * — every Salt Lake municipal, missing from the weekend.
+ *
+ * So each day is scored by its stalest Chronogolf course, against the
+ * same per-day targets the bands use: near days are wanted fresher, so
+ * an hour-old Friday outranks an hour-old Thursday-week. A day with any
+ * course never fetched, errored, or missing scores as infinitely
+ * overdue, which is what lets a stuck day recover. Ties go to the
+ * nearer day.
+ *
+ * ONE SLOT IS RESERVED for the day with the oldest data, whatever its
+ * target. Priority alone starves the far end: there is room for three
+ * days a run, and days 0-3 can claim all of it, because short targets
+ * make their overdue ratios climb faster than a distant day's ever can.
+ * Simulated over a day of runs, ratio-only refreshed days 4-9 once in 24
+ * hours — "never starved" by a > 0 check, and still Saturday's tee times
+ * a day old. The reserved slot is a round-robin floor under the
+ * priority, and bounds how stale anything gets.
+ */
+export function pickChronogolfDays(
+  carried: Map<number, DayFile>,
+  days: number,
+  now: number,
+  max: number
+): number[] {
+  const targetOf = (day: number) =>
+    BANDS.find((b) => day >= b.from && day <= b.to)?.targetMs ?? BANDS[BANDS.length - 1].targetMs;
+
+  const scored = Array.from({ length: days }, (_, day) => {
+    const courses = carried.get(day)?.courses.filter((c) => c.platform === "CHRONOGOLF") ?? [];
+    let age = 0;
+    if (courses.length === 0) age = Number.POSITIVE_INFINITY;
+    for (const c of courses) {
+      const at = c.error || !c.fetchedAt ? Number.NaN : new Date(c.fetchedAt).getTime();
+      age = Math.max(age, Number.isFinite(at) ? now - at : Number.POSITIVE_INFINITY);
+    }
+    return { day, age, overdue: age / targetOf(day) };
+  });
+
+  // Descending by a key, nearer day first on a tie. Spelled out because
+  // Infinity - Infinity is NaN, which would make the sort arbitrary.
+  const by = (key: "age" | "overdue") => (a: (typeof scored)[number], b: (typeof scored)[number]) =>
+    a[key] === b[key] ? a.day - b.day : b[key] > a[key] ? 1 : -1;
+
+  const picked = [...scored].sort(by("overdue")).slice(0, Math.max(0, max - 1));
+  const oldest = [...scored].sort(by("age")).find((s) => !picked.includes(s));
+  if (oldest && max > 0) picked.push(oldest);
+
+  return picked.map((s) => s.day).sort((a, b) => a - b);
+}
 
 /**
  * Platforms that refuse when asked for too much in one run.
@@ -516,6 +593,7 @@ async function fetchCourse(
     });
 
     base.returned = times.length;
+    base.fetchedAt = new Date().toISOString();
     base.slots = times.map((t) => ({
       time: t.time,
       holes: t.holes,
@@ -788,16 +866,14 @@ async function main() {
   // not a limit.
   const chronogolfCourses = COURSES.filter((c) => c.platform === "CHRONOGOLF").length;
   const chronogolfDays = new Set(
-    [...fresh].sort((a, b) => a - b).slice(0, CHRONOGOLF_MAX_DAYS)
+    pickChronogolfDays(carried, dates.length, Date.now(), CHRONOGOLF_MAX_DAYS)
   );
   console.log(
     `Chronogolf: day(s) ${[...chronogolfDays].join(", ")} — ` +
       `${chronogolfCourses} course(s) x ${ROUNDS_PER_DAY} round(s) x ` +
       `${chronogolfDays.size} day(s) = ` +
       `${chronogolfCourses * ROUNDS_PER_DAY * chronogolfDays.size} request(s)` +
-      (fresh.size > chronogolfDays.size
-        ? `; its other ${fresh.size - chronogolfDays.size} day(s) carry over`
-        : "")
+      `, its most overdue; the other ${dates.length - chronogolfDays.size} carry over`
   );
 
   // The band limit exists for one platform, so only that platform pays
