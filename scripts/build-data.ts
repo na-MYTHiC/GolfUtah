@@ -332,6 +332,43 @@ const CHRONOGOLF_MAX_DAYS = 3;
 /** Must match ROUNDS in lib/adapters/chronogolf.ts. */
 const ROUNDS_PER_DAY = 2;
 
+/** Beyond this, a carried-over course is too old to pass off as current. */
+const MAX_CARRY_AGE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Whether a course from the last published build can stand in for one
+ * this run didn't fetch.
+ *
+ * It used to require times — "falling back to an empty day helps nobody".
+ * But an empty result from a real fetch is an answer: the course is
+ * fully booked, or it's evening and the day is over. Refusing it turned
+ * that answer into "failed". Measured the night v87 went out: at 8:30pm
+ * every Chronogolf course on today's list came up failed — the last fetch
+ * had correctly found nothing left, and the carry-over threw that away.
+ * Days are now fetched in rotation rather than every run, so most days
+ * lean on the carry-over most of the time, and a fully booked course
+ * would have flickered between "no times" and "failed" from run to run.
+ *
+ * fetchedAt is what makes the distinction possible: it's only set when a
+ * fetch actually succeeded. A copy from before it existed has unknown
+ * provenance, so that one still has to have times to be trusted.
+ *
+ * And none of it is trusted past six hours, so a platform that's down for
+ * a day shows as down rather than as yesterday's tee times. The rotation
+ * keeps every day under four hours in normal running, so this only bites
+ * when something is actually broken.
+ */
+export function isUsableFallback(
+  course: StaticCourse | undefined,
+  now: number
+): course is StaticCourse {
+  if (!course || course.error) return false;
+  if (course.fetchedAt) {
+    return now - new Date(course.fetchedAt).getTime() <= MAX_CARRY_AGE_MS;
+  }
+  return course.slots.length > 0;
+}
+
 /**
  * Which days Chronogolf fetches this run: the ones whose Chronogolf data
  * is most overdue, judged by when each course was last actually fetched.
@@ -970,12 +1007,10 @@ async function main() {
 
             // Failed as well as missing. A 429 and a deadline skip leave
             // the app in the same place — a course showing nothing —
-            // and the last good answer beats that in both cases. Only
-            // taken when the published copy actually has times: falling
-            // back to someone else's empty day helps nobody, and
-            // reuseDay already refuses anything over six hours old.
+            // and the last good answer beats that in both cases. What
+            // counts as a good answer is isUsableFallback's call.
             const fallback = carried.get(i)?.courses.find((c) => c.slug === seed.slug);
-            if (fallback && !fallback.error && fallback.slots.length > 0) {
+            if (isUsableFallback(fallback, started)) {
               carriedCourses++;
               return fallback;
             }
@@ -1081,7 +1116,7 @@ async function main() {
   if (carriedCourses) {
     console.log(
       `${carriedCourses} course-day(s) served from the last good build ` +
-        `(this run couldn't fetch them; the published copy had times and was under 6h old)`
+        `(this run didn't fetch them; the published copy was a real fetch under 6h old)`
     );
   }
 

@@ -16,7 +16,7 @@
  *   npx tsx scripts/test-rotation.ts
  */
 
-import { pickChronogolfDays } from "./build-data";
+import { isUsableFallback, pickChronogolfDays } from "./build-data";
 
 let failures = 0;
 
@@ -163,6 +163,21 @@ console.log("\na day of runs");
     "never more than the cap per run",
     runsTouching.reduce((a, b) => a + b, 0) <= 48 * MAX
   );
+}
+
+console.log("\ncarry-over");
+{
+  const at = (minAgo: number) => new Date(NOW - minAgo * MIN).toISOString();
+  const usable = (c: object | undefined) => isUsableFallback(c as never, NOW);
+  // Tonight's case: the last fetch correctly found nothing left today.
+  check("a real fetch that found nothing is still an answer", usable({ slots: [], fetchedAt: at(30) }));
+  check("a real fetch with times is used", usable({ slots: [{}], fetchedAt: at(30) }));
+  check("an errored copy is never used", !usable({ slots: [{}], fetchedAt: at(30), error: "HTTP 429" }));
+  check("nothing to fall back to", !usable(undefined));
+  check("too old to pass off as current", !usable({ slots: [{}], fetchedAt: at(7 * 60) }));
+  // From before fetchedAt existed: unknown provenance, so it must have times.
+  check("an unstamped copy with times is used", usable({ slots: [{}] }));
+  check("an unstamped empty copy is not", !usable({ slots: [] }));
 }
 
 console.log("");
