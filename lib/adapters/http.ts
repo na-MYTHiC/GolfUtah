@@ -45,9 +45,21 @@
  *    A guessed rate limit would be a guess; this lets the server say.
  */
 
-/** Identifies the aggregator and points at it. See note 4 above. */
+/**
+ * Identifies the aggregator and points at it. See note 4 above.
+ *
+ * "GolfUtah", not "GolfUtahBot". TeeItUp's API sits behind Cloudflare,
+ * which from 14 Oct 2026 answered the "Bot" name with a "Just a
+ * moment..." challenge: a 403 for all four Utah State Parks courses on
+ * every build. Measured from a GitHub runner, same request, user-agent
+ * the only difference: "GolfUtahBot/1.0 (...)" got 403, while this,
+ * "GolfUtah/1.0", a bare "GolfUtah/1.0", and no user-agent at all all
+ * got 200 and the real tee times (scripts/teeitup-probe.ts). It still
+ * names the app and links to it. It just doesn't use the one word the
+ * filter keys on.
+ */
 export const USER_AGENT =
-  "GolfUtahBot/1.0 (+https://na-mythic.github.io/GolfUtah; tee-time aggregator)";
+  "GolfUtah/1.0 (+https://na-mythic.github.io/GolfUtah; tee-time aggregator)";
 
 /**
  * A browser UA, for the one endpoint that needs to look like one.
