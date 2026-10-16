@@ -235,9 +235,14 @@ export function DateStrip({ today, active }: { today: string; active: string }) 
   const dates = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i));
 
   const pick = (date: string) => {
+    if (date === active) return;
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
     router.replace(`${pathname}?${next}`, { scroll: false });
+    // A new day starts at its first tee time. Tapped from halfway down
+    // Saturday, the list would otherwise open halfway down Sunday —
+    // somewhere that has nothing to do with where Saturday was.
+    if (window.scrollY > 0) window.scrollTo({ top: 0 });
   };
 
   return (

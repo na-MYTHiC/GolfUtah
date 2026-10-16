@@ -32,6 +32,7 @@ on:
           - membersports:probe
           - tenfore:probe
           - golfpay:probe
+          - teeitup:probe
       args:
         description: 'Arguments, e.g. a ForeUp course id like 19501'
         required: false
@@ -60,7 +61,7 @@ jobs:
       # Only foreup:schedules drives a browser; the others are plain HTTP
       # and shouldn't pay for a Chromium download.
       - name: Install Chromium
-        if: inputs.script == 'foreup:schedules' || inputs.script == 'foreup:capture' || inputs.script == 'chronogolf:capture'
+        if: inputs.script == 'foreup:schedules' || inputs.script == 'foreup:capture' || inputs.script == 'chronogolf:capture' || inputs.script == 'teeitup:probe'
         run: npx playwright install --with-deps chromium
 
       - name: Run ${{ inputs.script }} ${{ inputs.args }}

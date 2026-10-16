@@ -1,0 +1,84 @@
+name: Keep tee times fresh
+
+# GitHub's scheduler is the app's refresh rate, and it stopped keeping
+# time. deploy.yml asks for a run every 5 minutes; measured on 14-15 Oct
+# 2026, GitHub delivered one every two to five hours, and none at all for
+# four hours overnight:
+#
+#   05:12  10:18  15:17  19:30  22:34  00:51  (then nothing past 04:58)
+#
+# Each of those runs was healthy. The data was only ever as fresh as the
+# last time someone pushed. Nothing in a cron line fixes that — scheduled
+# runs are best-effort and this one was being dropped.
+#
+# So this is a loop that doesn't depend on the scheduler. Each run waits,
+# starts a deploy, then starts the next run of itself:
+#
+#   wait (10 min) -> dispatch deploy.yml -> dispatch refresh.yml -> wait ...
+#
+# THE WAIT HOLDS NO RUNNER. It's the wait timer on the `refresh-wait`
+# environment, which GitHub enforces before the job is given a machine —
+# a sleep step would keep a runner busy around the clock to do nothing.
+# The deploy runs alongside the next wait, so a cycle is the timer plus a
+# few seconds.
+#
+# The timer lives in the repository's settings, not in this file:
+# Settings -> Environments -> refresh-wait -> Wait timer. Until one of at
+# least 5 minutes is set, every run refreshes once and stops rather than
+# chaining. Without a timer this would deploy back-to-back, nonstop, and
+# Chronogolf would refuse most of it.
+#
+# Starting and restarting: a push to main starts a fresh chain, and so does
+# the hourly schedule — however rarely GitHub delivers it, one delivery
+# is enough to revive a chain that died. The concurrency group keeps
+# exactly one chain alive: a new run cancels the one that's waiting.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '13 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: golfutah-refresh
+  cancel-in-progress: true
+
+jobs:
+  next:
+    runs-on: ubuntu-latest
+    environment: refresh-wait
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check the wait timer
+        id: timer
+        run: |
+          minutes=$(gh api "repos/$GH_REPO/environments/refresh-wait" \
+            --jq '[.protection_rules[]? | select(.type == "wait_timer") | .wait_timer] | max // 0' \
+            2>/dev/null || echo 0)
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+          echo "refresh-wait timer: ${minutes} min"
+
+      # Deploy first. Dispatching the next run of this workflow cancels
+      # this one through the concurrency group, so anything after that
+      # dispatch might not happen.
+      # Skipped on a push with no timer: the push already started its own
+      # deploy, and a second one right behind it would only cancel it.
+      - name: Refresh the site
+        if: github.event_name != 'push' || fromJSON(steps.timer.outputs.minutes) >= 5
+        run: gh workflow run deploy.yml --ref main
+
+      - name: Schedule the next refresh
+        if: fromJSON(steps.timer.outputs.minutes) >= 5
+        run: gh workflow run refresh.yml --ref main
+
+      - name: Not chaining
+        if: fromJSON(steps.timer.outputs.minutes) < 5
+        run: |
+          echo "::warning title=Refresh loop is off::Set a wait timer of 10 minutes on the refresh-wait environment (Settings -> Environments -> refresh-wait). Without one, refreshing again immediately would run deploys back to back."

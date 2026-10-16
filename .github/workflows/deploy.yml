@@ -54,6 +54,11 @@ name: Build and deploy GolfUtah
 # load, especially on free runners. A 5-minute cron does not reliably
 # deliver every 5 minutes; treat it as an upper bound.
 #
+# And in October 2026 it stopped delivering at all for hours at a time:
+# one run every two to five hours. The cron below is now only a backstop.
+# The refresh rate is set by refresh.yml, which dispatches this workflow
+# on a loop that doesn't depend on GitHub's scheduler.
+#
 # Free on public repositories: GitHub doesn't bill Actions minutes for
 # them, and Pages is only free for public repos too.
 on:

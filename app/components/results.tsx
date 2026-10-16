@@ -43,10 +43,13 @@ function useFavorites(): string[] {
  */
 export function Results({
   courses: allCourses,
+  loading = false,
   today,
   date,
 }: {
   courses: CourseView[];
+  /** The day hasn't arrived yet: draw the header, hold the list. */
+  loading?: boolean;
   today: string;
   date: string;
 }) {
@@ -83,8 +86,12 @@ export function Results({
     const keys = allCourses.flatMap((c) =>
       c.slots.map((s) => slotKey(c.slug, s.time, s.holes, s.side))
     );
+    // Never while loading. An empty list would be recorded as this day's
+    // sheet, and when the real one arrived every time on it would look
+    // as if it had just appeared.
+    if (loading) return new Set<string>();
     return markSeen(date, keys, now.epochMs);
-  }, [allCourses, date, now]);
+  }, [allCourses, date, now, loading]);
 
   // A distance origin is the device's location, or any Utah city that
   // was searched for — including ones with no course of their own.
@@ -306,7 +313,9 @@ export function Results({
 
       <div className="pt-3" />
 
-      {bookings.length === 0 ? (
+      {loading ? (
+        <ListSkeleton />
+      ) : bookings.length === 0 ? (
         <EmptyState
           filters={filters}
           total={courses.length}
@@ -323,7 +332,7 @@ export function Results({
         />
       )}
 
-      {bookings.length > 0 && (
+      {!loading && bookings.length > 0 && (
         <p className="mt-4 text-center text-[0.75rem] text-text-3">
           {bookings.length} tee time{bookings.length === 1 ? "" : "s"} ·{" "}
           {coursesWithTimes} course{coursesWithTimes === 1 ? "" : "s"}
@@ -352,7 +361,7 @@ export function Results({
         </p>
       )}
 
-      {quiet.length > 0 && <QuietCourses quiet={quiet} />}
+      {!loading && quiet.length > 0 && <QuietCourses quiet={quiet} />}
     </>
   );
 }
@@ -658,6 +667,21 @@ function QuietGroup({ label, items }: { label: string; items: { name: string }[]
       <p className="mt-0.5 text-text-2">
         {items.map((i) => i.name).join(" · ")}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Placeholder rows at the shape of the real ones, under the real header.
+ * A spinner or a line of text makes the page jump when data arrives; this
+ * keeps the layout still and makes the wait feel shorter than it is.
+ */
+function ListSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col gap-2" aria-hidden>
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="h-[4.25rem] rounded-2xl bg-surface-1 ring-1 ring-line" />
+      ))}
     </div>
   );
 }
