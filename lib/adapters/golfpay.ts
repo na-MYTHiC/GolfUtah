@@ -198,6 +198,13 @@ async function fetchSheet(
 
   const resp = await politeFetch(`${API}?${params}`, {
     label: "GolfPay",
+    // GolfPay is slow, not down: ~8s a request on average, and some of
+    // its answers take past the shared 12s timeout. Measured on 16 Oct,
+    // that failed The Barn on six of the ten days of every build. A
+    // timeout gets no retry (see http.ts), so a longer one costs nothing
+    // but waiting, and this platform finishes well inside the time
+    // Chronogolf takes alongside it.
+    timeoutMs: 30_000,
     headers: {
       accept: "application/json, text/javascript, */*; q=0.01",
       referer: golfPayCourseUrl(ids.slug, date),
