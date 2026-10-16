@@ -66,6 +66,16 @@ async function main() {
 
   console.log("\n=== 1. direct requests ===");
   await attempt("as the adapter sends it", `${API}?${query}`, { ...base, "user-agent": ADAPTER_UA });
+  // Honest identities, without the word that reads as "bot" — the
+  // question is whether Cloudflare is challenging the name or the client.
+  for (const ua of [
+    "GolfUtah/1.0 (+https://na-mythic.github.io/GolfUtah; tee-time aggregator)",
+    "Mozilla/5.0 (compatible; GolfUtah/1.0; +https://na-mythic.github.io/GolfUtah)",
+    "GolfUtah/1.0",
+  ]) {
+    await attempt(`user-agent: ${ua}`, `${API}?${query}`, { ...base, "user-agent": ua });
+  }
+  await attempt("no user-agent header (Node's default)", `${API}?${query}`, base);
   await attempt("browser user-agent", `${API}?${query}`, { ...base, "user-agent": BROWSER_UA });
   await attempt("no origin/referer", `${API}?${query}`, {
     accept: base.accept,

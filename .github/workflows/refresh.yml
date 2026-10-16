@@ -56,18 +56,22 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
+      # Measured, not read from the settings: how long this run sat
+      # between being created and reaching this step. That is the wait
+      # timer if one is set, and a few seconds if not — and it can't be
+      # wrong about a setting this token isn't allowed to see.
       - name: Check the wait timer
         id: timer
         run: |
-          minutes=$(gh api "repos/$GH_REPO/environments/refresh-wait" \
-            --jq '[.protection_rules[]? | select(.type == "wait_timer") | .wait_timer] | max // 0' \
-            2>/dev/null || echo 0)
+          created=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID" --jq .created_at)
+          minutes=$(( ( $(date +%s) - $(date -d "$created" +%s) ) / 60 ))
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
-          echo "refresh-wait timer: ${minutes} min"
+          echo "waited ${minutes} min since ${created}"
 
       # Deploy first. Dispatching the next run of this workflow cancels
       # this one through the concurrency group, so anything after that
       # dispatch might not happen.
+      #
       # Skipped on a push with no timer: the push already started its own
       # deploy, and a second one right behind it would only cancel it.
       - name: Refresh the site
