@@ -370,6 +370,36 @@ export function isUsableFallback(
 }
 
 /**
+ * The order to ask a platform in: courses with nothing to fall back on
+ * first.
+ *
+ * Chronogolf starts refusing partway through a run. Asked in date order,
+ * whatever sits in the middle of the run takes the refusals, whether or
+ * not it can afford to. Measured on 16 Oct: the same nine courses on
+ * Oct 22 were refused in two runs in a row, the second of three days
+ * both times, while each run's first day came through clean. Those nine
+ * had no usable copy to fall back on, so they showed as failed, while
+ * courses that only needed topping up went through ahead of them.
+ *
+ * So the courses that would otherwise show nothing go first, while the
+ * platform is still answering. Courses with a recent copy go after them:
+ * if the refusals land on those, they keep showing that copy. Stable
+ * otherwise, so the date order still holds within each group.
+ */
+export function queueOrder<J extends { seed: { slug: string }; dayIndex: number }>(
+  jobs: J[],
+  carried: Map<number, { courses: StaticCourse[] }>,
+  now: number
+): J[] {
+  const covered = (job: J) =>
+    isUsableFallback(
+      carried.get(job.dayIndex)?.courses.find((c) => c.slug === job.seed.slug),
+      now
+    );
+  return [...jobs].sort((a, b) => Number(covered(a)) - Number(covered(b)));
+}
+
+/**
  * Which days Chronogolf fetches this run: the ones whose Chronogolf data
  * is most overdue, judged by when each course was last actually fetched.
  *
@@ -963,10 +993,14 @@ async function main() {
     RATE_LIMITED_PLATFORMS.has(platform) ? chronogolfDays : everyDay;
 
   const started = Date.now();
-  const jobs: Job[] = dates.flatMap((date, dayIndex) =>
-    COURSES.filter(
-      (seed) => daysFor(seed.platform).has(dayIndex) || !carried.has(dayIndex)
-    ).map((seed) => ({ seed, dayIndex, date }))
+  const jobs: Job[] = queueOrder(
+    dates.flatMap((date, dayIndex) =>
+      COURSES.filter(
+        (seed) => daysFor(seed.platform).has(dayIndex) || !carried.has(dayIndex)
+      ).map((seed) => ({ seed, dayIndex, date }))
+    ),
+    carried,
+    started
   );
 
   /** Any day with work queued is assembled fresh rather than reused wholesale. */

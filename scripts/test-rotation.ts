@@ -16,7 +16,7 @@
  *   npx tsx scripts/test-rotation.ts
  */
 
-import { isUsableFallback, pickChronogolfDays } from "./build-data";
+import { isUsableFallback, pickChronogolfDays, queueOrder } from "./build-data";
 
 let failures = 0;
 
@@ -199,6 +199,33 @@ console.log("\ncarry-over");
   // From before fetchedAt existed: unknown provenance, so it must have times.
   check("an unstamped copy with times is used", usable({ slots: [{}] }));
   check("an unstamped empty copy is not", !usable({ slots: [] }));
+}
+
+console.log("\nqueue order");
+{
+  // Tonight's case: day 6 had nine courses with nothing to fall back on,
+  // and they kept landing mid-run where Chronogolf starts refusing.
+  const at = (minAgo: number) => new Date(NOW - minAgo * MIN).toISOString();
+  const carried = new Map<number, { courses: object[] }>([
+    [4, { courses: [{ slug: "a", slots: [], fetchedAt: at(20) }, { slug: "b", slots: [], fetchedAt: at(20) }] }],
+    [6, { courses: [{ slug: "a", slots: [], error: "HTTP 429" }, { slug: "b", slots: [], fetchedAt: at(20) }] }],
+    [9, { courses: [{ slug: "a", slots: [], fetchedAt: at(400) }] }],
+  ]);
+  const jobs = [
+    { seed: { slug: "a" }, dayIndex: 4 },
+    { seed: { slug: "b" }, dayIndex: 4 },
+    { seed: { slug: "a" }, dayIndex: 6 },
+    { seed: { slug: "b" }, dayIndex: 6 },
+    { seed: { slug: "a" }, dayIndex: 9 },
+    { seed: { slug: "b" }, dayIndex: 9 },
+  ];
+  const got = queueOrder(jobs, carried as never, NOW).map((j) => `${j.dayIndex}${j.seed.slug}`).join(" ");
+  check(
+    "courses with nothing to fall back on go first, in date order",
+    got.startsWith("6a 9a 9b"),
+    got
+  );
+  check("then the ones with a recent copy, in date order", got.endsWith("4a 4b 6b"), got);
 }
 
 console.log("");
