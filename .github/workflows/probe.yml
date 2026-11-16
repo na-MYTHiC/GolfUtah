@@ -33,6 +33,7 @@ on:
           - tenfore:probe
           - golfpay:probe
           - teeitup:probe
+          - platform:probe
       args:
         description: 'Arguments, e.g. a ForeUp course id like 19501'
         required: false

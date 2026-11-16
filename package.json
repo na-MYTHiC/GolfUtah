@@ -19,6 +19,7 @@
     "test:chronogolf": "tsx scripts/test-chronogolf.ts",
     "test:teeitup": "tsx scripts/test-teeitup.ts",
     "teeitup:probe": "tsx scripts/teeitup-probe.ts",
+    "platform:probe": "tsx scripts/platform-probe.ts",
     "chronogolf:add": "tsx scripts/chronogolf-add.ts",
     "chronogolf:discover": "tsx scripts/chronogolf-discover.ts",
     "discover": "tsx scripts/discover-ids.ts",
