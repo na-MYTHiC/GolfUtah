@@ -82,6 +82,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      generated: ${{ steps.stamp.outputs.generated }}
     # Well under the 5-minute cadence. A run that somehow exceeds this
     # should die rather than sit in the way of the next one — with
     # cancel-in-progress, a job that overruns its window is a job that
@@ -203,6 +205,11 @@ jobs:
         # one and an already-open app never updates.
         run: npm run build
 
+      # What the deploy job checks the live site against.
+      - name: Note this run's data stamp
+        id: stamp
+        run: echo "generated=$(jq -r .generatedAt out/data/index.json)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
@@ -218,3 +225,22 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      # "Reported success!" is not the same as the site serving it.
+      # Measured 16 Nov 2026: at 22:28 the live data was stamped 18:03,
+      # four and a half hours old, while every deploy in between reported
+      # success. Nothing failed, so nothing said so. This asks the live
+      # site for the stamp this run published and fails the run if it
+      # never appears, so a stuck site shows up as a red run.
+      - name: Check the site is serving this run's data
+        env:
+          EXPECTED: ${{ needs.build.outputs.generated }}
+          URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          for attempt in $(seq 1 12); do
+            got=$(curl -fsS -H 'cache-control: no-cache' "${URL}data/index.json?t=$(date +%s%N)" | jq -r .generatedAt || true)
+            if [ "$got" = "$EXPECTED" ]; then echo "live after ${attempt} check(s): $got"; exit 0; fi
+            sleep 10
+          done
+          echo "::error title=Site not updated::Deployed data stamped $EXPECTED, but the live site still serves $got"
+          exit 1

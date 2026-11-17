@@ -1,5 +1,6 @@
 import type { TeeTimeAdapter, NormalizedTeeTime } from "./types";
 import { politeFetch } from "./http";
+import { COURSES } from "../courses.data";
 
 /**
  * Chronogolf (Lightspeed Golf) — confirmed against a real capture from
@@ -53,8 +54,47 @@ const BOOKING_BASE = "https://www.chronogolf.com/club";
  */
 const ROUNDS: readonly (9 | 18)[] = [9, 18];
 
-/** Guard against a pagination bug turning into an unbounded loop. */
-const MAX_PAGES = 20;
+/**
+ * Guard against a pagination bug turning into an unbounded loop. Sized
+ * for the batched request below: every club's sheet for one round, at 24
+ * rows a page. Measured in November that was 12 pages; a summer Saturday
+ * is several times that.
+ */
+const MAX_PAGES = 120;
+
+/**
+ * EVERY CLUB IN ONE REQUEST.
+ *
+ * `course_ids` is a list, and the endpoint is the marketplace search, so
+ * it answers for any set of courses, not only one club's. Asking club by
+ * club costs at least one request per club per round even when the club
+ * has three times left, and Chronogolf allows 100 requests a minute
+ * (measured: the 100th in a window is refused with Retry-After: 60).
+ *
+ * Measured on a runner, 17 Nov 2026, both rounds on two days: club by
+ * club 22-27 requests, batched 9-12, and the rows identical course for
+ * course, with one exception.
+ *
+ * SAND HOLLOW IS THE EXCEPTION. Asked alone, its first course returned
+ * the same 31 rows for holes=9 and holes=18. In the batch it returned 37
+ * for 18 and none for 9. Which is right isn't known, so it keeps the
+ * request it has always had, and nothing about its listing changes.
+ */
+const SOLO_CLUBS = new Set(["14225"]);
+
+const BATCHED_UUIDS: string[] = COURSES.filter((c) => c.platform === "CHRONOGOLF").flatMap((c) => {
+  const at = c.externalId.indexOf(":");
+  if (at < 0 || SOLO_CLUBS.has(c.externalId.slice(0, at))) return [];
+  return c.externalId
+    .slice(at + 1)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+});
+const BATCHED = new Set(BATCHED_UUIDS);
+
+/** One shared fetch per day and round, for this process. */
+const batches = new Map<string, Promise<RawTeeTime[]>>();
 
 interface RawCourse {
   id: number;
@@ -178,6 +218,44 @@ async function fetchPage(
     total: Number(resp.headers.get("total")) || 0,
     perPage: Number(resp.headers.get("per-page")) || 0,
   };
+}
+
+/** Every page of one round on one day, for the courses given. */
+async function fetchRound(courseIds: string[], date: string, holes: 9 | 18): Promise<RawTeeTime[]> {
+  const rows: RawTeeTime[] = [];
+  let page = 1;
+
+  for (;;) {
+    const { body, total, perPage } = await fetchPage(courseIds, date, page, String(holes));
+    if (body.status !== "open" || !Array.isArray(body.teetimes)) break;
+
+    rows.push(...body.teetimes);
+
+    // Stop on a short page even when the headers disagree — a wrong
+    // total shouldn't spin, and an empty page never has a next one.
+    if (body.teetimes.length === 0) break;
+    if (perPage > 0 && body.teetimes.length < perPage) break;
+    if (total > 0 && rows.length >= total) break;
+    if (++page > MAX_PAGES) break;
+  }
+  return rows;
+}
+
+/**
+ * One club's rows for a round: out of the shared batch when every one of
+ * its courses is in it, otherwise asked for directly.
+ */
+async function roundFor(courseIds: string[], date: string, holes: 9 | 18): Promise<RawTeeTime[]> {
+  if (!courseIds.every((id) => BATCHED.has(id))) return fetchRound(courseIds, date, holes);
+
+  const key = `${date}|${holes}`;
+  let batch = batches.get(key);
+  if (!batch) {
+    batch = fetchRound(BATCHED_UUIDS, date, holes);
+    batches.set(key, batch);
+  }
+  const mine = new Set(courseIds);
+  return (await batch).filter((row) => mine.has(row.course?.uuid));
 }
 
 function toNormalized(
@@ -344,24 +422,8 @@ export const chronogolfAdapter: TeeTimeAdapter = {
       // build-data.ts narrows Chronogolf's day band to match. Staler and
       // right beats fresher and wrong.
       for (const holes of ROUNDS) {
-        let page = 1;
-        let seen = 0;
-
-        for (;;) {
-          const { body, total, perPage } = await fetchPage(courseIds, date, page, String(holes));
-          if (body.status !== "open" || !Array.isArray(body.teetimes)) break;
-
-          for (const raw of body.teetimes) {
-            results.push(...toNormalized(raw, slug, dayUrl, holes));
-          }
-
-          seen += body.teetimes.length;
-          // Stop on a short page even when the headers disagree — a wrong
-          // total shouldn't spin, and an empty page never has a next one.
-          if (body.teetimes.length === 0) break;
-          if (perPage > 0 && body.teetimes.length < perPage) break;
-          if (total > 0 && seen >= total) break;
-          if (++page > MAX_PAGES) break;
+        for (const raw of await roundFor(courseIds, date, holes)) {
+          results.push(...toNormalized(raw, slug, dayUrl, holes));
         }
       }
     }

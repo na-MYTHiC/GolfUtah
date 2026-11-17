@@ -326,11 +326,16 @@ const BANDS: { label: string; from: number; to: number; targetMs: number }[] = [
  * carry over from the previous run, which is what the per-course
  * fallback exists for. Re-measure from a build log before changing it —
  * the numbers above are observations, not anything Chronogolf documents.
+ *
+ * RE-MEASURED 17 Nov 2026, and raised from three. Two things changed.
+ * The adapter now asks for every club in one paged request per round
+ * (12 requests where it took 26), and requests are paced under the real
+ * limit, 100 a minute, so none are refused. A day now costs about 28
+ * requests, about 20 seconds at 85 a minute. Six days is about two
+ * minutes, which fits beside GolfPay inside the budget, and with a run
+ * every five minutes every day is reached at least every ten.
  */
-const CHRONOGOLF_MAX_DAYS = 3;
-
-/** Must match ROUNDS in lib/adapters/chronogolf.ts. */
-const ROUNDS_PER_DAY = 2;
+const CHRONOGOLF_MAX_DAYS = 6;
 
 /** Beyond this, a carried-over course is too old to pass off as current. */
 const MAX_CARRY_AGE_MS = 6 * 60 * 60 * 1000;
@@ -951,11 +956,9 @@ async function main() {
     pickChronogolfDays(carried, dates.length, Date.now(), CHRONOGOLF_MAX_DAYS)
   );
   console.log(
-    `Chronogolf: day(s) ${[...chronogolfDays].join(", ")} — ` +
-      `${chronogolfCourses} course(s) x ${ROUNDS_PER_DAY} round(s) x ` +
-      `${chronogolfDays.size} day(s) = ` +
-      `${chronogolfCourses * ROUNDS_PER_DAY * chronogolfDays.size} request(s)` +
-      `, its most overdue; the other ${dates.length - chronogolfDays.size} carry over`
+    `Chronogolf: day(s) ${[...chronogolfDays].join(", ")}, its most overdue ` +
+      `(${chronogolfCourses} courses, batched per day and round); ` +
+      `the other ${dates.length - chronogolfDays.size} carry over`
   );
 
   // The band limit exists for one platform, so only that platform pays

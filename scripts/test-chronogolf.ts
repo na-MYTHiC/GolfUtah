@@ -9,6 +9,7 @@
  *   npx tsx scripts/test-chronogolf.ts
  */
 import { __test, chronogolfAdapter, chronogolfBookingUrl } from "../lib/adapters/chronogolf";
+import { COURSES } from "../lib/courses.data";
 
 const { toNormalized, padTime, parseExternalId, sideOf } = __test;
 
@@ -300,7 +301,54 @@ async function checkRequests() {
   }
 }
 
-checkRequests().then(() => {
+/**
+ * Clubs seeded in the app share one paged request per day and round, and
+ * each gets back only its own courses' rows.
+ */
+async function checkBatching() {
+  console.log("\nbatching");
+  const seeded = COURSES.filter((c) => c.platform === "CHRONOGOLF");
+  const uuidsOf = (c: (typeof seeded)[number]) => c.externalId.slice(c.externalId.indexOf(":") + 1).split(",");
+  const solo = seeded.find((c) => c.externalId.startsWith("14225:"))!;
+  const [a, b] = seeded.filter((c) => c !== solo);
+
+  const calls: string[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string) => {
+    const url = new URL(String(input));
+    calls.push(url.searchParams.get("course_ids") ?? "");
+    const ids = (url.searchParams.get("course_ids") ?? "").split(",");
+    // One row for each course asked about.
+    const teetimes = ids.map((uuid, i) => ({
+      ...row(i, 1, "Course", 18, [18], "9:10", "2026-08-12T15:10:00Z", 1),
+      course: { id: i, uuid, name: "Course", holes: 18, bookable_holes: [18] },
+    }));
+    return {
+      ok: true,
+      headers: new Headers({ total: String(teetimes.length), "per-page": "24" }),
+      json: async () => ({ status: "open", teetimes: url.searchParams.get("page") === "1" ? teetimes.slice(0, 24) : teetimes.slice(24) }),
+    };
+  }) as typeof globalThis.fetch;
+
+  try {
+    const day = { from: "2031-01-05", to: "2031-01-05" };
+    const fromA = await chronogolfAdapter.fetchTeeTimes({ name: a.name, externalId: a.externalId, platform: "CHRONOGOLF" } as never, day);
+    const afterA = calls.length;
+    const fromB = await chronogolfAdapter.fetchTeeTimes({ name: b.name, externalId: b.externalId, platform: "CHRONOGOLF" } as never, day);
+
+    check("a club gets one row per course per round, its own only", fromA.length, uuidsOf(a).length * 2);
+    check("the second club costs no further requests", calls.length, afterA);
+    check("and still gets its own rows", fromB.length, uuidsOf(b).length * 2);
+    check("the batch never includes Sand Hollow", calls.some((c) => uuidsOf(solo).some((u) => c.includes(u))), false);
+
+    await chronogolfAdapter.fetchTeeTimes({ name: solo.name, externalId: solo.externalId, platform: "CHRONOGOLF" } as never, day);
+    check("Sand Hollow is asked for on its own, as before", calls[calls.length - 1], uuidsOf(solo).join(","));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+checkRequests().then(checkBatching).then(() => {
   console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
   process.exitCode = failures === 0 ? 0 : 1;
 });

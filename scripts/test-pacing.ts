@@ -144,7 +144,7 @@ async function chronogolfStartsWider(): Promise<void> {
   const [entry] = pacingReport().filter((h) => h.host === "www.chronogolf.com");
   check(
     "chronogolf starts at its own wider interval",
-    entry?.intervalMs === 300,
+    entry?.intervalMs === 700,
     `interval ${entry?.intervalMs}ms`
   );
 }

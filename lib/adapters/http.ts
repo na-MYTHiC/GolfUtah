@@ -170,8 +170,17 @@ const DEFAULT_INTERVAL_MS = 100;
  * What actually fixes the missing tee times is not here — it's the
  * per-course fallback in build-data.ts, which serves the last good
  * answer for a course this run couldn't reach.
+ *
+ * SUPERSEDED BY A MEASUREMENT, 17 Nov 2026 (scripts/platform-probe.ts).
+ * The limit is 100 requests in a 60-second window: at 250ms apart the
+ * 100th request was refused with Retry-After: 60, and at one a second 150
+ * went through with no refusal. So there is a rate that avoids it, and
+ * the old runs never found it because both spacings they tried, 300ms
+ * and 600ms, reach 100 inside the minute. 700ms is 85 a minute: under the
+ * limit with room for retries, and nothing is spent being refused and
+ * sitting out the penalty.
  */
-const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 300]];
+const INTERVAL_BY_HOST: [pattern: RegExp, ms: number][] = [[/chronogolf\.com$/, 700]];
 
 /**
  * A 429 doubles the interval, up to here.
@@ -274,7 +283,9 @@ function throttled(state: HostState | null, retryAfter: number | null): void {
   // each one is a worker that needs to stop. Only the first of an
   // episode widens the interval.
   if (now - state.widenedAt > THROTTLE_EPISODE_MS) {
-    state.intervalMs = Math.min(MAX_INTERVAL_MS, state.intervalMs * 2);
+    // Never narrower than twice where the host started, so a host that
+    // starts above the cap still slows down when told to.
+    state.intervalMs = Math.min(Math.max(MAX_INTERVAL_MS, state.initialMs * 2), state.intervalMs * 2);
     state.widenedAt = now;
   }
 
