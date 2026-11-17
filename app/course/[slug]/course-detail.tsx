@@ -13,6 +13,7 @@ import { useSyncExternalStore } from "react";
 import { getDayWeather, describeWeather, weatherAt, type DayWeather } from "@/lib/weather";
 import { todayInUtah, formatDateLabel, formatTime, addDays } from "@/lib/format";
 import { useUtahNow, withoutPast } from "@/lib/now";
+import { canCheckLive, fetchLiveSlots } from "@/lib/live";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -45,6 +46,8 @@ export function CourseDetail({
   const [course, setCourse] = useState<StaticCourse | null | undefined>(undefined);
   const [weather, setWeather] = useState<DayWeather | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  /** True once the times on screen came from the course just now. */
+  const [live, setLive] = useState(false);
   const filters = useFilters(date);
   const [info, setInfo] = useState<CourseInfo | null>(null);
   const now = useUtahNow();
@@ -76,6 +79,20 @@ export function CourseDetail({
       const match = day?.courses.find((c) => c.slug === slug) ?? null;
       setCourse(match);
       setCheckedAt(day?.generatedAt ?? null);
+      setLive(false);
+
+      // Where the platform lets a browser ask it directly, ask. The
+      // published copy is already on screen, so a slow or failed check
+      // costs nothing; a successful one replaces it with what the course
+      // is selling right now. See lib/live.ts.
+      if (match && canCheckLive(match.platform)) {
+        void fetchLiveSlots(match.platform, match.id, match.name, date).then((slots) => {
+          if (cancelled || !slots) return;
+          setCourse({ ...match, slots, error: undefined, returned: slots.length });
+          setCheckedAt(new Date().toISOString());
+          setLive(true);
+        });
+      }
 
       if (match) {
         const forecast = await getDayWeather(match.lat, match.lon, date);
@@ -191,7 +208,7 @@ export function CourseDetail({
                     ? `${visible.length} tee times`
                     : `${visible.length} of ${remaining.length} tee times`}
                 </h2>
-                <Freshness generatedAt={checkedAt} />
+                <Freshness generatedAt={checkedAt} live={live} />
               </div>
               {/* The same row as the list view, rather than a second
                   layout that drifts from it. Reusing it also brings the
@@ -548,9 +565,10 @@ function About({
  * already bypasses every cache, so the button re-fetched a file that
  * hadn't changed and appeared to do nothing — which is worse than not
  * offering it. The data is only ever as new as the last scheduled
- * build, so the honest thing is to say when that was.
+ * build, so the honest thing is to say when that was — unless the
+ * course was just asked directly (lib/live.ts), which it says instead.
  */
-function Freshness({ generatedAt }: { generatedAt: string | null }) {
+function Freshness({ generatedAt, live = false }: { generatedAt: string | null; live?: boolean }) {
   const clock = generatedAt
     ? new Date(generatedAt).toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -561,7 +579,7 @@ function Freshness({ generatedAt }: { generatedAt: string | null }) {
 
   return (
     <p className="text-[0.6875rem] text-text-3">
-      {clock ? `Updated ${clock}` : "Loading…"}
+      {clock ? (live ? `Live from the course · ${clock}` : `Updated ${clock}`) : "Loading…"}
     </p>
   );
 }

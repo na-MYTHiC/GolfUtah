@@ -336,7 +336,13 @@ export async function politeFetch(url: string, init: PoliteInit = {}): Promise<R
     try {
       const resp = await fetch(url, {
         ...rest,
-        headers: { "user-agent": USER_AGENT, ...(rest.headers ?? {}) },
+        // Not from a browser: a page can't set it (lib/live.ts runs these
+        // adapters on the phone), and asking to makes the browser send a
+        // preflight that MemberSports refuses.
+        headers: {
+          ...(typeof window === "undefined" ? { "user-agent": USER_AGENT } : {}),
+          ...(rest.headers ?? {}),
+        },
         signal: AbortSignal.timeout(timeoutMs),
       });
 
