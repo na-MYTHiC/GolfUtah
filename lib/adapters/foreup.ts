@@ -320,7 +320,18 @@ async function fetchOneDate(
     throw new Error(`ForeUp request failed: HTTP ${resp.status}`);
   }
 
-  return resp.json();
+  // A sheet is a list. Anything else used to fail with only "raw is not
+  // iterable" in the log, which can't be acted on.
+  const body: unknown = await resp.json();
+  // `false` is ForeUp's "no sheet for this day". Measured 17 Nov 2026:
+  // Wolf Creek (18945:756:421, Eden) answered false for every date, in
+  // November, when the course is closed for the season. Nothing to book
+  // is an answer, not a failure, and the app shows it as no times.
+  if (body === false) return [];
+  if (!Array.isArray(body)) {
+    throw new Error(`ForeUp answered with no tee sheet: ${JSON.stringify(body).slice(0, 140)}`);
+  }
+  return body as RawTeeTime[];
 }
 
 /**
